@@ -1,5 +1,5 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 
 export default function Auth({}) {
     return (
@@ -8,5 +8,8 @@ export default function Auth({}) {
 }
 
 const container = document.getElementById('auth');
-const root = ReactDOM.createRoot(container);
-root.render(<Auth />);
+
+if (container) {
+    const root = ReactDOM.createRoot(container);
+    root.render(<Auth />);
+}
