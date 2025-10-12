@@ -195,10 +195,14 @@ function PopupTambahKendaraan({ open, onClose }) {
         if (open) {
             setShouldRender(true);
             setIsClosing(false);
+            // Hanya prevent scroll pada body saat modal terbuka
+            document.body.classList.add('modal-open');
         } else if (shouldRender) {
             setIsClosing(true);
             timeoutId = setTimeout(() => {
                 setShouldRender(false);
+                // Kembalikan scroll normal
+                document.body.classList.remove('modal-open');
             }, EXIT_ANIMATION_DURATION);
         }
 
@@ -206,6 +210,8 @@ function PopupTambahKendaraan({ open, onClose }) {
             if (timeoutId) {
                 clearTimeout(timeoutId);
             }
+            // Cleanup: pastikan scroll dikembalikan
+            document.body.classList.remove('modal-open');
         };
     }, [open, shouldRender]);
 
@@ -218,7 +224,7 @@ function PopupTambahKendaraan({ open, onClose }) {
 
     return (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center bg-black/30 ${isClosing ? 'animate-fadeout' : 'animate-fadein'}`}
+            className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/10 ${isClosing ? 'animate-fadeout' : 'animate-fadein'}`}
             onClick={handleClose}
         >
             <div

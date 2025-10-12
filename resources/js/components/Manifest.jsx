@@ -203,6 +203,12 @@ const DownloadIcon = ({ className = 'h-4 w-4' }) => (
     </svg>
 );
 
+const PlusIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M12 5v14M5 12h14' strokeLinecap='round' strokeLinejoin='round' />
+    </svg>
+);
+
 const ChevronDownIcon = ({ className = 'h-4 w-4' }) => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
         <path d='m6 9 6 6 6-6' strokeLinecap='round' strokeLinejoin='round' />
@@ -306,6 +312,13 @@ function ManifestTable({
                         options={hubFilterOptions}
                         widthClass='w-full sm:w-44'
                     />
+                    <button
+                        type='button'
+                        className='inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                    >
+                        <PlusIcon className='h-4 w-4' />
+                        Tambah Manifest
+                    </button>
                     <button
                         type='button'
                         className='inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'

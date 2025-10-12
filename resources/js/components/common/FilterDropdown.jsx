@@ -92,8 +92,8 @@ export default function FilterDropdown({
                 </span>
                 <span
                     className={classNames(
-                        'pointer-events-none absolute right-4 flex h-4 w-4 items-center justify-center text-slate-400 transition-transform duration-200',
-                        isOpen ? 'rotate-180' : '',
+                        'pointer-events-none absolute right-4 flex h-4 w-4 items-center justify-center text-slate-400 chevron-smooth',
+                        isOpen ? 'chevron-expanded' : '',
                     )}
                 >
                     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
@@ -103,14 +103,14 @@ export default function FilterDropdown({
             </button>
             <div
                 className={classNames(
-                    'absolute z-20 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-2 shadow-xl transition-all duration-200',
+                    'absolute z-20 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dropdown-container dropdown-bounce-transition',
                     alignmentClass,
-                    isOpen ? 'pointer-events-auto translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-1 scale-95 opacity-0',
+                    isOpen ? 'pointer-events-auto translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-2 scale-95 opacity-0',
                     menuClassName,
                 )}
             >
                 <div role='listbox' aria-activedescendant={selectedOption ? `dropdown-option-${selectedOption.value}` : undefined}>
-                    {options.map((option) => {
+                    {options.map((option, index) => {
                         const isActive = option.value === value;
                         return (
                             <button
@@ -120,8 +120,9 @@ export default function FilterDropdown({
                                 id={`dropdown-option-${option.value}`}
                                 aria-selected={isActive}
                                 className={classNames(
-                                    'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                                    'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm dropdown-item-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
                                     isActive ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600',
+                                    isOpen ? `animate-dropdown-item-fade stagger-${Math.min(index + 1, 6)}` : '',
                                     optionClassName,
                                 )}
                                 onClick={() => handleSelect(option)}

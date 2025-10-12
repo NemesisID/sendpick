@@ -19,6 +19,7 @@ import ManifestContent from './Manifest';
 import DeliveryOrderContent from './DeliveryOrder';
 import ProfileContent from './Profile';
 import NotificationsContent, { unreadNotificationsCount as dashboardUnreadNotifications } from './Notifications';
+
 const createIcon = (children) => (className = 'w-5 h-5') => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
         {children}
@@ -1026,16 +1027,29 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
         toggleExpand(id);
     };
 
-    const motionStyle = (maxWidth = '999px') => ({
-        transition: 'max-width 0.3s ease, opacity 0.2s ease, transform 0.2s ease',
+    const motionStyle = (maxWidth = '999px', delay = 0) => ({
+        transition: `max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) ${delay + 50}ms, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
         maxWidth: collapsed ? '0px' : maxWidth,
         opacity: collapsed ? 0 : 1,
-        transform: collapsed ? 'translateX(-8px)' : 'translateX(0)',
+        transform: collapsed ? 'translateX(-12px) scale(0.95)' : 'translateX(0) scale(1)',
+        transformOrigin: 'left center',
+        willChange: 'max-width, opacity, transform',
     });
 
     const asideClassName = [
-        'group/sidebar flex h-full flex-col border-r border-slate-200 bg-white shadow-sm transition-[width] duration-300 ease-in-out',
-        collapsed ? 'w-20' : 'w-72',
+        'group/sidebar flex h-full flex-col border-r border-slate-200 bg-white sidebar-container',
+        // Mobile: fixed positioned sidebar, Desktop: relative
+        'lg:relative fixed inset-y-0 left-0 z-30 lg:z-auto',
+        // Width with smooth animation - ChatGPT style
+        isOpen ? 'w-72' : 'w-72 lg:w-20',
+        // Shadows for depth
+        isOpen ? 'shadow-2xl lg:shadow-sm' : 'shadow-sm',
+        // Enhanced slide animation like ChatGPT
+        isOpen 
+            ? 'translate-x-0 lg:translate-x-0 sidebar-mobile-slide' 
+            : '-translate-x-full lg:translate-x-0 sidebar-mobile-slide',
+        // Desktop width transition
+        'sidebar-desktop-width'
     ].join(' ');
 
     const navPaddingClass = collapsed ? 'px-2 pb-6' : 'px-4 pb-8';
@@ -1044,31 +1058,37 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
         <aside id='dashboard-sidebar' className={asideClassName}>
             <div
                 className={[
-                    'flex items-center transition-all duration-300 ease-in-out',
+                    'flex items-center sidebar-content-slide',
                     collapsed ? 'justify-center px-3 py-6' : 'gap-3 px-6 py-8',
                 ].join(' ')}
             >
-                <div className='flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-base font-semibold text-white'>
+                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-base font-semibold text-white sidebar-hover-smooth ${
+                    collapsed ? 'scale-100' : 'scale-100'
+                }`}>
                     SP
                 </div>
-                <div className='overflow-hidden' style={motionStyle('200px')}>
-                    <p className='text-sm font-semibold text-slate-900'>Order Management System</p>
-                    <p className='text-xs text-slate-400'>SendPick Logistics</p>
+                <div className='overflow-hidden' style={motionStyle('200px', 100)}>
+                    <div className={`sidebar-content-slide ${
+                        collapsed ? 'translate-x-2 opacity-0' : 'translate-x-0 opacity-100'
+                    }`}>
+                        <p className='text-sm font-semibold text-slate-900'>Order Management System</p>
+                        <p className='text-xs text-slate-400'>SendPick Logistics</p>
+                    </div>
                 </div>
             </div>
-            <nav className={['sidebar-scroll flex-1 overflow-y-auto transition-all duration-300 ease-in-out', navPaddingClass].join(' ')}>
-                {navigationSections.map((section) => (
+            <nav className={['sidebar-scroll flex-1 overflow-y-auto sidebar-content-slide', navPaddingClass, collapsed ? 'translate-x-0 scale-98' : 'translate-x-0 scale-100'].join(' ')}>
+                {navigationSections.map((section, sectionIndex) => (
                     <div key={section.heading} className={collapsed ? 'mb-4 flex flex-col items-center gap-2' : 'mb-6'}>
                         <div
-                            className={collapsed ? 'flex justify-center overflow-hidden' : 'px-3'}
-                            style={motionStyle('160px')}
+                            className={`${collapsed ? 'flex justify-center overflow-hidden' : 'px-3'} delay-${Math.min(sectionIndex * 75 + 75, 300)}`}
+                            style={motionStyle('160px', sectionIndex * 50)}
                         >
                             <p className='text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
                                 {section.heading}
                             </p>
                         </div>
                         <div className={collapsed ? 'flex flex-col items-center gap-2' : 'mt-3 space-y-1'}>
-                            {section.items.map((item) => {
+                            {section.items.map((item, itemIndex) => {
                                 const childActive = item.children ? item.children.some((child) => child.view === activeView) : false;
                                 const Icon = item.icon;
 
@@ -1077,9 +1097,9 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                     const isExpanded = expandedIds.has(id);
                                     const isActive = activeView === item.view || childActive;
                                     const childContainerClasses = !collapsed && isExpanded
-                                        ? 'mt-1 space-y-1 overflow-hidden transition-all duration-200 ease-out max-h-60 opacity-100 translate-y-0'
-                                        : 'overflow-hidden transition-all duration-200 ease-in max-h-0 opacity-0 -translate-y-2';
-                                    const parentLabelStyle = motionStyle('168px');
+                                        ? 'mt-1 space-y-1 overflow-hidden dropdown-container dropdown-smooth-transition max-h-60 opacity-100 translate-y-0 scale-100'
+                                        : 'overflow-hidden dropdown-container dropdown-smooth-transition max-h-0 opacity-0 -translate-y-2 scale-95';
+                                    const parentLabelStyle = motionStyle('168px', sectionIndex * 50 + itemIndex * 30);
                                     if (!collapsed) {
                                         parentLabelStyle.marginLeft = '4px';
                                     }
@@ -1090,14 +1110,14 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                                 type='button'
                                                 onClick={() => handleParentClick(item)}
                                                 className={[
-                                                    'flex w-full items-center rounded-2xl px-3 py-2.5 text-sm font-medium transition',
+                                                    'sidebar-item flex w-full items-center rounded-2xl px-3 py-2.5 text-sm font-medium sidebar-hover-smooth',
                                                     collapsed ? 'justify-center gap-0' : 'justify-between gap-3',
                                                     isExpanded || isActive ? 'bg-indigo-50 text-indigo-600' : 'text-slate-500 hover:bg-slate-100',
                                                 ].join(' ')}
                                             >
                                                 <span
                                                     className={[
-                                                        'flex items-center transition-all duration-200',
+                                                        'flex items-center transition-all duration-400 ease-out',
                                                         collapsed ? 'gap-0' : 'gap-3',
                                                     ].join(' ')}
                                                 >
@@ -1111,17 +1131,17 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                                 </span>
                                                 <ChevronDownIcon
                                                     className={[
-                                                        'h-4 w-4 transition-all duration-200',
-                                                        collapsed ? 'opacity-0 scale-75' : isExpanded ? 'rotate-180' : '',
+                                                        'h-4 w-4 chevron-smooth',
+                                                        collapsed ? 'opacity-0 scale-75' : isExpanded ? 'chevron-expanded' : 'rotate-0',
                                                     ].join(' ')}
                                                 />
                                             </button>
                                             <div className={childContainerClasses}>
                                                 <div className='space-y-1 pt-1'>
-                                                    {item.children.map((child) => {
+                                                    {item.children.map((child, childIndex) => {
                                                         const ChildIcon = child.icon;
                                                         const isActiveChild = activeView === child.view;
-                                                        const childLabelStyle = motionStyle('160px');
+                                                        const childLabelStyle = motionStyle('160px', sectionIndex * 50 + itemIndex * 30 + childIndex * 20);
                                                         if (!collapsed) {
                                                             childLabelStyle.marginLeft = '4px';
                                                         }
@@ -1129,16 +1149,16 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                                             ? {
                                                                   width: 0,
                                                                   opacity: 0,
-                                                                  transform: 'scale(0.5)',
+                                                                  transform: 'scale(0.3) translateX(-4px)',
                                                                   marginRight: 0,
-                                                                  transition: 'width 0.2s ease, opacity 0.2s ease, transform 0.2s ease, margin-right 0.2s ease',
+                                                                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                                               }
                                                             : {
                                                                   width: '0.5rem',
                                                                   opacity: 1,
-                                                                  transform: 'scale(1)',
+                                                                  transform: 'scale(1) translateX(0)',
                                                                   marginRight: '12px',
-                                                                  transition: 'width 0.2s ease, opacity 0.2s ease, transform 0.2s ease, margin-right 0.2s ease',
+                                                                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                                               };
 
                                                         return (
@@ -1147,14 +1167,15 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                                                 type='button'
                                                                 onClick={() => handleNavigate(child.view)}
                                                                 className={[
-                                                                    'flex w-full items-center rounded-2xl px-3 py-2 text-sm font-medium transition',
+                                                                    'sidebar-item flex w-full items-center rounded-2xl px-3 py-2 text-sm font-medium dropdown-item-hover',
                                                                     collapsed ? 'justify-center gap-0' : 'gap-3',
                                                                     isActiveChild ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100',
+                                                                    isExpanded ? `animate-dropdown-item-fade stagger-${Math.min(childIndex + 1, 6)}` : '',
                                                                 ].join(' ')}
                                                             >
                                                                 <span
                                                                     className={[
-                                                                        'flex h-2 flex-shrink-0 rounded-full transition-all duration-200',
+                                                                        'flex h-2 flex-shrink-0 rounded-full transition-all duration-400 ease-out',
                                                                         isActiveChild ? 'bg-white' : 'bg-slate-300',
                                                                     ].join(' ')}
                                                                     style={bulletStyle}
@@ -1176,7 +1197,7 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                 }
 
                                 const isActive = activeView === item.view || childActive;
-                                const simpleLabelStyle = motionStyle('168px');
+                                const simpleLabelStyle = motionStyle('168px', sectionIndex * 50 + itemIndex * 30);
                                 if (!collapsed) {
                                     simpleLabelStyle.marginLeft = '4px';
                                 }
@@ -1184,16 +1205,16 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                     ? {
                                           width: 0,
                                           opacity: 0,
-                                          transform: 'scale(0.5)',
+                                          transform: 'scale(0.3) translateX(-4px)',
                                           marginRight: 0,
-                                          transition: 'width 0.2s ease, opacity 0.2s ease, transform 0.2s ease, margin-right 0.2s ease',
+                                          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                       }
                                     : {
                                           width: '0.5rem',
                                           opacity: 1,
-                                          transform: 'scale(1)',
+                                          transform: 'scale(1) translateX(0)',
                                           marginRight: '12px',
-                                          transition: 'width 0.2s ease, opacity 0.2s ease, transform 0.2s ease, margin-right 0.2s ease',
+                                          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                       };
 
                                 return (
@@ -1202,14 +1223,14 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                                         type='button'
                                         onClick={() => handleNavigate(item.view)}
                                         className={[
-                                            'flex w-full items-center rounded-2xl px-3 py-2.5 text-sm font-medium transition',
+                                            'sidebar-item flex w-full items-center rounded-2xl px-3 py-2.5 text-sm font-medium sidebar-hover-smooth',
                                             collapsed ? 'justify-center gap-0' : 'gap-3',
                                             isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100',
                                         ].join(' ')}
                                     >
                                         <span
                                             className={[
-                                                'flex h-2 flex-shrink-0 rounded-full transition-all duration-200',
+                                                'flex h-2 flex-shrink-0 rounded-full transition-all duration-400 ease-out',
                                                 isActive ? 'bg-white' : 'bg-slate-300',
                                             ].join(' ')}
                                             style={simpleBulletStyle}
@@ -1228,9 +1249,9 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                     </div>
                 ))}
             </nav>
-            <div className={['transition-all duration-300 ease-in-out', collapsed ? 'px-2 pb-4' : 'px-6 pb-8'].join(' ')}>
-                <div className='overflow-hidden' style={motionStyle('999px')}>
-                    <div className='rounded-3xl border border-slate-200 bg-white p-4 shadow-sm'>
+            <div className={['sidebar-content-slide', collapsed ? 'px-2 pb-4' : 'px-6 pb-8'].join(' ')}>
+                <div className='overflow-hidden' style={motionStyle('999px', 150)}>
+                    <div className='rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sidebar-hover-smooth'>
                         <p className='text-sm font-semibold text-slate-900'>Quick Tips</p>
                         <p className='mt-1 text-xs text-slate-500'>Gunakan filter untuk memantau driver atau order tertentu.</p>
                     </div>
@@ -1278,13 +1299,25 @@ function DashboardLayout() {
     };
     return (
         <div className='flex h-screen w-full overflow-hidden bg-white text-slate-700'>
+            {/* ChatGPT-like Mobile overlay with progressive backdrop */}
+            <div 
+                className={`fixed inset-0 z-20 lg:hidden backdrop-progressive ${
+                    isSidebarOpen 
+                        ? 'opacity-100 visible bg-slate-900/25' 
+                        : 'opacity-0 invisible bg-slate-900/0'
+                }`}
+                style={{
+                    backdropFilter: isSidebarOpen ? 'blur(6px)' : 'blur(0px)'
+                }}
+                onClick={() => setIsSidebarOpen(false)}
+            />
             <Sidebar activeView={activeView} onNavigate={setActiveView} isOpen={isSidebarOpen} onToggle={setIsSidebarOpen} />
-            <div className='flex flex-1 flex-col overflow-y-auto'>
+            <div className="flex flex-1 flex-col overflow-y-auto sidebar-content-slide">
                 <header className='sticky top-0 z-10 flex h-20 p-5 items-center justify-between border-b border-slate-200 bg-white px-8 shadow-sm'>
                     <div className='flex items-center gap-4 text-sm text-slate-500'>
                         <button
                             type='button'
-                            className='rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+                            className='rounded-xl border border-slate-200 p-2 text-slate-500 sidebar-hover-smooth hover:border-indigo-200 hover:text-indigo-600 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
                             onClick={() => setIsSidebarOpen((previous) => !previous)}
                             aria-label='Toggle sidebar'
                             aria-controls='dashboard-sidebar'
@@ -1292,8 +1325,7 @@ function DashboardLayout() {
                         >
                             <MenuIcon />
                         </button>
-                        <span className='text-slate-300'>/</span>
-                        <span className='font-medium text-slate-600'>Order Management System</span>
+                        <span className='font-medium text-slate-600'>Sendpick</span>
                     </div>
                     <div className='flex items-center gap-5'>
                         <ThemeIndicator />
