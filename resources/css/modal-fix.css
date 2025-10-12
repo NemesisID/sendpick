@@ -1,0 +1,51 @@
+/* Modal backdrop fix yang sederhana dan tidak mengganggu scroll */
+
+/* Enhanced Tailwind classes untuk full coverage tapi tidak agresif */
+.fixed.inset-0 {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+/* Enhanced backdrop blur classes */
+.backdrop-blur-sm {
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+}
+
+.backdrop-blur-md {
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+}
+
+.backdrop-blur-lg {
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+/* Background color overrides */
+.bg-black\/10 {
+    background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.bg-black\/15 {
+    background-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+.bg-black\/20 {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Z-index classes */
+.z-50 {
+    z-index: 50 !important;
+}
+
+/* Prevent body scroll when modal is open - tapi hanya untuk body */
+body.modal-open {
+    overflow: hidden !important;
+}

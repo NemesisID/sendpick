@@ -1,4 +1,5 @@
 import React from 'react';
+import AssignmentWidget from './AssignmentWidget';
 
 const statCards = [
     {
@@ -250,7 +251,10 @@ export default function HomeContent() {
                 <MonthlyTrendCard />
                 <ShipmentStatusCard />
             </section>
-            <TransactionsCard />
+            <section className='flex flex-col gap-6 xl:flex-row'>
+                <AssignmentWidget limit={6} showMetrics={true} />
+                <TransactionsCard />
+            </section>
         </>
     );
 }

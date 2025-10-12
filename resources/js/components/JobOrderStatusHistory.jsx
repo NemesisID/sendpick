@@ -1,0 +1,257 @@
+import React, { useState, useEffect } from 'react';
+
+const statusHistoryData = [
+    {
+        id: 1,
+        status: 'order_created',
+        statusLabel: 'Order Created',
+        description: 'Job order telah dibuat dan menunggu konfirmasi customer',
+        timestamp: '2024-01-15 09:30:00',
+        actor: 'Ahmad Rizki',
+        actorRole: 'Customer Service',
+        notes: 'Customer request urgent delivery',
+        systemGenerated: false,
+    },
+    {
+        id: 2,
+        status: 'confirmed',
+        statusLabel: 'Confirmed',
+        description: 'Customer telah mengkonfirmasi dan menyetujui detail pengiriman',
+        timestamp: '2024-01-15 10:15:00',
+        actor: 'System',
+        actorRole: 'Automated',
+        notes: 'Customer confirmation via email',
+        systemGenerated: true,
+    },
+    {
+        id: 3,
+        status: 'driver_assigned',
+        statusLabel: 'Driver Assigned',
+        description: 'Driver Budi Santoso telah ditugaskan untuk pengiriman ini',
+        timestamp: '2024-01-15 14:20:00',
+        actor: 'Sari Wulandari',
+        actorRole: 'Dispatcher',
+        notes: 'Assigned based on route optimization',
+        systemGenerated: false,
+    },
+    {
+        id: 4,
+        status: 'pickup_scheduled',
+        statusLabel: 'Pickup Scheduled',
+        description: 'Jadwal pickup telah ditentukan untuk besok pagi',
+        timestamp: '2024-01-15 15:45:00',
+        actor: 'Budi Santoso',
+        actorRole: 'Driver',
+        notes: 'Scheduled for 08:00 AM pickup',
+        systemGenerated: false,
+    },
+    {
+        id: 5,
+        status: 'in_transit',
+        statusLabel: 'In Transit',
+        description: 'Paket sedang dalam perjalanan menuju tujuan',
+        timestamp: '2024-01-16 08:30:00',
+        actor: 'System',
+        actorRole: 'GPS Tracking',
+        notes: 'GPS tracking activated',
+        systemGenerated: true,
+    },
+];
+
+const statusColors = {
+    order_created: 'bg-slate-100 text-slate-600 border-slate-200',
+    confirmed: 'bg-blue-100 text-blue-600 border-blue-200',
+    driver_assigned: 'bg-indigo-100 text-indigo-600 border-indigo-200',
+    pickup_scheduled: 'bg-purple-100 text-purple-600 border-purple-200',
+    in_transit: 'bg-amber-100 text-amber-600 border-amber-200',
+    delivered: 'bg-emerald-100 text-emerald-600 border-emerald-200',
+    cancelled: 'bg-red-100 text-red-600 border-red-200',
+};
+
+const UserIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' />
+        <circle cx='12' cy='7' r='4' />
+    </svg>
+);
+
+const ClockIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <circle cx='12' cy='12' r='9' />
+        <path d='M12 7v5l3 2' strokeLinecap='round' strokeLinejoin='round' />
+    </svg>
+);
+
+const SystemIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <rect width='20' height='14' x='2' y='3' rx='2' />
+        <line x1='8' x2='16' y1='21' y2='21' />
+        <line x1='12' x2='12' y1='17' y2='21' />
+    </svg>
+);
+
+const NoteIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' />
+        <polyline points='14,2 14,8 20,8' />
+        <line x1='16' x2='8' y1='13' y2='13' />
+        <line x1='16' x2='8' y1='17' y2='17' />
+        <polyline points='10,9 9,9 8,9' />
+    </svg>
+);
+
+function StatusHistoryItem({ item, isLast }) {
+    const formatTime = (timestamp) => {
+        const date = new Date(timestamp);
+        return {
+            time: date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+            date: date.toLocaleDateString('id-ID', { 
+                day: '2-digit', 
+                month: 'short',
+                year: 'numeric'
+            }),
+        };
+    };
+
+    const { time, date } = formatTime(item.timestamp);
+    const statusColorClass = statusColors[item.status] || statusColors.order_created;
+
+    return (
+        <div className='relative flex gap-4'>
+            {/* Timeline line */}
+            {!isLast && (
+                <div className='absolute left-6 top-12 h-full w-px bg-slate-200'></div>
+            )}
+            
+            {/* Timeline dot */}
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 bg-white ${statusColorClass}`}>
+                {item.systemGenerated ? (
+                    <SystemIcon className='h-5 w-5' />
+                ) : (
+                    <UserIcon className='h-5 w-5' />
+                )}
+            </div>
+            
+            {/* Content */}
+            <div className='flex-1 pb-8'>
+                <div className='flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between'>
+                    <h3 className='font-semibold text-slate-800'>{item.statusLabel}</h3>
+                    <div className='flex items-center gap-2 text-xs text-slate-500'>
+                        <ClockIcon className='h-3 w-3' />
+                        <span>{time} • {date}</span>
+                    </div>
+                </div>
+                
+                <p className='mt-1 text-sm text-slate-600'>{item.description}</p>
+                
+                <div className='mt-2 flex items-center gap-2 text-xs text-slate-500'>
+                    <UserIcon className='h-3 w-3' />
+                    <span>{item.actor}</span>
+                    <span>•</span>
+                    <span>{item.actorRole}</span>
+                </div>
+                
+                {item.notes && (
+                    <div className='mt-3 flex items-start gap-2 rounded-lg bg-slate-50 p-3'>
+                        <NoteIcon className='mt-0.5 h-3 w-3 shrink-0 text-slate-400' />
+                        <p className='text-xs text-slate-600'>{item.notes}</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function StatusHistoryFilter({ activeFilter, onFilterChange }) {
+    const filters = [
+        { value: 'all', label: 'All Activities' },
+        { value: 'user_actions', label: 'User Actions' },
+        { value: 'system_generated', label: 'System Generated' },
+    ];
+
+    return (
+        <div className='flex gap-2'>
+            {filters.map((filter) => (
+                <button
+                    key={filter.value}
+                    onClick={() => onFilterChange(filter.value)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                        activeFilter === filter.value
+                            ? 'bg-indigo-100 text-indigo-700'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                >
+                    {filter.label}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+export default function JobOrderStatusHistory({ jobOrderId }) {
+    const [statusHistory, setStatusHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('all');
+
+    useEffect(() => {
+        // Simulate API call
+        setTimeout(() => {
+            setStatusHistory(statusHistoryData);
+            setLoading(false);
+        }, 300);
+    }, [jobOrderId]);
+
+    const filteredHistory = useMemo(() => {
+        if (filter === 'all') return statusHistory;
+        if (filter === 'user_actions') return statusHistory.filter(item => !item.systemGenerated);
+        if (filter === 'system_generated') return statusHistory.filter(item => item.systemGenerated);
+        return statusHistory;
+    }, [statusHistory, filter]);
+
+    if (loading) {
+        return (
+            <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+                <h2 className='text-lg font-semibold text-slate-900'>Status History</h2>
+                <div className='mt-6 flex items-center justify-center py-8'>
+                    <div className='h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600'></div>
+                </div>
+            </section>
+        );
+    }
+
+    return (
+        <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+            <div className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+                <div>
+                    <h2 className='text-lg font-semibold text-slate-900'>Status History</h2>
+                    <p className='text-sm text-slate-500'>Timeline aktivitas job order {jobOrderId}</p>
+                </div>
+                <StatusHistoryFilter activeFilter={filter} onFilterChange={setFilter} />
+            </div>
+            
+            <div className='mt-6'>
+                {filteredHistory.length > 0 ? (
+                    <div className='space-y-0'>
+                        {filteredHistory.map((item, index) => (
+                            <StatusHistoryItem 
+                                key={item.id} 
+                                item={item} 
+                                isLast={index === filteredHistory.length - 1}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className='flex items-center justify-center py-8 text-center'>
+                        <div>
+                            <div className='mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center'>
+                                <ClockIcon className='h-6 w-6 text-slate-400' />
+                            </div>
+                            <p className='mt-3 text-sm font-medium text-slate-800'>No activities found</p>
+                            <p className='text-xs text-slate-500'>No status history matching the current filter.</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </section>
+    );
+}

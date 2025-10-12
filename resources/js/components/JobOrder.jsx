@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import FilterDropdown from './common/FilterDropdown';
+import JobOrderDetail from './JobOrderDetail';
 
 const summaryCards = [
     {
@@ -218,7 +219,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function OrderRow({ order }) {
+function OrderRow({ order, onViewDetail }) {
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
@@ -271,6 +272,7 @@ function OrderRow({ order }) {
                 <div className='flex items-center gap-2'>
                     <button
                         type='button'
+                        onClick={() => onViewDetail(order.id)}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Detail order ${order.id}`}
                     >
@@ -289,7 +291,7 @@ function OrderRow({ order }) {
     );
 }
 
-function OrdersTable({ orders }) {
+function OrdersTable({ orders, onViewDetail }) {
     return (
         <div className='mt-6 overflow-x-auto'>
             <table className='w-full min-w-[960px] border-collapse'>
@@ -309,7 +311,7 @@ function OrdersTable({ orders }) {
                 </thead>
                 <tbody className='divide-y divide-slate-100'>
                     {orders.length > 0 ? (
-                        orders.map((order) => <OrderRow key={order.id} order={order} />)
+                        orders.map((order) => <OrderRow key={order.id} order={order} onViewDetail={onViewDetail} />)
                     ) : (
                         <tr>
                             <td colSpan={10} className='px-6 py-12 text-center text-sm text-slate-400'>
@@ -328,6 +330,18 @@ export default function JobOrderContent() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const [activeTab, setActiveTab] = useState('all');
+    const [currentView, setCurrentView] = useState('list'); // 'list' or 'detail'
+    const [selectedOrderId, setSelectedOrderId] = useState(null);
+
+    const handleViewDetail = (orderId) => {
+        setSelectedOrderId(orderId);
+        setCurrentView('detail');
+    };
+
+    const handleBackToList = () => {
+        setCurrentView('list');
+        setSelectedOrderId(null);
+    };
 
     const filteredOrders = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -345,6 +359,16 @@ export default function JobOrderContent() {
             return matchesSearch && matchesType && matchesStatus;
         });
     }, [searchTerm, typeFilter, statusFilter, activeTab]);
+
+    // Render JobOrderDetail if in detail view
+    if (currentView === 'detail') {
+        return (
+            <JobOrderDetail 
+                jobOrderId={selectedOrderId} 
+                onBack={handleBackToList}
+            />
+        );
+    }
 
     return (
         <>
@@ -404,7 +428,7 @@ export default function JobOrderContent() {
                         })}
                     </div>
                 </div>
-                <OrdersTable orders={filteredOrders} />
+                <OrdersTable orders={filteredOrders} onViewDetail={handleViewDetail} />
             </section>
         </>
     );
