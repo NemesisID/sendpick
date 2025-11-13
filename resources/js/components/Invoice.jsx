@@ -1,5 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import FilterDropdown from './common/FilterDropdown';
+import { 
+    HiOutlineDocumentText, 
+    HiOutlineCheckCircle, 
+    HiOutlineClock, 
+    HiOutlineExclamation,
+    HiOutlineCurrencyDollar,
+    HiOutlineSearch,
+    HiOutlineEye,
+    HiOutlineDownload,
+    HiOutlinePrinter,
+    HiOutlinePencilAlt,
+    HiOutlineXCircle,
+    HiOutlineCash,
+    HiOutlinePlus
+} from 'react-icons/hi';
 
 const summaryCards = [
     {
@@ -8,12 +23,7 @@ const summaryCards = [
         description: 'Invoice bulan ini',
         iconBg: 'bg-indigo-100',
         iconColor: 'text-indigo-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M7 3h10a1 1 0 0 1 1 1v16l-2-1-2 1-2-1-2 1-2-1-2 1V4a1 1 0 0 1 1-1z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M9 8h6M9 12h4' strokeLinecap='round' />
-            </svg>
-        ),
+        icon: <HiOutlineDocumentText className='h-5 w-5' />,
     },
     {
         title: 'Paid',
@@ -21,12 +31,7 @@ const summaryCards = [
         description: 'Invoice lunas',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiOutlineCheckCircle className='h-5 w-5' />,
     },
     {
         title: 'Pending',
@@ -34,12 +39,7 @@ const summaryCards = [
         description: 'Menunggu pembayaran',
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='M12 8v4l2.5 1.5' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiOutlineClock className='h-5 w-5' />,
     },
     {
         title: 'Overdue',
@@ -47,13 +47,7 @@ const summaryCards = [
         description: 'Lampaui jatuh tempo',
         iconBg: 'bg-rose-100',
         iconColor: 'text-rose-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 4 3 19h18z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M12 9v4' strokeLinecap='round' />
-                <circle cx='12' cy='15' r='1' fill='currentColor' stroke='none' />
-            </svg>
-        ),
+        icon: <HiOutlineExclamation className='h-5 w-5' />,
     },
     {
         title: 'Total Revenue',
@@ -61,12 +55,7 @@ const summaryCards = [
         description: 'Dari invoice paid',
         iconBg: 'bg-purple-100',
         iconColor: 'text-purple-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 3v18' strokeLinecap='round' />
-                <path d='M8 7h5.5a2.5 2.5 0 0 1 0 5H10a2.5 2.5 0 0 0 0 5H16' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiOutlineCurrencyDollar className='h-5 w-5' />,
     },
 ];
 
@@ -173,12 +162,7 @@ const paymentHighlights = [
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
         description: 'Pembayaran masuk Januari 2024',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-6 w-6'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='M9 12h6M12 9v6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiOutlinePlus className='h-6 w-6' />,
     },
     {
         title: 'Outstanding',
@@ -186,12 +170,7 @@ const paymentHighlights = [
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
         description: 'Menunggu pembayaran customer',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-6 w-6'>
-                <path d='M12 6v6l3 3' strokeLinecap='round' strokeLinejoin='round' />
-                <circle cx='12' cy='12' r='8' />
-            </svg>
-        ),
+        icon: <HiOutlineClock className='h-6 w-6' />,
     },
     {
         title: 'Overdue Amount',
@@ -199,13 +178,7 @@ const paymentHighlights = [
         iconBg: 'bg-rose-100',
         iconColor: 'text-rose-500',
         description: 'Segera follow up pelanggan',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-6 w-6'>
-                <path d='M12 4 3 19h18z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M12 9v4' strokeLinecap='round' />
-                <circle cx='12' cy='15' r='1' fill='currentColor' stroke='none' />
-            </svg>
-        ),
+        icon: <HiOutlineExclamation className='h-6 w-6' />,
     },
     {
         title: 'Average Payment Time',
@@ -213,44 +186,11 @@ const paymentHighlights = [
         iconBg: 'bg-indigo-100',
         iconColor: 'text-indigo-500',
         description: 'Rata-rata penyelesaian invoice',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-6 w-6'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='M12 8v4l2.5 1.5' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiOutlineClock className='h-6 w-6' />,
     },
 ];
 
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='6' />
-        <path d='m20 20-3.5-3.5' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
 
-const EyeIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M2 12s3-6 10-6 10 6 10 6-3 6-10 6-10-6-10-6z' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='12' cy='12' r='3' />
-    </svg>
-);
-
-const DownloadIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M12 5v10' strokeLinecap='round' />
-        <path d='m8 11 4 4 4-4' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M5 19h14' strokeLinecap='round' />
-    </svg>
-);
-
-const PrinterIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M6 9V5h12v4' strokeLinecap='round' strokeLinejoin='round' />
-        <rect x='4' y='9' width='16' height='8' rx='2' />
-        <path d='M6 17h12v2H6z' strokeLinecap='round' />
-    </svg>
-);
 
 function SummaryCard({ card }) {
     return (
@@ -317,21 +257,42 @@ function InvoiceRow({ invoice }) {
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Detail invoice ${invoice.id}`}
                     >
-                        <EyeIcon />
+                        <HiOutlineEye className='h-4 w-4' />
+                    </button>
+                    <button
+                        type='button'
+                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-emerald-200 hover:text-emerald-600'
+                        aria-label={`Edit invoice ${invoice.id}`}
+                    >
+                        <HiOutlinePencilAlt className='h-4 w-4' />
+                    </button>
+                    <button
+                        type='button'
+                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-purple-200 hover:text-purple-600'
+                        aria-label={`Record payment ${invoice.id}`}
+                    >
+                        <HiOutlineCash className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Download invoice ${invoice.id}`}
                     >
-                        <DownloadIcon />
+                        <HiOutlineDownload className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Print invoice ${invoice.id}`}
                     >
-                        <PrinterIcon />
+                        <HiOutlinePrinter className='h-4 w-4' />
+                    </button>
+                    <button
+                        type='button'
+                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
+                        aria-label={`Cancel invoice ${invoice.id}`}
+                    >
+                        <HiOutlineXCircle className='h-4 w-4' />
                     </button>
                 </div>
             </td>
@@ -442,7 +403,7 @@ export default function InvoiceContent() {
                 <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
                     <div className='group relative flex-1'>
                         <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
-                            <SearchIcon />
+                            <HiOutlineSearch className='h-5 w-5' />
                         </span>
                         <input
                             type='text'

@@ -1,5 +1,7 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import FilterDropdown from './common/FilterDropdown';
+import EditModal from './common/EditModal';
+import DeleteConfirmModal from './common/DeleteConfirmModal';
 
 const summaryCards = [
     {
@@ -195,14 +197,16 @@ function PopupTambahKendaraan({ open, onClose }) {
         if (open) {
             setShouldRender(true);
             setIsClosing(false);
-            // Hanya prevent scroll pada body saat modal terbuka
-            document.body.classList.add('modal-open');
+            // Mencegah body dari scrolling
+            document.body.style.overflow = 'hidden';
+            document.body.style.paddingRight = '0px'; // Mencegah layout shift
         } else if (shouldRender) {
             setIsClosing(true);
             timeoutId = setTimeout(() => {
                 setShouldRender(false);
-                // Kembalikan scroll normal
-                document.body.classList.remove('modal-open');
+                // Mengembalikan scroll pada body
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
             }, EXIT_ANIMATION_DURATION);
         }
 
@@ -210,8 +214,9 @@ function PopupTambahKendaraan({ open, onClose }) {
             if (timeoutId) {
                 clearTimeout(timeoutId);
             }
-            // Cleanup: pastikan scroll dikembalikan
-            document.body.classList.remove('modal-open');
+            // Pastikan scroll dikembalikan jika komponen unmount tiba-tiba
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
         };
     }, [open, shouldRender]);
 
@@ -224,11 +229,15 @@ function PopupTambahKendaraan({ open, onClose }) {
 
     return (
         <div
-            className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/10 ${isClosing ? 'animate-fadeout' : 'animate-fadein'}`}
+            className={`fixed inset-0 flex items-center justify-center z-50 bg-black/30 ${isClosing ? 'animate-fadeout' : 'animate-fadein'}`}
             onClick={handleClose}
         >
             <div
-                className={`min-w-[420px] max-w-full rounded-2xl bg-white p-8 shadow-2xl ${isClosing ? 'animate-popout' : 'animate-popin'}`}
+                className={`bg-white rounded-2xl shadow-2xl ${isClosing ? 'animate-popout' : 'animate-popin'}`}
+                style={{
+                    minWidth: '420px',
+                    padding: '2rem'
+                }}
                 onClick={(event) => event.stopPropagation()}
             >
                 <h2 className="text-lg font-semibold mb-6">Tambah Kendaraan Baru</h2>
@@ -272,7 +281,10 @@ function PopupTambahKendaraan({ open, onClose }) {
                     </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                        <button className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200" onClick={handleClose}>Batal</button>
+                        <button className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 transition hover:bg-slate-200" onClick={(e) => {
+                            e.preventDefault();
+                            handleClose();
+                        }}>Batal</button>
                         <button className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition">Simpan</button>
                 </div>
             </div>
@@ -316,7 +328,7 @@ function FuelBar({ value }) {
     );
 }
 
-function VehicleRow({ vehicle }) {
+function VehicleRow({ vehicle, onEdit, onDelete }) {
     const statusStyle = vehicleStatusStyles[vehicle.status] ?? vehicleStatusStyles.active;
     const conditionStyle = conditionStyles[vehicle.condition] ?? conditionStyles.good;
 
@@ -354,28 +366,36 @@ function VehicleRow({ vehicle }) {
                 </div>
             </td>
             <td className='px-6 py-4'>
-                <div className='flex items-center gap-2'>
-                        <button
+                <div className='flex items-center gap-1'>
+                    <button
                         type='button'
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onEdit(vehicle);
+                        }}
+                        className='inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Edit kendaraan ${vehicle.plate}`}
                     >
                         <EditIcon />
-                        </button>
-                        <button
+                    </button>
+                    <button
                         type='button'
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onDelete(vehicle);
+                        }}
+                        className='inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
                         aria-label={`Hapus kendaraan ${vehicle.plate}`}
                     >
                         <TrashIcon />
-                        </button>
+                    </button>
                 </div>
             </td>
         </tr>
     );
 }
 
-function VehicleTable({ vehicles }) {
+function VehicleTable({ vehicles, onEdit, onDelete }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex items-center justify-between'>
@@ -388,7 +408,7 @@ function VehicleTable({ vehicles }) {
                 </button>
             </div>
             <div className='mt-6 overflow-x-auto'>
-                <table className='w-full min-w-[940px] border-collapse'>
+                <table className='w-full min-w-[1000px] border-collapse'>
                     <thead>
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
                             <th className='px-6 py-3'>Kendaraan</th>
@@ -404,7 +424,14 @@ function VehicleTable({ vehicles }) {
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {vehicles.length > 0 ? (
-                            vehicles.map((vehicle) => <VehicleRow key={vehicle.plate} vehicle={vehicle} />)
+                            vehicles.map((vehicle) => (
+                                <VehicleRow 
+                                    key={vehicle.plate} 
+                                    vehicle={vehicle}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                />
+                            ))
                         ) : (
                             <tr>
                                 <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
@@ -423,6 +450,135 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
     const [activeTab, setActiveTab] = useState('vehicles');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    
+    // Modal states
+    const [editModal, setEditModal] = useState({ isOpen: false, vehicle: null });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, vehicle: null });
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Edit modal handlers
+    const handleAdd = () => {
+        setEditModal({ isOpen: true, vehicle: null });
+    };
+
+    const handleEdit = (vehicle) => {
+        setEditModal({ isOpen: true, vehicle });
+    };
+
+    const handleEditSubmit = async (formData) => {
+        setIsLoading(true);
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Update vehicle data (in real app, this would be an API call)
+            console.log('Updating vehicle:', editModal.vehicle.plate, 'with data:', formData);
+            
+            // Close modal
+            setEditModal({ isOpen: false, vehicle: null });
+        } catch (error) {
+            console.error('Error updating vehicle:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleEditClose = () => {
+        setEditModal({ isOpen: false, vehicle: null });
+    };
+
+    // Delete modal handlers
+    const handleDelete = (vehicle) => {
+        setDeleteModal({ isOpen: true, vehicle });
+    };
+
+    const handleDeleteConfirm = async () => {
+        setIsLoading(true);
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Delete vehicle (in real app, this would be an API call)
+            console.log('Deleting vehicle:', deleteModal.vehicle.plate);
+            
+            // Close modal
+            setDeleteModal({ isOpen: false, vehicle: null });
+        } catch (error) {
+            console.error('Error deleting vehicle:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDeleteClose = () => {
+        setDeleteModal({ isOpen: false, vehicle: null });
+    };
+
+    // Vehicle form fields configuration
+    const vehicleFields = [
+        {
+            name: 'plate',
+            label: 'Nomor Plat',
+            type: 'text',
+            required: true,
+            placeholder: 'Contoh: B 1234 ABC'
+        },
+        {
+            name: 'model',
+            label: 'Model Kendaraan',
+            type: 'text',
+            required: true,
+            placeholder: 'Contoh: Toyota Hiace, Suzuki Carry'
+        },
+        {
+            name: 'type',
+            label: 'Tipe Kendaraan',
+            type: 'select',
+            required: true,
+            options: [
+                { value: 'Mobil Box', label: 'Mobil Box' },
+                { value: 'Pick Up', label: 'Pick Up' },
+                { value: 'Motor', label: 'Motor' },
+                { value: 'Truk', label: 'Truk' }
+            ]
+        },
+        {
+            name: 'year',
+            label: 'Tahun',
+            type: 'number',
+            required: true,
+            placeholder: 'Contoh: 2023'
+        },
+        {
+            name: 'capacity',
+            label: 'Kapasitas',
+            type: 'text',
+            required: true,
+            placeholder: 'Contoh: 1000kg, 5m³'
+        },
+        {
+            name: 'current_kilometer',
+            label: 'Kilometer Saat Ini',
+            type: 'number',
+            required: true,
+            placeholder: 'Contoh: 50000'
+        },
+        {
+            name: 'driver_id',
+            label: 'Driver',
+            type: 'select',
+            required: false,
+            placeholder: 'Pilih driver (opsional)',
+            options: [
+                { value: '', label: 'Tidak ada driver' },
+                { value: '1', label: 'Ahmad Subandi' },
+                { value: '2', label: 'Budi Santoso' },
+                { value: '3', label: 'Siti Nurhaliza' },
+                { value: '4', label: 'Dedi Mulyadi' },
+                { value: '5', label: 'Rina Sari' }
+            ]
+        }
+    ];
 
     const filteredVehicles = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -440,7 +596,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
 
     return (
         <>
-            <PopupTambahKendaraan open={showPopup} onClose={() => setShowPopup(false)} />
+            {/* All popups/modals removed */}
             <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
                 {summaryCards.map((card) => (
                     <SummaryCard key={card.title} card={card} />
@@ -463,37 +619,66 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
                             );
                         })}
                     </div>
-                    <div className='flex flex-col gap-3 sm:flex-row'>
-                        <div className='group relative min-w-[260px]'>
-                            <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
-                                <SearchIcon />
-                            </span>
-                            <input
-                                type='text'
-                                value={searchTerm}
-                                onChange={(event) => setSearchTerm(event.target.value)}
-                                placeholder='Cari plat nomor, merk, atau tipe...'
-                                className='w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-600 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
+                    <div className='flex flex-col gap-3'>
+                        {/* Search and Filter Row */}
+                        <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+                            <div className='group relative min-w-[260px] flex-1'>
+                                <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
+                                    <SearchIcon />
+                                </span>
+                                <input
+                                    type='text'
+                                    value={searchTerm}
+                                    onChange={(event) => setSearchTerm(event.target.value)}
+                                    placeholder='Cari plat nomor, merk, atau tipe...'
+                                    className='w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-600 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
+                                />
+                            </div>
+                            <FilterDropdown
+                                value={statusFilter}
+                                onChange={setStatusFilter}
+                                options={statusFilterOptions}
+                                widthClass='w-full sm:w-40'
                             />
                         </div>
-                        <FilterDropdown
-                            value={statusFilter}
-                            onChange={setStatusFilter}
-                            options={statusFilterOptions}
-                            widthClass='min-w-[160px]'
-                        />
-                        <button
-                            type='button'
-                            onClick={() => setShowPopup(true)}
-                            className='inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:w-auto'
-                        >
-                            <PlusIcon className='h-4 w-4' />
-                            Tambah Kendaraan
-                        </button>
+                        {/* Action Button Row */}
+                        <div className='flex justify-end'>
+                            <button
+                                type='button'
+                                onClick={handleAdd}
+                                className='inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:w-auto'
+                            >
+                                <PlusIcon className='h-4 w-4' />
+                                Tambah Kendaraan
+                            </button>
+                        </div>
                     </div>
                 </div>
             </section>
-            <VehicleTable vehicles={filteredVehicles} />
+            <VehicleTable 
+                vehicles={filteredVehicles}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+            />
+
+            <EditModal
+                title={editModal.vehicle ? 'Edit Kendaraan' : 'Tambah Kendaraan'}
+                fields={vehicleFields}
+                initialData={editModal.vehicle}
+                isOpen={editModal.isOpen}
+                onClose={handleEditClose}
+                onSubmit={handleEditSubmit}
+                isLoading={isLoading}
+            />
+
+            <DeleteConfirmModal
+                title="Hapus Kendaraan"
+                message={`Apakah Anda yakin ingin menghapus kendaraan "${deleteModal.vehicle?.plate}"?`}
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                isLoading={isLoading}
+            />
         </>
     );
 }

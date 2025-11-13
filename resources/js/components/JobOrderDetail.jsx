@@ -52,7 +52,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
     const tabs = [
         { id: 'overview', label: 'Overview', icon: '📋' },
         { id: 'status', label: 'Status History', icon: '📅' },
-        { id: 'assignment', label: 'Assignments', icon: '👥' }
+        { id: 'assignment', label: 'Assignment Management', icon: '👥' }
     ];
 
     return (

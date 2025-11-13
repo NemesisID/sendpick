@@ -1,5 +1,22 @@
 import React, { useMemo, useState } from 'react';
 import FilterDropdown from './common/FilterDropdown';
+import EditModal from './common/EditModal';
+import DeleteConfirmModal from './common/DeleteConfirmModal';
+import { 
+    HiUsers, 
+    HiCheckCircle, 
+    HiBuildingOffice, 
+    HiStar, 
+    HiMagnifyingGlass, 
+    HiFunnel, 
+    HiPlus, 
+    HiPencil, 
+    HiTrash, 
+    HiEye,
+    HiPhone,
+    HiEnvelope,
+    HiMapPin
+} from 'react-icons/hi2';
 
 const summaryCards = [
     {
@@ -8,14 +25,7 @@ const summaryCards = [
         description: 'Termasuk corporate & individu',
         iconBg: 'bg-sky-100',
         iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1' strokeLinecap='round' strokeLinejoin='round' />
-                <circle cx='10' cy='7' r='3' />
-                <path d='M20 19v-1a4 4 0 0 0-2.62-3.73' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M16 4a3 3 0 1 1 0 6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiUsers className='h-5 w-5' />,
     },
     {
         title: 'Pelanggan Aktif',
@@ -23,12 +33,7 @@ const summaryCards = [
         description: '81% dari total pelanggan',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiCheckCircle className='h-5 w-5' />,
     },
     {
         title: 'Corporate',
@@ -36,12 +41,7 @@ const summaryCards = [
         description: 'Termasuk SME & enterprise',
         iconBg: 'bg-purple-100',
         iconColor: 'text-purple-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 21V7l9-4 9 4v14' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M9 10h6M9 14h6M9 18h6' strokeLinecap='round' />
-            </svg>
-        ),
+        icon: <HiBuildingOffice className='h-5 w-5' />,
     },
     {
         title: 'Rata-rata Rating',
@@ -49,11 +49,7 @@ const summaryCards = [
         description: 'Dari 320 ulasan pelanggan',
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='currentColor' stroke='none' className='h-5 w-5'>
-                <path d='m12 4 2.2 4.5 5 .7-3.6 3.5.9 5.1L12 15.8 7.5 17.8l.9-5.1-3.6-3.5 5-.7z' />
-            </svg>
-        ),
+        icon: <HiStar className='h-5 w-5' />,
     },
 ];
 
@@ -152,70 +148,23 @@ const customerRecords = [
     },
 ];
 
-const SummaryIcon = ({ className = 'h-5 w-5', children }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        {children}
-    </svg>
-);
-
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <SummaryIcon className={className}>
-        <circle cx='11' cy='11' r='6' />
-        <path d='m20 20-3.5-3.5' strokeLinecap='round' strokeLinejoin='round' />
-    </SummaryIcon>
-);
-
-const PhoneIcon = ({ className = 'h-4 w-4' }) => (
-    <SummaryIcon className={className}>
-        <path d='M6.5 3h2a1 1 0 0 1 1 .72c.23.92.65 2.19 1.3 3.5a1 1 0 0 1-.23 1.15L9.1 10.04c1.4 2.3 3.2 4.1 5.5 5.5l1.67-1.47a1 1 0 0 1 1.15-.23c1.3.65 2.58 1.07 3.5 1.3a1 1 0 0 1 .72 1v2a1 1 0 0 1-1.05 1 16 16 0 0 1-14.5-14.45A1 1 0 0 1 6.5 3z' strokeLinecap='round' strokeLinejoin='round' />
-    </SummaryIcon>
-);
-
-const MailIcon = ({ className = 'h-4 w-4' }) => (
-    <SummaryIcon className={className}>
-        <rect x='3' y='5' width='18' height='14' rx='2' />
-        <path d='m4 7 8 6 8-6' strokeLinecap='round' strokeLinejoin='round' />
-    </SummaryIcon>
-);
-
-const MapPinIcon = ({ className = 'h-4 w-4' }) => (
-    <SummaryIcon className={className}>
-        <path d='M12 3a6 6 0 0 1 6 6c0 4.5-6 12-6 12s-6-7.5-6-12a6 6 0 0 1 6-6z' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='12' cy='9' r='2' />
-    </SummaryIcon>
-);
-
-const StarIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='currentColor' stroke='none' className={className}>
-        <path d='m12 4 2.2 4.5 5 .7-3.6 3.5.9 5.1L12 15.8 7.5 17.8l.9-5.1-3.6-3.5 5-.7z' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <SummaryIcon className={className}>
-        <path d='M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='m14.5 5.5 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </SummaryIcon>
-);
-
-const TrashIcon = ({ className = 'h-4 w-4' }) => (
-    <SummaryIcon className={className}>
-        <path d='M5 7h14' strokeLinecap='round' />
-        <path d='M10 11v6M14 11v6' strokeLinecap='round' />
-        <path d='M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2' strokeLinecap='round' strokeLinejoin='round' />
-    </SummaryIcon>
-);
+const SearchIcon = ({ className = 'h-5 w-5' }) => <HiMagnifyingGlass className={className} />;
+const PhoneIcon = ({ className = 'h-4 w-4' }) => <HiPhone className={className} />;
+const MailIcon = ({ className = 'h-4 w-4' }) => <HiEnvelope className={className} />;
+const MapPinIcon = ({ className = 'h-4 w-4' }) => <HiMapPin className={className} />;
+const StarIcon = ({ className = 'h-4 w-4' }) => <HiStar className={className} />;
+const EditIcon = ({ className = 'h-4 w-4' }) => <HiPencil className={className} />;
+const TrashIcon = ({ className = 'h-4 w-4' }) => <HiTrash className={className} />;
 
 function CustomerSummaryCard({ card }) {
     return (
-        <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <div>
-                <p className='text-sm text-slate-400'>{card.title}</p>
-                <p className='mt-2 text-3xl font-semibold text-slate-900'>{card.value}</p>
-                <p className='mt-1 text-xs text-slate-400'>{card.description}</p>
+        <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm'>
+            <div className='min-w-0 flex-1'>
+                <p className='text-sm text-slate-400 truncate'>{card.title}</p>
+                <p className='mt-2 text-2xl sm:text-3xl font-semibold text-slate-900'>{card.value}</p>
+                <p className='mt-1 text-xs text-slate-400 truncate'>{card.description}</p>
             </div>
-            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor}`}>
+            <div className={`flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor} flex-shrink-0 ml-3`}>
                 {card.icon}
             </div>
         </article>
@@ -241,71 +190,79 @@ function CustomerStatusBadge({ status }) {
     );
 }
 
-function CustomerRow({ customer }) {
+function CustomerRow({ customer, onEdit, onDelete }) {
     const initial = customer.name.charAt(0).toUpperCase();
     const ratingDisplay = customer.rating.toFixed(1);
 
     return (
         <tr className='transition-colors hover:bg-slate-50'>
-            <td className='whitespace-nowrap px-6 py-4'>
-                <div className='flex items-center gap-3'>
-                    <div className='flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600'>
+            <td className='whitespace-nowrap px-3 py-4 sm:px-6'>
+                <div className='flex items-center gap-2 sm:gap-3'>
+                    <div className='flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-slate-100 text-xs sm:text-sm font-semibold text-slate-600'>
                         {initial}
                     </div>
-                    <div>
-                        <p className='text-sm font-semibold text-slate-800'>{customer.name}</p>
+                    <div className='min-w-0'>
+                        <p className='text-sm font-semibold text-slate-800 truncate'>{customer.name}</p>
                         <p className='text-xs text-slate-400'>{customer.code}</p>
                     </div>
                 </div>
             </td>
-            <td className='px-6 py-4'>
+            <td className='px-3 py-4 sm:px-6'>
                 <CustomerTypeBadge type={customer.type} />
             </td>
-            <td className='px-6 py-4'>
+            <td className='px-3 py-4 sm:px-6'>
                 <div className='space-y-1 text-sm text-slate-600'>
-                    <p className='font-semibold text-slate-700'>{customer.contact}</p>
+                    <p className='font-semibold text-slate-700 truncate'>{customer.contact}</p>
                     <div className='flex items-center gap-2'>
-                        <PhoneIcon className='text-slate-400' />
-                        <span>{customer.phone}</span>
+                        <PhoneIcon className='text-slate-400 flex-shrink-0' />
+                        <span className='truncate'>{customer.phone}</span>
                     </div>
                     <div className='flex items-center gap-2 text-slate-400'>
-                        <MailIcon />
+                        <MailIcon className='flex-shrink-0' />
                         <span className='truncate'>{customer.email}</span>
                     </div>
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>
+            <td className='px-3 py-4 sm:px-6 text-sm text-slate-600'>
                 <div className='flex items-center gap-2'>
-                    <MapPinIcon className='text-slate-400' />
-                    <span>{customer.address}</span>
+                    <MapPinIcon className='text-slate-400 flex-shrink-0' />
+                    <span className='truncate'>{customer.address}</span>
                 </div>
             </td>
-            <td className='px-6 py-4'>
+            <td className='px-3 py-4 sm:px-6'>
                 <CustomerStatusBadge status={customer.status} />
             </td>
-            <td className='px-6 py-4 text-sm font-semibold text-slate-700'>{customer.totalOrders}</td>
-            <td className='px-6 py-4 text-sm font-semibold text-slate-700'>{customer.totalValue}</td>
-            <td className='px-6 py-4'>
+            <td className='px-3 py-4 sm:px-6 text-sm font-semibold text-slate-700'>{customer.totalOrders}</td>
+            <td className='px-3 py-4 sm:px-6 text-sm font-semibold text-slate-700'>{customer.totalValue}</td>
+            <td className='px-3 py-4 sm:px-6'>
                 <div className='flex items-center gap-1 text-sm font-semibold text-slate-700'>
                     <StarIcon className='text-amber-400' />
                     <span>{ratingDisplay}</span>
                 </div>
             </td>
-            <td className='px-6 py-4'>
-                <div className='flex items-center gap-2'>
+            <td className='px-3 py-4 sm:px-6'>
+                <div className='flex items-center gap-1 sm:gap-2'>
                     <button
                         type='button'
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onEdit(customer);
+                        }}
+                        className='inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Edit ${customer.name}`}
                     >
-                        <EditIcon />
+                        <EditIcon className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
                     </button>
                     <button
                         type='button'
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onDelete(customer);
+                        }}
+                        className='inline-flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
                         aria-label={`Hapus ${customer.name}`}
                     >
-                        <TrashIcon />
+                        <TrashIcon className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
                     </button>
                 </div>
             </td>
@@ -313,16 +270,31 @@ function CustomerRow({ customer }) {
     );
 }
 
-function CustomerTable({ customers, searchTerm, onSearchChange, typeFilter, onTypeChange }) {
+function CustomerTable({ customers, searchTerm, onSearchChange, typeFilter, onTypeChange, onEdit, onDelete, onAdd }) {
     return (
-        <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
-                <div>
-                    <h2 className='text-lg font-semibold text-slate-900'>Daftar Pelanggan</h2>
-                    <p className='text-sm text-slate-400'>Kelola kontak pelanggan dan histori transaksi</p>
+        <section className='rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm'>
+            <div className='flex flex-col gap-4'>
+                <div className='flex flex-col gap-2 sm:gap-0 sm:flex-row sm:items-center sm:justify-between'>
+                    <div>
+                        <h2 className='text-lg font-semibold text-slate-900'>Daftar Pelanggan</h2>
+                        <p className='text-sm text-slate-400'>Kelola kontak pelanggan dan histori transaksi</p>
+                    </div>
+                    {/* Tombol tambah di mobile dipindah ke atas */}
+                    <button
+                        type='button'
+                        onClick={onAdd}
+                        className='group relative flex-shrink-0 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition-all duration-200 hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/40 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:px-5'
+                    >
+                        <HiPlus className='h-5 w-5 transition-transform group-hover:rotate-90' />
+                        {/* Tampilkan full text pada md ke atas, singkat pada mobile */}
+                        <span className='hidden md:inline'>Tambah Pelanggan</span>
+                        <span className='inline md:hidden'>Tambah</span>
+                    </button>
                 </div>
-                <div className='flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-center'>
-                    <div className='group relative min-w-[260px] flex-1'>
+                
+                {/* Controls section - search dan filter */}
+                <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+                    <div className='group relative flex-1 min-w-0'>
                         <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
                             <SearchIcon />
                         </span>
@@ -342,27 +314,34 @@ function CustomerTable({ customers, searchTerm, onSearchChange, typeFilter, onTy
                     />
                 </div>
             </div>
-            <div className='mt-6 overflow-x-auto'>
+            <div className='mt-4 sm:mt-6 overflow-x-auto'>
                 <table className='w-full min-w-[900px] border-collapse'>
                     <thead>
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
-                            <th className='px-6 py-3'>Pelanggan</th>
-                            <th className='px-6 py-3'>Tipe</th>
-                            <th className='px-6 py-3'>Kontak</th>
-                            <th className='px-6 py-3'>Alamat</th>
-                            <th className='px-6 py-3'>Status</th>
-                            <th className='px-6 py-3'>Total Order</th>
-                            <th className='px-6 py-3'>Total Nilai</th>
-                            <th className='px-6 py-3'>Rating</th>
-                            <th className='px-6 py-3'>Aksi</th>
+                            <th className='px-3 py-3 sm:px-6'>Pelanggan</th>
+                            <th className='px-3 py-3 sm:px-6'>Tipe</th>
+                            <th className='px-3 py-3 sm:px-6'>Kontak</th>
+                            <th className='px-3 py-3 sm:px-6'>Alamat</th>
+                            <th className='px-3 py-3 sm:px-6'>Status</th>
+                            <th className='px-3 py-3 sm:px-6'>Total Order</th>
+                            <th className='px-3 py-3 sm:px-6'>Total Nilai</th>
+                            <th className='px-3 py-3 sm:px-6'>Rating</th>
+                            <th className='px-3 py-3 sm:px-6'>Aksi</th>
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {customers.length > 0 ? (
-                            customers.map((customer) => <CustomerRow key={customer.code} customer={customer} />)
+                            customers.map((customer) => (
+                                <CustomerRow 
+                                    key={customer.code} 
+                                    customer={customer} 
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                />
+                            ))
                         ) : (
                             <tr>
-                                <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={9} className='px-3 py-12 sm:px-6 text-center text-sm text-slate-400'>
                                     Tidak ada pelanggan yang sesuai dengan filter saat ini.
                                 </td>
                             </tr>
@@ -377,37 +356,162 @@ function CustomerTable({ customers, searchTerm, onSearchChange, typeFilter, onTy
 export default function CustomerContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
+    const [editModal, setEditModal] = useState({ isOpen: false, customer: null });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, customer: null });
 
     const filteredCustomers = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
         return customerRecords.filter((customer) => {
-            const matchesSearch =
-                term.length === 0 ||
-                customer.name.toLowerCase().includes(term) ||
-                customer.code.toLowerCase().includes(term) ||
-                customer.contact.toLowerCase().includes(term) ||
-                customer.email.toLowerCase().includes(term) ||
-                customer.phone.toLowerCase().includes(term) ||
-                customer.address.toLowerCase().includes(term);
+            const matchesSearch = 
+                customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                customer.contact.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                customer.phone.includes(searchTerm) ||
+                customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                customer.code.toLowerCase().includes(searchTerm.toLowerCase());
+            
             const matchesType = typeFilter === 'all' || customer.type === typeFilter;
+            
             return matchesSearch && matchesType;
         });
     }, [searchTerm, typeFilter]);
 
+    const handleAddCustomer = () => {
+        setEditModal({ isOpen: true, customer: null });
+    };
+
+    const handleEditCustomer = (customer) => {
+        setEditModal({ isOpen: true, customer });
+    };
+
+    const handleDeleteCustomer = (customer) => {
+        setDeleteModal({ isOpen: true, customer });
+    };
+
+    const handleCloseEditModal = () => {
+        setEditModal({ isOpen: false, customer: null });
+    };
+
+    const handleCloseDeleteModal = () => {
+        setDeleteModal({ isOpen: false, customer: null });
+    };
+
+    const handleSaveCustomer = (formData) => {
+        if (editModal.customer) {
+            console.log('Updating customer:', editModal.customer.code, 'with data:', formData);
+        } else {
+            console.log('Adding new customer with data:', formData);
+        }
+        handleCloseEditModal();
+    };
+
+    const handleConfirmDelete = () => {
+        if (deleteModal.customer) {
+            console.log('Deleting customer:', deleteModal.customer.code);
+        }
+        handleCloseDeleteModal();
+    };
+
+    const customerModalFields = [
+        {
+            key: 'name',
+            label: 'Nama Pelanggan',
+            type: 'text',
+            placeholder: 'Masukkan nama pelanggan',
+            required: true,
+        },
+        {
+            key: 'code',
+            label: 'Kode Pelanggan',
+            type: 'text',
+            placeholder: 'Masukkan kode pelanggan',
+            required: true,
+        },
+        {
+            key: 'type',
+            label: 'Tipe Pelanggan',
+            type: 'select',
+            options: [
+                { value: 'corporate', label: 'Corporate' },
+                { value: 'sme', label: 'SME' },
+                { value: 'individual', label: 'Individual' },
+            ],
+            required: true,
+        },
+        {
+            key: 'contact',
+            label: 'Nama Kontak',
+            type: 'text',
+            placeholder: 'Masukkan nama kontak',
+            required: true,
+        },
+        {
+            key: 'phone',
+            label: 'Nomor Telepon',
+            type: 'tel',
+            placeholder: 'Masukkan nomor telepon',
+            required: true,
+        },
+        {
+            key: 'email',
+            label: 'Email',
+            type: 'email',
+            placeholder: 'Masukkan alamat email',
+            required: true,
+        },
+        {
+            key: 'address',
+            label: 'Alamat',
+            type: 'textarea',
+            placeholder: 'Masukkan alamat lengkap',
+            required: true,
+        },
+        {
+            key: 'status',
+            label: 'Status',
+            type: 'select',
+            options: [
+                { value: 'active', label: 'Aktif' },
+                { value: 'inactive', label: 'Tidak Aktif' },
+            ],
+            required: true,
+        },
+    ];
+
     return (
-        <>
-            <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
+        <div className='space-y-4 p-4 sm:space-y-6 sm:p-6'>
+          
+            <section className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4'>
                 {summaryCards.map((card) => (
                     <CustomerSummaryCard key={card.title} card={card} />
                 ))}
             </section>
+
             <CustomerTable
                 customers={filteredCustomers}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 typeFilter={typeFilter}
                 onTypeChange={setTypeFilter}
+                onEdit={handleEditCustomer}
+                onDelete={handleDeleteCustomer}
+                onAdd={handleAddCustomer}
             />
-        </>
+
+            <EditModal
+                isOpen={editModal.isOpen}
+                onClose={handleCloseEditModal}
+                onSubmit={handleSaveCustomer}
+                title={editModal.customer ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
+                fields={customerModalFields}
+                initialData={editModal.customer}
+            />
+
+            <DeleteConfirmModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleCloseDeleteModal}
+                onConfirm={handleConfirmDelete}
+                title='Hapus Pelanggan'
+                message={`Apakah Anda yakin ingin menghapus pelanggan "${deleteModal.customer?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+            />
+        </div>
     );
 }

@@ -1,5 +1,7 @@
 ﻿import React, { useMemo, useState } from 'react';
 import FilterDropdown from './common/FilterDropdown';
+import EditModal from './common/EditModal';
+import DeleteConfirmModal from './common/DeleteConfirmModal';
 
 const summaryCards = [
     {
@@ -215,6 +217,20 @@ const ChevronDownIcon = ({ className = 'h-4 w-4' }) => (
     </svg>
 );
 
+const EditIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M12 20h9' strokeLinecap='round' strokeLinejoin='round' />
+        <path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' strokeLinecap='round' strokeLinejoin='round' />
+    </svg>
+);
+
+const TrashIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' strokeLinecap='round' strokeLinejoin='round' />
+        <path d='M10 11v6M14 11v6' strokeLinecap='round' strokeLinejoin='round' />
+    </svg>
+);
+
 function SummaryCard({ card }) {
     return (
         <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -239,7 +255,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function ManifestRow({ manifest }) {
+function ManifestRow({ manifest, onEdit, onDelete }) {
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-800'>{manifest.id}</td>
@@ -267,6 +283,26 @@ function ManifestRow({ manifest }) {
             <td className='px-6 py-4 text-sm text-slate-600'>{manifest.shipmentDate}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>{manifest.createdBy}</td>
             <td className='px-6 py-4 text-right text-xs text-slate-400'>{manifest.lastUpdate}</td>
+            <td className='px-6 py-4'>
+                <div className='flex items-center gap-2'>
+                    <button
+                        type='button'
+                        onClick={() => onEdit(manifest)}
+                        className='inline-flex items-center justify-center rounded-lg bg-indigo-50 p-2 text-indigo-600 transition hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                        title='Edit manifest'
+                    >
+                        <EditIcon className='h-4 w-4' />
+                    </button>
+                    <button
+                        type='button'
+                        onClick={() => onDelete(manifest)}
+                        className='inline-flex items-center justify-center rounded-lg bg-red-50 p-2 text-red-600 transition hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50'
+                        title='Hapus manifest'
+                    >
+                        <TrashIcon className='h-4 w-4' />
+                    </button>
+                </div>
+            </td>
         </tr>
     );
 }
@@ -279,6 +315,9 @@ function ManifestTable({
     onStatusChange,
     hubFilter,
     onHubChange,
+    onAddManifest,
+    onEditManifest,
+    onDeleteManifest,
 }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -287,49 +326,58 @@ function ManifestTable({
                     <h2 className='text-lg font-semibold text-slate-900'>Daftar Manifest & Packing List</h2>
                     <p className='text-sm text-slate-400'>Pantau status packing, loading, dan release manifest.</p>
                 </div>
-                <div className='flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-center'>
-                    <div className='group relative min-w-[240px] flex-1'>
-                        <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
-                            <SearchIcon className='h-5 w-5' />
-                        </span>
-                        <input
-                            type='text'
-                            value={searchTerm}
-                            onChange={(event) => onSearchChange(event.target.value)}
-                            placeholder='Cari manifest, customer, atau tujuan...'
-                            className='w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-600 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
-                        />
+                <div className='flex w-full flex-col gap-3 md:w-auto'>
+                    {/* Search and Filters Row */}
+                    <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+                        <div className='group relative min-w-[240px] flex-1'>
+                            <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
+                                <SearchIcon className='h-5 w-5' />
+                            </span>
+                            <input
+                                type='text'
+                                value={searchTerm}
+                                onChange={(event) => onSearchChange(event.target.value)}
+                                placeholder='Cari manifest, customer, atau tujuan...'
+                                className='w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-600 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
+                            />
+                        </div>
+                        <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+                            <FilterDropdown
+                                value={statusFilter}
+                                onChange={onStatusChange}
+                                options={statusFilterOptions}
+                                widthClass='w-full sm:w-40'
+                            />
+                            <FilterDropdown
+                                value={hubFilter}
+                                onChange={onHubChange}
+                                options={hubFilterOptions}
+                                widthClass='w-full sm:w-44'
+                            />
+                        </div>
                     </div>
-                    <FilterDropdown
-                        value={statusFilter}
-                        onChange={onStatusChange}
-                        options={statusFilterOptions}
-                        widthClass='w-full sm:w-40'
-                    />
-                    <FilterDropdown
-                        value={hubFilter}
-                        onChange={onHubChange}
-                        options={hubFilterOptions}
-                        widthClass='w-full sm:w-44'
-                    />
-                    <button
-                        type='button'
-                        className='inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
-                    >
-                        <PlusIcon className='h-4 w-4' />
-                        Tambah Manifest
-                    </button>
-                    <button
-                        type='button'
-                        className='inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
-                    >
-                        <DownloadIcon className='h-4 w-4' />
-                        Export CSV
-                    </button>
+                    {/* Action Buttons Row */}
+                    <div className='flex flex-col gap-2 sm:flex-row sm:justify-end'>
+                        <button
+                            type='button'
+                            onClick={onAddManifest}
+                            className='inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 sm:w-auto'
+                        >
+                            <PlusIcon className='h-4 w-4' />
+                            Tambah Manifest
+                        </button>
+                        <button
+                            type='button'
+                            className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 sm:w-auto'
+                        >
+                            <DownloadIcon className='h-4 w-4' />
+                            Export CSV
+                        </button>
+                    </div>
                 </div>
             </div>
             <div className='mt-6 overflow-x-auto'>
-                <table className='w-full min-w-[840px] border-collapse'>
+                <table className='w-full min-w-[920px] border-collapse'>
                     <thead>
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
                             <th className='px-6 py-3'>Manifest</th>
@@ -340,14 +388,22 @@ function ManifestTable({
                             <th className='px-6 py-3'>Tgl Kirim</th>
                             <th className='px-6 py-3'>PIC</th>
                             <th className='px-6 py-3 text-right'>Update Terakhir</th>
+                            <th className='px-6 py-3 text-center'>Aksi</th>
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {records.length > 0 ? (
-                            records.map((manifest) => <ManifestRow key={manifest.id} manifest={manifest} />)
+                            records.map((manifest) => (
+                                <ManifestRow 
+                                    key={manifest.id} 
+                                    manifest={manifest} 
+                                    onEdit={onEditManifest}
+                                    onDelete={onDeleteManifest}
+                                />
+                            ))
                         ) : (
                             <tr>
-                                <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
                                     Tidak ada manifest yang sesuai dengan filter.
                                 </td>
                             </tr>
@@ -495,6 +551,185 @@ export default function ManifestContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [hubFilter, setHubFilter] = useState('all');
+    const [editModal, setEditModal] = useState({ isOpen: false, manifest: null });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, manifest: null });
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Mock data Job Orders dengan detail lengkap
+    const jobOrdersData = {
+        'JO-2024-874': {
+            customer: 'PT Maju Jaya Logistics',
+            origin: 'Jakarta DC',
+            destination: 'Surabaya Hub',
+            packages: 48,
+            totalWeight: '1,250 kg',
+            status: 'Created'
+        },
+        'JO-2024-861': {
+            customer: 'CV Sukses Mandiri',
+            origin: 'Bandung Hub',
+            destination: 'Makassar Hub',
+            packages: 36,
+            totalWeight: '980 kg',
+            status: 'Assigned'
+        },
+        'JO-2024-852': {
+            customer: 'PT Nusantara Sejahtera',
+            origin: 'Jakarta DC',
+            destination: 'Medan Hub',
+            packages: 54,
+            totalWeight: '1,540 kg',
+            status: 'Created'
+        },
+        'JO-2024-843': {
+            customer: 'UD Sumber Berkah',
+            origin: 'Surabaya Hub',
+            destination: 'Denpasar Hub',
+            packages: 29,
+            totalWeight: '720 kg',
+            status: 'Assigned'
+        },
+        'JO-2024-835': {
+            customer: 'PT Indo Makmur',
+            origin: 'Jakarta DC',
+            destination: 'Yogyakarta Hub',
+            packages: 42,
+            totalWeight: '1,180 kg',
+            status: 'Created'
+        },
+    };
+
+    const availableJobOrders = [
+        { value: 'JO-2024-874', label: 'JO-2024-874 - PT Maju Jaya Logistics', status: 'Created' },
+        { value: 'JO-2024-861', label: 'JO-2024-861 - CV Sukses Mandiri', status: 'Assigned' },
+        { value: 'JO-2024-852', label: 'JO-2024-852 - PT Nusantara Sejahtera', status: 'Created' },
+        { value: 'JO-2024-843', label: 'JO-2024-843 - UD Sumber Berkah', status: 'Assigned' },
+        { value: 'JO-2024-835', label: 'JO-2024-835 - PT Indo Makmur', status: 'Created' },
+    ];
+
+    const manifestFields = [
+        { 
+            name: 'jobOrders', 
+            label: 'Pilih Job Order', 
+            type: 'multiselect', 
+            required: true,
+            options: availableJobOrders.map(jo => ({value: jo.value, label: jo.label}))
+        },
+        { name: 'customer', label: 'Customer', type: 'text', required: false, readOnly: true },
+        { name: 'origin', label: 'Origin', type: 'text', required: false, readOnly: true },
+        { name: 'destination', label: 'Destination', type: 'text', required: false, readOnly: true },
+        { name: 'shipmentDate', label: 'Shipment Date', type: 'date', required: true },
+        { name: 'packages', label: 'Total Packages', type: 'number', required: false, readOnly: true },
+        { name: 'totalWeight', label: 'Total Weight (kg)', type: 'text', required: false, readOnly: true },
+    ];
+
+    // Fungsi untuk menghitung data gabungan dari Job Orders yang dipilih
+    const calculateCombinedData = (selectedJobOrders) => {
+        if (!selectedJobOrders || selectedJobOrders.length === 0) {
+            return {
+                customer: '',
+                origin: '',
+                destination: '',
+                packages: 0,
+                totalWeight: ''
+            };
+        }
+
+        const selectedData = selectedJobOrders.map(jo => jobOrdersData[jo]).filter(Boolean);
+        
+        if (selectedData.length === 0) {
+            return {
+                customer: '',
+                origin: '',
+                destination: '',
+                packages: 0,
+                totalWeight: ''
+            };
+        }
+
+        // Menggabungkan customer (jika berbeda, pisahkan dengan koma)
+        const uniqueCustomers = [...new Set(selectedData.map(data => data.customer))];
+        const customer = uniqueCustomers.join(', ');
+
+        // Menggabungkan origin (jika berbeda, pisahkan dengan koma)
+        const uniqueOrigins = [...new Set(selectedData.map(data => data.origin))];
+        const origin = uniqueOrigins.join(', ');
+
+        // Menggabungkan destination (jika berbeda, pisahkan dengan koma)
+        const uniqueDestinations = [...new Set(selectedData.map(data => data.destination))];
+        const destination = uniqueDestinations.join(', ');
+
+        // Menghitung total packages
+        const totalPackages = selectedData.reduce((sum, data) => sum + data.packages, 0);
+
+        // Menghitung total weight (konversi ke angka terlebih dahulu)
+        const totalWeightKg = selectedData.reduce((sum, data) => {
+            const weight = parseFloat(data.totalWeight.replace(/[^\d.]/g, '')) || 0;
+            return sum + weight;
+        }, 0);
+
+        return {
+            customer,
+            origin,
+            destination,
+            packages: totalPackages,
+            totalWeight: `${totalWeightKg.toLocaleString('id-ID')} kg`
+        };
+    };
+
+    const handleAddManifest = () => {
+        setEditModal({ isOpen: true, manifest: null });
+    };
+
+    const handleEditManifest = (manifest) => {
+        setEditModal({ isOpen: true, manifest });
+    };
+
+    const handleEditSubmit = async (formData) => {
+        setIsLoading(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Jika ini adalah manifest baru (create), set status default ke 'pending'
+            if (!editModal.manifest) {
+                formData.status = 'pending';
+                console.log('Creating new manifest with data:', formData);
+            } else {
+                console.log('Updating manifest:', editModal.manifest.id, 'with data:', formData);
+            }
+            
+            setEditModal({ isOpen: false, manifest: null });
+        } catch (error) {
+            console.error('Error saving manifest:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleEditClose = () => {
+        setEditModal({ isOpen: false, manifest: null });
+    };
+
+    const handleDeleteManifest = (manifest) => {
+        setDeleteModal({ isOpen: true, manifest });
+    };
+
+    const handleDeleteConfirm = async () => {
+        setIsLoading(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            console.log('Deleting manifest:', deleteModal.manifest.id);
+            setDeleteModal({ isOpen: false, manifest: null });
+        } catch (error) {
+            console.error('Error deleting manifest:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDeleteClose = () => {
+        setDeleteModal({ isOpen: false, manifest: null });
+    };
 
     const filteredRecords = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -529,12 +764,36 @@ export default function ManifestContent() {
                 onStatusChange={setStatusFilter}
                 hubFilter={hubFilter}
                 onHubChange={setHubFilter}
+                onAddManifest={handleAddManifest}
+                onEditManifest={handleEditManifest}
+                onDeleteManifest={handleDeleteManifest}
             />
             <ManifestInsights />
             <section className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
                 <PackingChecklistCard />
                 <ManifestSLAWidget />
             </section>
+
+            <EditModal
+                title={editModal.manifest ? "Edit Manifest" : "Tambah Manifest"}
+                fields={manifestFields}
+                initialData={editModal.manifest}
+                isOpen={editModal.isOpen}
+                onClose={handleEditClose}
+                onSubmit={handleEditSubmit}
+                isLoading={isLoading}
+                calculateCombinedData={calculateCombinedData}
+                jobOrdersData={jobOrdersData}
+            />
+
+            <DeleteConfirmModal
+                title="Hapus Manifest"
+                message={`Apakah Anda yakin ingin menghapus manifest "${deleteModal.manifest?.id}"?`}
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                isLoading={isLoading}
+            />
         </>
     );
 }

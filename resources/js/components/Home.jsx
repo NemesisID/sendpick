@@ -1,5 +1,25 @@
 import React from 'react';
 import AssignmentWidget from './AssignmentWidget';
+import { 
+    HiClipboardDocumentList, 
+    HiUser, 
+    HiTruck, 
+    HiClock, 
+    HiArrowRight 
+} from 'react-icons/hi2';
+import {
+    LineChart,
+    Line as ReLine,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip as ReTooltip,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    Legend as ReLegend
+} from 'recharts';
 
 const statCards = [
     {
@@ -9,12 +29,7 @@ const statCards = [
         deltaColor: 'text-emerald-500',
         iconBg: 'bg-sky-100',
         iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 5h2l1 14h12l1-14h2' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M9 5a3 3 0 1 1 6 0' />
-            </svg>
-        ),
+        icon: <HiClipboardDocumentList className='h-5 w-5' />,
     },
     {
         title: 'Driver Aktif',
@@ -23,11 +38,7 @@ const statCards = [
         deltaColor: 'text-emerald-500',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm6 7a6 6 0 0 0-12 0' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiUser className='h-5 w-5' />,
     },
     {
         title: 'Kendaraan Aktif',
@@ -36,13 +47,7 @@ const statCards = [
         deltaColor: 'text-amber-500',
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 16v-3l2-5h14l2 5v3' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M5 16v2a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-2' />
-                <path d='M16 16v2a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-2' />
-            </svg>
-        ),
+        icon: <HiTruck className='h-5 w-5' />,
     },
     {
         title: 'OTIF Rate',
@@ -51,13 +56,7 @@ const statCards = [
         deltaColor: 'text-emerald-500',
         iconBg: 'bg-purple-100',
         iconColor: 'text-purple-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 3v3' strokeLinecap='round' />
-                <path d='M12 6a6 6 0 1 1-6 6' />
-                <path d='m12 12 3 3 3-6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiClock className='h-5 w-5' />,
     },
 ];
 
@@ -104,84 +103,89 @@ function HomeStatCard({ card }) {
 }
 
 function MonthlyTrendCard() {
-    return (
-        <section className='flex-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <div className='flex items-center justify-between'>
-                <div>
-                    <p className='text-sm text-slate-500'>Trend Order Bulanan</p>
-                    <p className='text-xs text-slate-400'>Jan - Jun 2025</p>
-                </div>
-                <button
-                    type='button'
-                    className='text-xs font-semibold text-indigo-600 transition hover:text-indigo-500'
-                >
-                    Lihat Detail
-                </button>
-            </div>
-            <div className='mt-6 h-64'>
-                <svg viewBox='0 0 500 220' className='h-full w-full'>
-                    <defs>
-                        <linearGradient id='trendGradient' x1='0' x2='0' y1='0' y2='1'>
-                            <stop offset='0%' stopColor='#3b82f6' stopOpacity='0.4' />
-                            <stop offset='100%' stopColor='#3b82f6' stopOpacity='0.05' />
-                        </linearGradient>
-                    </defs>
-                    <g stroke='#e2e8f0' strokeWidth='1'>
-                        {[40, 80, 120, 160].map((y) => (
-                            <line key={y} x1='40' x2='480' y1={y} y2={y} />
-                        ))}
-                        {[80, 160, 240, 320, 400, 480].map((x) => (
-                            <line key={x} x1={x} x2={x} y1='20' y2='200' />
-                        ))}
-                    </g>
-                    <path
-                        d='M40 160 C120 120 160 140 200 130 C240 120 270 70 320 90 C360 110 380 140 480 80 V200 H40 Z'
-                        fill='url(#trendGradient)'
-                    />
-                    <path
-                        d='M40 160 C120 120 160 140 200 130 C240 120 270 70 320 90 C360 110 380 140 480 80'
-                        stroke='#3b82f6'
-                        strokeWidth='3'
-                        strokeLinecap='round'
-                        fill='none'
-                    />
-                    {[
-                        { x: 80, y: 145, label: 'Jan' },
-                        { x: 160, y: 135, label: 'Feb' },
-                        { x: 240, y: 120, label: 'Mar' },
-                        { x: 320, y: 95, label: 'Apr' },
-                        { x: 400, y: 120, label: 'Mei' },
-                        { x: 480, y: 80, label: 'Jun' },
-                    ].map((point) => (
-                        <g key={point.label}>
-                            <circle cx={point.x} cy={point.y} r='6' fill='#3b82f6' stroke='#fff' strokeWidth='2' />
-                            <text x={point.x} y='210' fontSize='12' textAnchor='middle' className='fill-slate-400'>
-                                {point.label}
-                            </text>
-                        </g>
-                    ))}
-                </svg>
-            </div>
-        </section>
-    );
+  const monthlyData = [
+    { month: 'Jan', orders: 120 },
+    { month: 'Feb', orders: 135 },
+    { month: 'Mar', orders: 180 },
+    { month: 'Apr', orders: 220 },
+    { month: 'Mei', orders: 160 },
+    { month: 'Jun', orders: 240 },
+  ];
+  return (
+    <section className='flex-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+      <div className='flex items-center justify-between'>
+        <div>
+          <p className='text-sm text-slate-500'>Trend Order Bulanan</p>
+          <p className='text-xs text-slate-400'>Jan - Jun 2025</p>
+        </div>
+        <button
+          type='button'
+          className='text-xs font-semibold text-indigo-600 transition hover:text-indigo-500'
+        >
+          Lihat Detail
+        </button>
+      </div>
+      <div className='mt-6 h-64'>
+        <ResponsiveContainer width='100%' height='100%'>
+          <LineChart data={monthlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke='#e2e8f0' strokeDasharray='3 3' />
+            <XAxis dataKey='month' tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={v => v + ' Orders'} />
+            <ReTooltip contentStyle={{ background: 'rgba(15,23,42,0.9)', borderRadius: 8, borderColor: '#3b82f6', color: '#fff' }}
+              labelStyle={{ color: '#fff' }}
+              itemStyle={{ color: '#fff' }}
+            />
+            <ReLine type='monotone' dataKey='orders' stroke='#3b82f6' strokeWidth={3} dot={{ r: 6, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 8 }} fill='rgba(59,130,246,0.1)' />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
 }
 
 function ShipmentStatusCard() {
+    const shipmentData = [
+        { name: 'Delivered', value: 83, color: '#10b981', labelClass: 'text-emerald-500' },
+        { name: 'In Transit', value: 11, color: '#3b82f6', labelClass: 'text-blue-500' },
+        { name: 'Pending', value: 4, color: '#f59e0b', labelClass: 'text-amber-500' },
+        { name: 'Cancelled', value: 2, color: '#ef4444', labelClass: 'text-red-500' },
+    ];
     return (
         <section className='w-full max-w-xs rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <p className='text-sm text-slate-500'>Status Pengiriman</p>
             <div className='mt-6 flex flex-col items-center gap-4'>
-                <svg viewBox='0 0 220 220' className='h-44 w-44'>
-                    <circle cx='110' cy='110' r='90' fill='#10b981' />
-                    <path d='M110 20 A90 90 0 0 1 200 110 L110 110 Z' fill='#3b82f6' />
-                    <path d='M200 110 A90 90 0 0 1 150 190 L110 110 Z' fill='#f97316' />
-                    <path d='M150 190 A90 90 0 0 1 110 200 L110 110 Z' fill='#ef4444' />
-                </svg>
+                <div className='h-44 w-44'>
+                    <ResponsiveContainer width='100%' height='100%'>
+                        <PieChart>
+                            <Pie
+                                data={shipmentData}
+                                dataKey='value'
+                                nameKey='name'
+                                cx='50%'
+                                cy='50%'
+                                innerRadius={50}
+                                outerRadius={80}
+                                paddingAngle={2}
+                                label={false}
+                                stroke='#fff'
+                                strokeWidth={3}
+                            >
+                                {shipmentData.map((entry, idx) => (
+                                    <Cell key={`cell-${idx}`} fill={entry.color} />
+                                ))}
+                            </Pie>
+                            <ReTooltip
+                                formatter={(value, name) => [`${value}%`, name]}
+                                contentStyle={{ background: 'rgba(15,23,42,0.9)', borderRadius: 8, borderColor: '#3b82f6', color: '#fff' }}
+                                itemStyle={{ color: '#fff' }}
+                            />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
                 <div className='space-y-1 text-xs font-medium text-slate-600'>
-                    <p className='text-emerald-500'>Delivered 83%</p>
-                    <p className='text-blue-500'>In Transit 11%</p>
-                    <p className='text-amber-500'>Pending 4%</p>
-                    <p className='text-red-500'>Cancelled 2%</p>
+                    {shipmentData.map((entry) => (
+                        <p key={entry.name} className={entry.labelClass}>{entry.name} {entry.value}%</p>
+                    ))}
                 </div>
             </div>
         </section>
@@ -208,10 +212,7 @@ function TransactionsCard() {
                     >
                         <div className='flex items-center gap-3'>
                             <div className='flex h-10 w-10 items-center justify-center rounded-full bg-slate-100'>
-                                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5 text-indigo-500'>
-                                    <path d='M3 7h18l-2 10H5L3 7Z' strokeLinejoin='round' />
-                                    <path d='M7 7V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2' />
-                                </svg>
+                                <HiClipboardDocumentList className='h-5 w-5 text-indigo-500' />
                             </div>
                             <div>
                                 <p className='text-sm font-semibold text-slate-800'>{transaction.company}</p>
