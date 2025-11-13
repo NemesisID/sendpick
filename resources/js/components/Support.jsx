@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import FilterDropdown from './common/FilterDropdown';
 
 const contactChannels = [
     {
@@ -226,6 +227,9 @@ function SupportChannel({ channel }) {
 }
 
 export default function SupportContent() {
+    // State for dropdown Priority
+    const [priority, setPriority] = useState('low');
+
     return (
         <div className='flex flex-col gap-8'>
             <header className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
@@ -280,14 +284,18 @@ export default function SupportContent() {
                         </label>
                         <label className='text-xs font-semibold text-slate-500'>
                             Priority
-                            <select
-                                defaultValue='low'
-                                className='mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
-                            >
-                                <option value='low'>Low - General question</option>
-                                <option value='medium'>Medium - Needs follow up</option>
-                                <option value='high'>High - Service interruption</option>
-                            </select>
+                            <div className='mt-2'>
+                                <FilterDropdown
+                                    value={priority}
+                                    onChange={setPriority}
+                                    options={[
+                                        { value: 'low', label: 'Low - General question' },
+                                        { value: 'medium', label: 'Medium - Needs follow up' },
+                                        { value: 'high', label: 'High - Service interruption' },
+                                    ]}
+                                    widthClass='w-full'
+                                />
+                            </div>
                         </label>
                         <label className='text-xs font-semibold text-slate-500'>
                             Description

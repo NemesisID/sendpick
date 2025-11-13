@@ -1,0 +1,383 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\DeliveryOrder;
+use App\Models\JobOrder;
+use App\Models\Manifests;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+
+/**
+ * DeliveryOrderController - Controller untuk mengelola Delivery Order (DO)
+ * 
+ * Fungsi utama:
+ * - Menampilkan daftar delivery order dengan pencarian dan filter
+ * - Membuat delivery order baru dengan nomor otomatis
+ * - Melihat detail delivery order dan relasi job orders
+ * - Mengupdate status dan data delivery order
+ * - Menghapus delivery order
+ * - Filter berdasarkan status, customer, dan tipe sumber
+ * - Tracking dan monitoring delivery progress
+ */
+class DeliveryOrderController extends Controller
+{
+    /**
+     * Menampilkan daftar delivery order dengan fitur pencarian dan filter
+     * 
+     * Fitur yang tersedia:
+     * - Pencarian berdasarkan DO ID, source ID, ringkasan barang, atau nama customer
+     * - Filter berdasarkan status delivery (pending, in_progress, delivered, dll)
+     * - Filter berdasarkan customer tertentu
+     * - Filter berdasarkan tipe sumber (manual, import, system)
+     * - Pagination dengan default 15 item per halaman
+     * - Include data customer dan creator
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $query = DeliveryOrder::with(['customer', 'createdBy']);
+
+        // Search functionality
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('do_id', 'ILIKE', "%{$search}%")
+                ->orWhere('source_id', 'ILIKE', "%{$search}%")
+                ->orWhere('goods_summary', 'ILIKE', "%{$search}%")
+                ->orWhereHas('customer', function($customerQuery) use ($search) {
+                    $customerQuery->where('customer_name', 'ILIKE', "%{$search}%");
+                });
+            });
+        }
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by customer
+        if ($request->filled('customer_id')) {
+            $query->where('customer_id', $request->customer_id);
+        }
+
+        // Filter by source type
+        if ($request->filled('source_type')) {
+            $query->where('source_type', $request->source_type);
+        }
+
+        // Filter by priority
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        // Filter by date range
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $query->whereBetween('do_date', [$request->start_date, $request->end_date]);
+        }
+
+        // Pagination
+        $perPage = $request->get('per_page', 15);
+        $deliveryOrders = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        // Add source information to each delivery order
+        $deliveryOrders->getCollection()->transform(function ($deliveryOrder) {
+            $deliveryOrder->source_info = $deliveryOrder->getSourceAttribute();
+            return $deliveryOrder;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $deliveryOrders->items(),
+            'pagination' => [
+                'current_page' => $deliveryOrders->currentPage(),
+                'per_page' => $deliveryOrders->perPage(),
+                'total' => $deliveryOrders->total(),
+                'last_page' => $deliveryOrders->lastPage()
+            ]
+        ], 200);
+    }
+
+    /**
+     * Store a newly created delivery order
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $request->validate([
+            'source_type' => 'required|in:JO,MF',
+            'source_id' => 'required|string',
+            'customer_id' => 'required|exists:customers,customer_id',
+            'do_date' => 'required|date',
+            'goods_summary' => 'required|string',
+            'priority' => 'nullable|in:Low,Medium,High,Urgent',
+            'temperature' => 'nullable|string|max:50'
+        ]);
+
+        // Validate source exists
+        if ($request->source_type === 'JO') {
+            $source = JobOrder::where('job_order_id', $request->source_id)->first();
+            if (!$source) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job Order tidak ditemukan'
+                ], 404);
+            }
+        } elseif ($request->source_type === 'MF') {
+            $source = Manifests::where('manifest_id', $request->source_id)->first();
+            if (!$source) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Manifest tidak ditemukan'
+                ], 404);
+            }
+        }
+
+        // Generate kode unik do_id
+        $doId = 'DO-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(6));
+        while (DeliveryOrder::where('do_id', $doId)->exists()) {
+            $doId = 'DO-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(6));
+        }
+
+        // Buat delivery order baru ke database
+        $deliveryOrder = DeliveryOrder::create([
+            'do_id' => $doId,
+            'source_type' => $request->source_type,
+            'source_id' => $request->source_id,
+            'customer_id' => $request->customer_id,
+            'status' => 'Pending',
+            'do_date' => $request->do_date,
+            'goods_summary' => $request->goods_summary,
+            'priority' => $request->priority,
+            'temperature' => $request->temperature,
+            'created_by' => Auth::id()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delivery Order created successfully',
+            'data' => $deliveryOrder->load(['customer', 'createdBy'])
+        ], 201);
+    }
+
+    /**
+     * Display the specified delivery order
+     * 
+     * @param string $doId
+     * @return JsonResponse
+     */
+    public function show(string $doId): JsonResponse
+    {
+        $deliveryOrder = DeliveryOrder::with(['customer', 'createdBy'])
+            ->where('do_id', $doId)
+            ->first();
+
+        if (!$deliveryOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order not found'
+            ], 404);
+        }
+
+        // Menambah informasi sumber ke delivery order
+        $deliveryOrder->source_info = $deliveryOrder->getSourceAttribute();
+
+        return response()->json([
+            'success' => true,
+            'data' => $deliveryOrder
+        ], 200);
+    }
+
+    /**
+     * Update the specified delivery order
+     * 
+     * @param Request $request
+     * @param string $doId
+     * @return JsonResponse
+     */
+    public function update(Request $request, string $doId): JsonResponse
+    {
+        $deliveryOrder = DeliveryOrder::where('do_id', $doId)->first();
+
+        if (!$deliveryOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order tidak ditemukan'
+            ], 404);
+        }
+
+        $request->validate([
+            'customer_id' => 'required|exists:customers,customer_id',
+            'do_date' => 'required|date',
+            'goods_summary' => 'required|string',
+            'priority' => 'nullable|in:Low,Medium,High,Urgent',
+            'temperature' => 'nullable|string|max:50',
+            'status' => 'in:Pending,Assigned,In Transit,Delivered,Completed'
+        ]);
+
+        // Jika datanya berhasil divalidasi, update delivery order
+        $deliveryOrder->update($request->only([
+            'customer_id',
+            'do_date',
+            'goods_summary',
+            'priority',
+            'temperature',
+            'status'
+        ]));
+
+        // If status is delivered, set delivered_date
+        if ($request->status === 'Delivered' && !$deliveryOrder->delivered_date) {
+            $deliveryOrder->update(['delivered_date' => now()->toDateString()]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delivery Order berhasil diupdate',
+            'data' => $deliveryOrder->load(['customer', 'createdBy'])
+        ], 200);
+    }
+
+    /**
+     * Menghapus delivery order yang ditentukan dari database berdasarkan do_id
+     * 
+     * @param string $doId
+     * @return JsonResponse
+     */
+    public function destroy(string $doId): JsonResponse
+    {
+        $deliveryOrder = DeliveryOrder::where('do_id', $doId)->first();
+
+        if (!$deliveryOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order tidak ditemukan'
+            ], 404);
+        }
+
+        // Check if delivery order is already in progress
+        if (in_array($deliveryOrder->status, ['In Transit', 'Delivered'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot delete delivery order that is in transit or delivered'
+            ], 422);
+        }
+
+        // Menghapus data delivery order dari database
+        $deliveryOrder->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delivery Order berhasil dihapus'
+        ], 200);
+    }
+
+    /**
+     * Menugaskan driver ke delivery order tertentu
+     * 
+     * @param Request $request
+     * @param string $doId
+     * @return JsonResponse
+     */
+    public function assignDriverToDO(Request $request, string $doId): JsonResponse
+    {
+        $deliveryOrder = DeliveryOrder::where('do_id', $doId)->first();
+
+        if (!$deliveryOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order not found'
+            ], 404);
+        }
+
+        $request->validate([
+            'driver_id' => 'required|exists:drivers,driver_id',
+            'vehicle_id' => 'required|exists:vehicles,vehicle_id',
+            'notes' => 'nullable|string'
+        ]);
+
+        // Jika validasi berhasil, maka update status delivery order menjadi 'Assigned'
+        $deliveryOrder->update(['status' => 'Assigned']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Driver assigned to Delivery Order successfully',
+            'data' => [
+                'do_id' => $deliveryOrder->do_id,
+                'driver_id' => $request->driver_id,
+                'vehicle_id' => $request->vehicle_id,
+                'status' => $deliveryOrder->status,
+                'assigned_at' => now()
+            ]
+        ], 200);
+    }
+
+    /**
+     * Complete delivery order setelah validasi POD oleh Admin
+     * Mengubah status dari 'Delivered' menjadi 'Completed'
+     * DO yang sudah completed siap untuk ditagih di modul Invoice
+     * 
+     * @param string $doId
+     * @return JsonResponse
+     */
+    public function completeDeliveryOrder(string $doId): JsonResponse
+    {
+        // Cari delivery order berdasarkan do_id
+        $deliveryOrder = DeliveryOrder::where('do_id', $doId)->first();
+
+        if (!$deliveryOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order tidak ditemukan'
+            ], 404);
+        }
+
+        // Validasi status harus 'Delivered' sebelum bisa di-complete
+        if ($deliveryOrder->status !== 'Delivered') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order harus berstatus "Delivered" sebelum dapat di-complete. Status saat ini masih ' . $deliveryOrder->status
+            ], 422);
+        }
+
+        // Check apakah sudah ada POD (Proof of Delivery)
+        // Asumsi: DO harus memiliki POD sebelum bisa completed
+        $hasPOD = DB::table('proof_of_deliveries')
+            ->where('do_id', $doId)
+            ->exists();
+
+        if (!$hasPOD) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order belum memiliki Proof of Delivery (POD). POD harus ada sebelum DO dapat di-complete.'
+            ], 422);
+        }
+
+        // Update status menjadi 'Completed'
+        $deliveryOrder->update([
+            'status' => 'Completed',
+            'completed_date' => now()->toDateString(),
+            'completed_by' => Auth::id()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delivery Order berhasil di-complete dan siap untuk ditagih',
+            'data' => [
+                'do_id' => $deliveryOrder->do_id,
+                'status' => $deliveryOrder->status,
+                'delivered_date' => $deliveryOrder->delivered_date,
+                'completed_date' => $deliveryOrder->completed_date,
+                'completed_by' => $deliveryOrder->completed_by,
+                'completed_at' => now()
+            ]
+        ], 200);
+    }
+}

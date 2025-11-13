@@ -305,52 +305,55 @@ function AssignmentRow({ assignment }) {
 
     return (
         <tr className='transition-colors hover:bg-slate-50'>
-            <td className='whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-800'>
+            <td className='whitespace-nowrap px-4 py-4 text-sm font-semibold text-slate-800 sm:px-6'>
                 <div className='flex items-center gap-3'>
                     <div className='flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600'>
                         <AssignmentTypeIcon type={assignment.assignmentType} className='h-4 w-4' />
                     </div>
-                    <span>{assignment.id}</span>
+                    <div className='flex flex-col'>
+                        <span className='text-sm font-semibold'>{assignment.id}</span>
+                        <span className='text-xs text-slate-400 sm:hidden'>Job: {assignment.jobOrderId}</span>
+                    </div>
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>
+            <td className='px-4 py-4 text-sm text-slate-600 sm:px-6'>
                 <div className='space-y-1'>
                     <p className='font-medium text-slate-700'>{assignmentTypeLabels[assignment.assignmentType]}</p>
-                    <p className='text-xs text-slate-400'>Job: {assignment.jobOrderId}</p>
+                    <p className='text-xs text-slate-400 hidden sm:block'>Job: {assignment.jobOrderId}</p>
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>
+            <td className='px-4 py-4 text-sm text-slate-600 sm:px-6'>
                 <div className='space-y-1'>
                     <p className='font-medium text-slate-700'>{assignment.assignedTo}</p>
                     <p className='text-xs text-slate-400'>by {assignment.assignedBy}</p>
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>
+            <td className='px-4 py-4 text-sm text-slate-600 sm:px-6 hidden lg:table-cell'>
                 <div className='space-y-1'>
                     <p className='font-medium text-slate-700'>{assignment.customer}</p>
                     <p className='text-xs text-slate-400'>{assignment.route}</p>
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>
+            <td className='px-4 py-4 text-sm text-slate-600 sm:px-6 hidden md:table-cell'>
                 {assignment.vehicle && (
                     <span className='inline-flex items-center rounded-lg bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700'>
                         {assignment.vehicle}
                     </span>
                 )}
             </td>
-            <td className='px-6 py-4'>
-                <div className='flex items-center gap-2'>
+            <td className='px-4 py-4 sm:px-6'>
+                <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2'>
                     <StatusBadge status={assignment.status} />
                     <PriorityBadge priority={assignment.priority} />
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>
+            <td className='px-4 py-4 text-sm text-slate-600 sm:px-6 hidden sm:table-cell'>
                 <div className='space-y-1'>
                     <p>{scheduled.date}</p>
                     <p className='text-xs text-slate-400'>{scheduled.time}</p>
                 </div>
             </td>
-            <td className='px-6 py-4 text-right text-xs text-slate-400'>
+            <td className='px-4 py-4 text-right text-xs text-slate-400 sm:px-6 hidden xl:table-cell'>
                 <div className='space-y-1'>
                     <p>Assigned: {assigned.date}</p>
                     <p>{assigned.time}</p>
@@ -371,64 +374,81 @@ function AssignmentTable({
 }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
-                <div>
+            <div className='flex flex-col gap-4'>
+                {/* Title Section */}
+                <div className='flex flex-col gap-1'>
                     <h2 className='text-lg font-semibold text-slate-900'>Assignment Management</h2>
                     <p className='text-sm text-slate-400'>Manage staff assignments and task allocation</p>
                 </div>
-                <div className='flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-center'>
-                    <div className='group relative min-w-[240px] flex-1'>
-                        <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
-                            <SearchIcon className='h-5 w-5' />
-                        </span>
-                        <input
-                            type='text'
-                            value={searchTerm}
-                            onChange={(event) => onSearchChange(event.target.value)}
-                            placeholder='Search assignments, staff, or job orders...'
-                            className='w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-600 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
-                        />
+                
+                {/* Controls Section */}
+                <div className='flex flex-col gap-3'>
+                    {/* Search Bar */}
+                    <div className='w-full'>
+                        <div className='group relative'>
+                            <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
+                                <SearchIcon className='h-5 w-5' />
+                            </span>
+                            <input
+                                type='text'
+                                value={searchTerm}
+                                onChange={(event) => onSearchChange(event.target.value)}
+                                placeholder='Search assignments, staff, or job orders...'
+                                className='w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-600 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
+                            />
+                        </div>
                     </div>
-                    <FilterDropdown
-                        value={statusFilter}
-                        onChange={onStatusChange}
-                        options={statusFilterOptions}
-                        widthClass='w-full sm:w-40'
-                    />
-                    <FilterDropdown
-                        value={typeFilter}
-                        onChange={onTypeChange}
-                        options={typeFilterOptions}
-                        widthClass='w-full sm:w-48'
-                    />
-                    <button
-                        type='button'
-                        className='inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
-                    >
-                        <PlusIcon className='h-4 w-4' />
-                        New Assignment
-                    </button>
-                    <button
-                        type='button'
-                        className='inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
-                    >
-                        <DownloadIcon className='h-4 w-4' />
-                        Export CSV
-                    </button>
+                    
+                    {/* Filters and Actions */}
+                    <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                        {/* Filters */}
+                        <div className='flex flex-col gap-2 sm:flex-row sm:gap-3'>
+                            <FilterDropdown
+                                value={statusFilter}
+                                onChange={onStatusChange}
+                                options={statusFilterOptions}
+                                widthClass='w-full sm:w-40'
+                            />
+                            <FilterDropdown
+                                value={typeFilter}
+                                onChange={onTypeChange}
+                                options={typeFilterOptions}
+                                widthClass='w-full sm:w-48'
+                            />
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className='flex flex-col gap-2 sm:flex-row sm:gap-3'>
+                            <button
+                                type='button'
+                                className='inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                            >
+                                <PlusIcon className='h-4 w-4' />
+                                New Assignment
+                            </button>
+                            <button
+                                type='button'
+                                className='inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                            >
+                                <DownloadIcon className='h-4 w-4' />
+                                Export CSV
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div className='mt-6 overflow-x-auto'>
+            <div className='mt-6 overflow-x-auto rounded-2xl border border-slate-200'>
                 <table className='w-full min-w-[1000px] border-collapse'>
-                    <thead>
+                    <thead className='bg-slate-50'>
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
-                            <th className='px-6 py-3'>Assignment ID</th>
-                            <th className='px-6 py-3'>Type</th>
-                            <th className='px-6 py-3'>Assigned To</th>
-                            <th className='px-6 py-3'>Customer & Route</th>
-                            <th className='px-6 py-3'>Vehicle</th>
-                            <th className='px-6 py-3'>Status</th>
-                            <th className='px-6 py-3'>Scheduled</th>
-                            <th className='px-6 py-3 text-right'>Created</th>
+                            <th className='px-4 py-3 sm:px-6'>Assignment ID</th>
+                            <th className='px-4 py-3 sm:px-6'>Type</th>
+                            <th className='px-4 py-3 sm:px-6'>Assigned To</th>
+                            <th className='px-4 py-3 sm:px-6 hidden lg:table-cell'>Customer & Route</th>
+                            <th className='px-4 py-3 sm:px-6 hidden md:table-cell'>Vehicle</th>
+                            <th className='px-4 py-3 sm:px-6'>Status</th>
+                            <th className='px-4 py-3 sm:px-6 hidden sm:table-cell'>Scheduled</th>
+                            <th className='px-4 py-3 sm:px-6 text-right hidden xl:table-cell'>Created</th>
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
@@ -436,7 +456,7 @@ function AssignmentTable({
                             records.map((assignment) => <AssignmentRow key={assignment.id} assignment={assignment} />)
                         ) : (
                             <tr>
-                                <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={8} className='px-4 py-12 text-center text-sm text-slate-400 sm:px-6'>
                                     No assignments found matching the current filters.
                                 </td>
                             </tr>

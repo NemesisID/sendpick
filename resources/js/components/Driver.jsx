@@ -1,14 +1,55 @@
-﻿
 import React, { useEffect, useMemo, useState } from 'react';
 import FilterDropdown from './common/FilterDropdown';
+import EditModal from './common/EditModal';
+import DeleteConfirmModal from './common/DeleteConfirmModal';
 import ReactDOM from 'react-dom/client';
+import { 
+    HiHome, 
+    HiUsers, 
+    HiUser, 
+    HiIdentification,
+    HiTruck,
+    HiShieldCheck,
+    HiClipboardDocument,
+    HiDocument,
+    HiRectangleStack,
+    HiReceiptRefund,
+    HiChartPie,
+    HiClock,
+    HiBell,
+    HiChartBar,
+    HiCog,
+    HiBookOpen,
+    HiPhone,
+    HiLifebuoy,
+    HiArrowRightOnRectangle,
+    HiPlus,
+    HiPencil,
+    HiTrash,
+    HiEye,
+    HiMagnifyingGlass,
+    HiFunnel,
+    HiMapPin,
+    HiStar,
+    HiEnvelope,
+    HiCheckCircle,
+    HiArrowTrendingUp,
+    HiComputerDesktop,
+    HiBars3,
+    HiChevronDown,
+    HiSun,
+    HiMoon
+} from 'react-icons/hi2';
 import { ThemeProvider } from '../context/ThemeContext';
 import HomeContent from './Home';
 import CustomerContent from './Customer';
-import AdminContent from './Admin';
+import AdminContent from './Users';
+console.log('AdminContent imported:', AdminContent);
 import JobOrderContent from './JobOrder';
+console.log('JobOrderContent imported:', JobOrderContent);
 import InvoiceContent from './Invoice';
 import VehicleListContent from './VehicleList';
+import VehicleTypesContent from './VehicleTypes';
 import VehicleHistoryContent from './VehicleHistory';
 import ActiveVehiclesContent from './ActiveVehicles';
 import SupportContent from './Support';
@@ -20,267 +61,48 @@ import DeliveryOrderContent from './DeliveryOrder';
 import ProfileContent from './Profile';
 import NotificationsContent, { unreadNotificationsCount as dashboardUnreadNotifications } from './Notifications';
 
-const createIcon = (children) => (className = 'w-5 h-5') => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        {children}
-    </svg>
-);
-
 const navigationIcons = {
-    home: createIcon(
-        <>
-            <path d='m4 10 8-6 8 6' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M5 10v9a1 1 0 0 0 1 1h4.5v-5h3v5H19a1 1 0 0 0 1-1v-9' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    users: createIcon(
-        <>
-            <path d='M16 18v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1' strokeLinecap='round' strokeLinejoin='round' />
-            <circle cx='10' cy='7' r='3' />
-            <path d='M20 18v-1a4 4 0 0 0-2.62-3.73' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M16 4a3 3 0 1 1 0 6' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    profile: createIcon(
-        <>
-            <circle cx='12' cy='8' r='4' />
-            <path d='M5 19a7 7 0 0 1 14 0' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    contacts: createIcon(
-        <>
-            <path d='M6 4h9a2 2 0 0 1 2 2v13l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z' strokeLinecap='round' strokeLinejoin='round' />
-            <circle cx='10.5' cy='10' r='2' />
-            <path d='M8 15.5a3.5 3.5 0 0 1 5 0' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M20 7v10' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    driver: createIcon(
-        <>
-            <circle cx='12' cy='12' r='7' />
-            <path d='M12 6v4' strokeLinecap='round' />
-            <path d='m5.6 13.5 3.8-1.5L8.4 18' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='m18.4 13.5-3.8-1.5 1 6' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    shield: createIcon(
-        <>
-            <path d='M12 3 5 6v5c0 4.5 3.07 8.5 7 9.5 3.93-1 7-5 7-9.5V6z' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    clipboard: createIcon(
-        <>
-            <rect x='5' y='4' width='14' height='16' rx='2' />
-            <path d='M9 4V3h6v1' strokeLinecap='round' />
-            <path d='M9 10h6M9 14h6' strokeLinecap='round' />
-        </>
-    ),
-    document: createIcon(
-        <>
-            <path d='M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M14 3v5h5' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M9 13h6M9 17h3' strokeLinecap='round' />
-        </>
-    ),
-    layers: createIcon(
-        <>
-            <path d='m12 4 9 5-9 5-9-5 9-5Z' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='m3 13 9 5 9-5' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    truck: createIcon(
-        <>
-            <path d='M3 7h11v8H3z' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M14 11h3l3 3v3h-3' strokeLinecap='round' strokeLinejoin='round' />
-            <circle cx='7.5' cy='19' r='1.5' />
-            <circle cx='16.5' cy='19' r='1.5' />
-        </>
-    ),
-    receipt: createIcon(
-        <>
-            <path d='M7 3h10a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1z' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M9 8h6M9 12h6' strokeLinecap='round' />
-        </>
-    ),
-    gauge: createIcon(
-        <>
-            <path d='M5 17a7 7 0 0 1 14 0' strokeLinecap='round' />
-            <path d='m12 10 3-3' strokeLinecap='round' strokeLinejoin='round' />
-            <circle cx='12' cy='10' r='1' fill='currentColor' stroke='none' />
-        </>
-    ),
-    tracking: createIcon(
-        <>
-            <circle cx='12' cy='12' r='7' />
-            <path d='M12 5v3' strokeLinecap='round' />
-            <path d='M19 12h-3' strokeLinecap='round' />
-            <path d='m12 12 4 4' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    notifications: createIcon(
-        <>
-            <path d='M10 21h4' strokeLinecap='round' />
-            <path d='M4 8a8 8 0 0 1 16 0v5l1 1v1H3v-1l1-1z' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    chart: createIcon(
-        <>
-            <path d='M4 19h16' strokeLinecap='round' />
-            <path d='M7 16v-5' strokeLinecap='round' />
-            <path d='M12 16V9' strokeLinecap='round' />
-            <path d='M17 16V7' strokeLinecap='round' />
-        </>
-    ),
-    settings: createIcon(
-        <>
-            <circle cx='12' cy='12' r='3' />
-            <path d='M19.5 12a7.5 7.5 0 0 0-.12-1.3l1.62-1.25-2-3.46-1.94.8a7.55 7.55 0 0 0-2.25-1.31L14.5 3h-5l-.31 2.48a7.55 7.55 0 0 0-2.25 1.31l-1.94-.8-2 3.46 1.62 1.25c-.08.43-.12.86-.12 1.3s.04.87.12 1.3l-1.62 1.25 2 3.46 1.94-.8a7.55 7.55 0 0 0 2.25 1.31L9.5 21h5l.31-2.48a7.55 7.55 0 0 0 2.25-1.31l1.94.8 2-3.46-1.62-1.25c.08-.43.12-.86.12-1.3z' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    book: createIcon(
-        <>
-            <path d='M5 4h8a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H5z' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M5 4v13a3 3 0 0 1 3 3h8' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    support: createIcon(
-        <>
-            <circle cx='12' cy='12' r='8' />
-            <circle cx='12' cy='12' r='4' />
-            <path d='M4.93 4.93 7.76 7.76' strokeLinecap='round' />
-            <path d='M16.24 7.76 19.07 4.93' strokeLinecap='round' />
-            <path d='M4.93 19.07 7.76 16.24' strokeLinecap='round' />
-            <path d='M16.24 16.24 19.07 19.07' strokeLinecap='round' />
-        </>
-    ),
-    history: createIcon(
-        <>
-            <path d='M12 5a7 7 0 1 1-4.95 2.05' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M5 5v4h4' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M12 9v4l3 2' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
-    activity: createIcon(
-        <>
-            <path d='M4 13h4l2-6 4 10 2-6h4' strokeLinecap='round' strokeLinejoin='round' />
-        </>
-    ),
+    home: HiHome,
+    users: HiUsers,
+    profile: HiUser,
+    contacts: HiIdentification,
+    driver: HiTruck,
+    shield: HiShieldCheck,
+    clipboard: HiClipboardDocument,
+    document: HiDocument,
+    layers: HiRectangleStack,
+    truck: HiTruck,
+    receipt: HiReceiptRefund,
+    gauge: HiChartPie,
+    tracking: HiClock,
+    notifications: HiBell,
+    chart: HiChartBar,
+    settings: HiCog,
+    book: HiBookOpen,
+    support: HiLifebuoy,
+    history: HiClock,
+    activity: HiArrowTrendingUp,
 };
 
-const PlusIcon = createIcon(
-    <>
-        <path d='M12 5v14M5 12h14' strokeLinecap='round' />
-    </>
-);
-const MenuIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M4 6h16M4 12h16M4 18h16' strokeLinecap='round' />
-    </svg>
-);
+const PlusIcon = ({ className = 'h-4 w-4' }) => <HiPlus className={className} />;
+const MenuIcon = ({ className = 'h-5 w-5' }) => <HiBars3 className={className} />;
+const BellIcon = ({ className = 'h-6 w-6' }) => <HiBell className={className} />;
+const ChevronDownIcon = ({ className = 'h-4 w-4' }) => <HiChevronDown className={className} />;
+const SunIcon = ({ className = 'h-5 w-5' }) => <HiSun className={className} />;
+const MoonIcon = ({ className = 'h-5 w-5' }) => <HiMoon className={className} />;
 
-const BellIcon = ({ className = 'h-6 w-6' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M10 21h4' strokeLinecap='round' />
-        <path d='M4 8a8 8 0 0 1 16 0v5l1 1v1H3v-1l1-1z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+const MonitorIcon = ({ className = 'h-5 w-5' }) => <HiComputerDesktop className={className} />;
+const SearchIcon = ({ className = 'h-4 w-4' }) => <HiMagnifyingGlass className={className} />;
 
-const ChevronDownIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='m8 9 4 4 4-4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const SunIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='12' cy='12' r='4' />
-        <path
-            d='M12 3v2M12 19v2M5.64 5.64l1.42 1.42M16.94 16.94l1.42 1.42M3 12h2M19 12h2M5.64 18.36l1.42-1.42M16.94 7.06l1.42-1.42'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-        />
-    </svg>
-);
-
-const MoonIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M21 12.79A9 9 0 0 1 11.21 3 7 7 0 1 0 21 12.79z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const MonitorIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <rect x='3' y='4' width='18' height='12' rx='2' />
-        <path d='M8 20h8' strokeLinecap='round' />
-        <path d='M12 16v4' strokeLinecap='round' />
-    </svg>
-);
-const SearchIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='7' />
-        <path d='m16 16 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const FilterIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M4 6h16' strokeLinecap='round' />
-        <path d='M7 12h10' strokeLinecap='round' />
-        <path d='M10 18h4' strokeLinecap='round' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='m14.5 5.5 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const TrashIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M5 7h14' strokeLinecap='round' />
-        <path d='M10 11v6M14 11v6' strokeLinecap='round' />
-        <path d='M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const PhoneIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M6.5 3h2a1 1 0 0 1 1 .72c.23.92.65 2.19 1.3 3.5a1 1 0 0 1-.23 1.15L9.1 10.04c1.4 2.3 3.2 4.1 5.5 5.5l1.67-1.47a1 1 0 0 1 1.15-.23c1.3.65 2.58 1.07 3.5 1.3a1 1 0 0 1 .72 1v2a1 1 0 0 1-1.05 1 16 16 0 0 1-14.5-14.45A1 1 0 0 1 6.5 3z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const MailIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <rect x='3' y='5' width='18' height='14' rx='2' />
-        <path d='m4 7 8 6 8-6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const VehicleIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M3 13h18l-2-6H5z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M5 17h14' strokeLinecap='round' />
-        <circle cx='7.5' cy='17.5' r='1.5' />
-        <circle cx='16.5' cy='17.5' r='1.5' />
-    </svg>
-);
-
-const MapPinIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M12 3a6 6 0 0 1 6 6c0 4.5-6 12-6 12s-6-7.5-6-12a6 6 0 0 1 6-6z' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='12' cy='9' r='2' />
-    </svg>
-);
-
-const StarIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='currentColor' stroke='none' className={className}>
-        <path d='m12 4 2.2 4.5 5 .7-3.6 3.5.9 5.1L12 15.8 7.5 17.8l.9-5.1-3.6-3.5 5-.7z' />
-    </svg>
-);
+// Icons menggunakan React Icons
+const FilterIcon = ({ className = 'h-4 w-4' }) => <HiFunnel className={className} />;
+const EditIcon = ({ className = 'h-4 w-4' }) => <HiPencil className={className} />;
+const TrashIcon = ({ className = 'h-4 w-4' }) => <HiTrash className={className} />;
+const PhoneIcon = ({ className = 'h-4 w-4' }) => <HiPhone className={className} />;
+const MailIcon = ({ className = 'h-4 w-4' }) => <HiEnvelope className={className} />;
+const VehicleIcon = ({ className = 'h-5 w-5' }) => <HiTruck className={className} />;
+const MapPinIcon = ({ className = 'h-4 w-4' }) => <HiMapPin className={className} />;
+const StarIcon = ({ className = 'h-4 w-4' }) => <HiStar className={className} />;
 const navigationSections = [
     {
         heading: 'Main',
@@ -290,16 +112,15 @@ const navigationSections = [
         ],
     },
     {
-        heading: 'Contacts',
+        heading: 'Master Data',
         items: [
             {
-                label: 'Contacts',
+                label: 'Master Data',
                 icon: navigationIcons.contacts,
                 id: 'contacts',
                 children: [
                     { label: 'Customers', icon: navigationIcons.users, view: 'customers' },
                     { label: 'Drivers', icon: navigationIcons.driver, view: 'driversManagement' },
-                    { label: 'Admins', icon: navigationIcons.shield, view: 'admins' },
                 ],
             },
         ],
@@ -329,6 +150,7 @@ const navigationSections = [
                 id: 'fleetManagement',
                 children: [
                     { label: 'Vehicle List', icon: navigationIcons.gauge, view: 'vehicleList' },
+                    { label: 'Vehicle Types', icon: navigationIcons.layers, view: 'vehicleTypes' },
                     { label: 'History & Recap', icon: navigationIcons.history, view: 'vehicleHistory' },
                     { label: 'Active Vehicles', icon: navigationIcons.activity, view: 'activeVehicles' },
                 ],
@@ -345,8 +167,11 @@ const navigationSections = [
         ],
     },
     {
-        heading: 'Account',
-        items: [{ label: 'Profile', icon: navigationIcons.profile, view: 'profile' }],
+        heading: 'Account & Settings',
+        items: [
+            { label: 'Users', icon: navigationIcons.shield, view: 'admins' },
+            { label: 'Profile', icon: navigationIcons.profile, view: 'profile' },
+        ],
     },
 ];
 const driverSummaryCards = [
@@ -364,12 +189,7 @@ const driverSummaryCards = [
         description: '85% sedang bertugas',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiCheckCircle className='h-5 w-5' />,
     },
     {
         title: 'Sedang Kirim',
@@ -377,12 +197,7 @@ const driverSummaryCards = [
         description: 'Rata-rata 5 order / driver',
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 7h18l-2 10H5L3 7Z' strokeLinejoin='round' />
-                <path d='M7 7V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2' />
-            </svg>
-        ),
+        icon: <HiArrowTrendingUp className='h-5 w-5' />,
     },
     {
         title: 'Rating Rata-rata',
@@ -428,8 +243,8 @@ const driverRecords = [
         code: 'DRV-001',
         phone: '+62 812-3456-7890',
         email: 'rudi.santoso@sendpick.com',
-        vehicle: 'Fuso FM 517',
-        plate: 'B 9123 SP',
+        vehicle: 'B 1234 AB-Mitsubishi Fuso Fighter (2022)', // Format sesuai dropdown
+        plate: 'B 1234 AB',
         status: 'active',
         shift: 'morning',
         lastLocation: 'Gudang Pusat - Cakung',
@@ -441,8 +256,8 @@ const driverRecords = [
         code: 'DRV-014',
         phone: '+62 819-4455-6677',
         email: 'siti.aisyah@sendpick.com',
-        vehicle: 'Isuzu Elf NLR',
-        plate: 'B 7124 SPD',
+        vehicle: 'B 5678 CD-Daihatsu Gran Max (2021)',
+        plate: 'B 5678 CD',
         status: 'standby',
         shift: 'afternoon',
         lastLocation: 'Hub Bekasi',
@@ -454,8 +269,8 @@ const driverRecords = [
         code: 'DRV-027',
         phone: '+62 857-3344-1122',
         email: 'adi.pratama@sendpick.com',
-        vehicle: 'Hino Dutro 130',
-        plate: 'B 8321 SPD',
+        vehicle: 'B 3456 GH-Hino Dutro 130 (2023)',
+        plate: 'B 3456 GH',
         status: 'active',
         shift: 'night',
         lastLocation: 'Tol Jakarta - Cikampek KM 19',
@@ -467,8 +282,8 @@ const driverRecords = [
         code: 'DRV-033',
         phone: '+62 813-9876-5544',
         email: 'made.wijaya@sendpick.com',
-        vehicle: 'Mitsubishi L300',
-        plate: 'DK 9123 OJ',
+        vehicle: 'B 7890 IJ-Suzuki Carry (2022)',
+        plate: 'B 7890 IJ',
         status: 'off',
         shift: 'morning',
         lastLocation: 'Bengkel Resmi - Denpasar',
@@ -480,8 +295,8 @@ const driverRecords = [
         code: 'DRV-042',
         phone: '+62 812-7788-9900',
         email: 'dewi.anggraini@sendpick.com',
-        vehicle: 'Isuzu Traga',
-        plate: 'B 9981 SPM',
+        vehicle: 'B 1234 AB-Mitsubishi Fuso Fighter (2022)',
+        plate: 'B 1234 AB',
         status: 'active',
         shift: 'afternoon',
         lastLocation: 'Gudang Timur - BSD',
@@ -551,13 +366,37 @@ const viewConfigs = {
         title: 'Tim Admin',
         subtitle: 'Pengaturan peran dan aktivitas administrator sistem',
         actionButton: { label: 'Tambah Admin', icon: PlusIcon },
-        getContent: () => <AdminContent />,
+        getContent: () => {
+            console.log('Getting AdminContent for admins view...');
+            return <AdminContent />;
+        },
     },
     jobOrder: {
         title: 'Job Order',
         subtitle: 'Daftar penugasan operasional dan status penyelesaian',
         actionButton: { label: 'Buat Job Order', icon: PlusIcon },
-        getContent: () => <JobOrderContent />,
+        getContent: () => {
+            console.log('jobOrder getContent() called, returning JobOrderContent');
+            console.log('JobOrderContent component:', JobOrderContent);
+            if (!JobOrderContent) {
+                console.error('JobOrderContent is undefined! Check import statement.');
+                return <div className="p-4 bg-red-50 border border-red-200 rounded">
+                    <h3 className="text-red-800 font-semibold">Import Error</h3>
+                    <p className="text-red-600 mt-1">JobOrderContent component could not be loaded.</p>
+                </div>;
+            }
+            try {
+                const component = <JobOrderContent />;
+                console.log('JobOrderContent component created successfully:', component);
+                return component;
+            } catch (error) {
+                console.error('Error creating JobOrderContent component:', error);
+                return <div className="p-4 bg-red-50 border border-red-200 rounded">
+                    <h3 className="text-red-800 font-semibold">Component Error</h3>
+                    <p className="text-red-600 mt-1">Error creating JobOrderContent: {error.message}</p>
+                </div>;
+            }
+        },
     },
     manifest: {
         title: 'Manifest & Packing List',
@@ -568,7 +407,7 @@ const viewConfigs = {
     deliveryOrder: {
         title: 'Delivery Order',
         subtitle: 'Monitoring proses pengiriman dan bukti serah terima',
-        actionButton: { label: 'Tambah Delivery Order', icon: navigationIcons.truck },
+        actionButton: { label: 'Refresh Monitoring', icon: navigationIcons.truck },
         getContent: () => <DeliveryOrderContent />,
     },
     invoices: {
@@ -583,6 +422,12 @@ const viewConfigs = {
         actionButton: { label: 'Tambah Kendaraan', icon: navigationIcons.truck },
         getContent: () => <VehicleListContent />,
     },
+    vehicleTypes: {
+        title: 'Tipe Kendaraan',
+        subtitle: 'Kelola kategori dan spesifikasi tipe kendaraan armada',
+        actionButton: { label: 'Tambah Tipe', icon: navigationIcons.layers },
+        getContent: () => <VehicleTypesContent />,
+    },
     vehicleHistory: {
         title: 'History & Recap Armada',
         subtitle: 'Tinjau histori operasional armada dan insight performa.',
@@ -596,14 +441,14 @@ const viewConfigs = {
         getContent: () => <ActiveVehiclesContent />,
     },
     report: {
-        title: 'Laporan & Analitik',
-        subtitle: 'Analisis performa operasional dan KPI utama',
+        // title: 'Laporan & Analitik',
+        // subtitle: 'Analisis performa operasional dan KPI utama',
         actionButton: null,
         getContent: () => <ReportContent />,
     },
     tracking: {
-        title: 'Pelacakan Pengiriman',
-        subtitle: 'Pantau posisi paket dan status pengiriman secara real-time',
+        // title: 'Pelacakan Pengiriman',
+        // subtitle: 'Pantau posisi paket dan status pengiriman secara real-time',
         actionButton: null,
         getContent: () => <TrackingContent />,
     },
@@ -652,7 +497,16 @@ function DriverStatusBadge({ status }) {
     );
 }
 
-function DriverRow({ driver }) {
+function DriverRow({ driver, onEdit, onDelete }) {
+    // Helper function to display vehicle name in a user-friendly format
+    const getDisplayVehicleName = (vehicleValue) => {
+        if (vehicleValue && vehicleValue.includes('-')) {
+            // Extract just the model part after the dash
+            return vehicleValue.split('-')[1];
+        }
+        return vehicleValue;
+    };
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='px-6 py-4'>
@@ -685,7 +539,7 @@ function DriverRow({ driver }) {
             </td>
             <td className='px-6 py-4'>
                 <div className='space-y-1'>
-                    <p className='text-sm font-semibold text-slate-800'>{driver.vehicle}</p>
+                    <p className='text-sm font-semibold text-slate-800'>{getDisplayVehicleName(driver.vehicle)}</p>
                     <p className='text-xs text-slate-400'>{driver.plate}</p>
                 </div>
             </td>
@@ -715,6 +569,10 @@ function DriverRow({ driver }) {
                 <div className='flex items-center gap-2'>
                     <button
                         type='button'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onEdit(driver);
+                        }}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Edit ${driver.name}`}
                     >
@@ -722,6 +580,10 @@ function DriverRow({ driver }) {
                     </button>
                     <button
                         type='button'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onDelete(driver);
+                        }}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
                         aria-label={`Hapus ${driver.name}`}
                     >
@@ -733,16 +595,30 @@ function DriverRow({ driver }) {
     );
 }
 
-function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShiftChange }) {
+function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShiftChange, onAdd, onEdit, onDelete }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
-                <div>
-                    <h2 className='text-lg font-semibold text-slate-900'>Daftar Driver</h2>
-                    <p className='text-sm text-slate-400'>Kontrol aktivitas dan kinerja driver harian</p>
+            <div className='flex flex-col gap-4'>
+                {/* Header Section */}
+                <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
+                    <div>
+                        <h2 className='text-lg font-semibold text-slate-900'>Daftar Driver</h2>
+                        <p className='text-sm text-slate-400'>Kontrol aktivitas dan kinerja driver harian</p>
+                    </div>
+                    <div className='flex justify-end'>
+                        <button
+                            type='button'
+                            onClick={onAdd}
+                            className='inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500'
+                        >
+                            <HiPlus className='h-4 w-4' />
+                            Tambah Driver
+                        </button>
+                    </div>
                 </div>
-                <div className='flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-center'>
-                    <div className='group relative min-w-[260px] flex-1'>
+                {/* Search & Filter Section */}
+                <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
+                    <div className='group relative flex-1'>
                         <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
                             <SearchIcon />
                         </span>
@@ -779,7 +655,14 @@ function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShift
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {drivers.length > 0 ? (
-                            drivers.map((driver) => <DriverRow key={driver.code} driver={driver} />)
+                            drivers.map((driver) => (
+                                <DriverRow 
+                                    key={driver.code} 
+                                    driver={driver}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                />
+                            ))
                         ) : (
                             <tr>
                                 <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
@@ -864,6 +747,201 @@ function DriverLeaderboard() {
 function DriverManagementContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [shiftFilter, setShiftFilter] = useState('all');
+    
+    // Modal states
+    const [editModal, setEditModal] = useState({ isOpen: false, driver: null });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, driver: null });
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Edit modal handlers
+    const handleAdd = () => {
+        setEditModal({ isOpen: true, driver: null });
+    };
+
+    const handleEdit = (driver) => {
+        setEditModal({ isOpen: true, driver });
+    };
+
+    const handleEditSubmit = async (formData) => {
+        setIsLoading(true);
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Update driver data (in real app, this would be an API call)
+            console.log('Updating driver:', editModal.driver.code, 'with data:', formData);
+            
+            // Close modal
+            setEditModal({ isOpen: false, driver: null });
+        } catch (error) {
+            console.error('Error updating driver:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleEditClose = () => {
+        setEditModal({ isOpen: false, driver: null });
+    };
+
+    // Delete modal handlers
+    const handleDelete = (driver) => {
+        setDeleteModal({ isOpen: true, driver });
+    };
+
+    const handleDeleteConfirm = async () => {
+        setIsLoading(true);
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Delete driver (in real app, this would be an API call)
+            console.log('Deleting driver:', deleteModal.driver.code);
+            
+            // Close modal
+            setDeleteModal({ isOpen: false, driver: null });
+        } catch (error) {
+            console.error('Error deleting driver:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDeleteClose = () => {
+        setDeleteModal({ isOpen: false, driver: null });
+    };
+
+    // Get available vehicles for dropdown
+    const getAvailableVehicles = () => {
+        // Mock data from Vehicle List - in real app, this would come from API
+        const vehicleList = [
+            {
+                plate: 'B 1234 AB',
+                model: 'Mitsubishi Fuso Fighter (2022)',
+                type: 'Truck',
+                capacity: '5 Ton',
+                status: 'active'
+            },
+            {
+                plate: 'B 5678 CD',
+                model: 'Daihatsu Gran Max (2021)',
+                type: 'Van',
+                capacity: '1.5 Ton',
+                status: 'active'
+            },
+            {
+                plate: 'B 9012 EF',
+                model: 'Isuzu D-Max (2020)',
+                type: 'Pickup',
+                capacity: '1 Ton',
+                status: 'maintenance'
+            },
+            {
+                plate: 'B 3456 GH',
+                model: 'Hino Dutro 130 (2023)',
+                type: 'Truck',
+                capacity: '3 Ton',
+                status: 'active'
+            },
+            {
+                plate: 'B 7890 IJ',
+                model: 'Suzuki Carry (2022)',
+                type: 'Pickup',
+                capacity: '750 Kg',
+                status: 'active'
+            }
+        ];
+
+        // Filter only available vehicles (not assigned or in maintenance)
+        return vehicleList
+            .filter(vehicle => vehicle.status === 'active')
+            .map(vehicle => ({
+                value: `${vehicle.plate}-${vehicle.model}`,
+                label: `${vehicle.plate} - ${vehicle.model}`,
+                plate: vehicle.plate,
+                model: vehicle.model,
+                type: vehicle.type,
+                capacity: vehicle.capacity
+            }));
+    };
+
+    // Driver form fields configuration
+    const driverFields = [
+        {
+            name: 'name',
+            label: 'Nama Driver',
+            type: 'text',
+            required: true,
+            placeholder: 'Masukkan nama driver'
+        },
+        {
+            name: 'phone',
+            label: 'Nomor Telepon',
+            type: 'tel',
+            required: true,
+            placeholder: 'Contoh: +62812345678'
+        },
+        {
+            name: 'email',
+            label: 'Email',
+            type: 'email',
+            required: true,
+            placeholder: 'Masukkan alamat email'
+        },
+        {
+            name: 'vehicle',
+            label: 'Pilih Kendaraan',
+            type: 'select',
+            required: true,
+            placeholder: 'Pilih kendaraan yang tersedia',
+            options: [
+                { value: '', label: '-- Pilih Kendaraan --' },
+                ...getAvailableVehicles()
+            ]
+        },
+        {
+            name: 'plate',
+            label: 'Nomor Plat',
+            type: 'text',
+            required: true,
+            placeholder: 'Contoh: B 1234 ABC',
+            disabled: true, // Auto-filled from vehicle selection
+            description: 'Otomatis terisi saat memilih kendaraan'
+        },
+        {
+            name: 'shift',
+            label: 'Shift Kerja',
+            type: 'select',
+            required: true,
+            options: [
+                { value: 'pagi', label: 'Pagi (06:00-14:00)' },
+                { value: 'siang', label: 'Siang (14:00-22:00)' },
+                { value: 'malam', label: 'Malam (22:00-06:00)' }
+            ]
+        }
+    ];
+
+    // Handle vehicle selection change to auto-fill plate number
+    const handleFormFieldChange = (fieldName, value, setFormData) => {
+        if (fieldName === 'vehicle') {
+            // Extract plate number from vehicle selection
+            const selectedVehicle = getAvailableVehicles().find(v => v.value === value);
+            if (selectedVehicle) {
+                setFormData(prevData => ({
+                    ...prevData,
+                    [fieldName]: value,
+                    plate: selectedVehicle.plate
+                }));
+                return;
+            }
+        }
+        
+        // Default behavior for other fields
+        setFormData(prevData => ({
+            ...prevData,
+            [fieldName]: value
+        }));
+    };
 
     const filteredDrivers = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -896,12 +974,37 @@ function DriverManagementContent() {
                     onSearchChange={setSearchTerm}
                     shiftFilter={shiftFilter}
                     onShiftChange={setShiftFilter}
+                    onAdd={handleAdd}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
                 />
                 <div className='space-y-6'>
                     <DriverActivityTimeline />
                     <DriverLeaderboard />
                 </div>
             </section>
+
+            {/* Edit Modal */}
+            <EditModal
+                title={editModal.driver ? 'Edit Driver' : 'Tambah Driver'}
+                fields={driverFields}
+                initialData={editModal.driver}
+                isOpen={editModal.isOpen}
+                onClose={handleEditClose}
+                onSubmit={handleEditSubmit}
+                isLoading={isLoading}
+                onFieldChange={handleFormFieldChange}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <DeleteConfirmModal
+                title="Hapus Driver"
+                message={`Apakah Anda yakin ingin menghapus driver "${deleteModal.driver?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+                isOpen={deleteModal.isOpen}
+                onClose={handleDeleteClose}
+                onConfirm={handleDeleteConfirm}
+                isLoading={isLoading}
+            />
         </>
     );
 }
@@ -981,7 +1084,7 @@ const ThemeIndicator = () => {
     );
 };
 
-function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
+function Sidebar({ activeView, onNavigate, isOpen, onToggle, isTransitioning }) {
     const [expandedIds, setExpandedIds] = useState(() => {
         const ids = [];
         navigationSections.forEach((section) => {
@@ -1009,6 +1112,7 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
     };
 
     const handleNavigate = (view) => {
+        console.log('handleNavigate called with view:', view);
         onNavigate(view);
         if (collapsed) {
             onToggle(true);
@@ -1044,12 +1148,14 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
         isOpen ? 'w-72' : 'w-72 lg:w-20',
         // Shadows for depth
         isOpen ? 'shadow-2xl lg:shadow-sm' : 'shadow-sm',
-        // Enhanced slide animation like ChatGPT
+        // Enhanced slide animation like ChatGPT with different animations for show/hide
         isOpen 
-            ? 'translate-x-0 lg:translate-x-0 sidebar-mobile-slide' 
-            : '-translate-x-full lg:translate-x-0 sidebar-mobile-slide',
+            ? 'translate-x-0 lg:translate-x-0 sidebar-mobile-slide showing' 
+            : '-translate-x-full lg:translate-x-0 sidebar-mobile-hide hiding',
         // Desktop width transition
-        'sidebar-desktop-width'
+        'sidebar-desktop-width',
+        // Add transitioning class for extra smoothness
+        isTransitioning ? 'transitioning' : '',
     ].join(' ');
 
     const navPaddingClass = collapsed ? 'px-2 pb-6' : 'px-4 pb-8';
@@ -1249,53 +1355,105 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle }) {
                     </div>
                 ))}
             </nav>
-            <div className={['sidebar-content-slide', collapsed ? 'px-2 pb-4' : 'px-6 pb-8'].join(' ')}>
-                <div className='overflow-hidden' style={motionStyle('999px', 150)}>
-                    <div className='rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sidebar-hover-smooth'>
-                        <p className='text-sm font-semibold text-slate-900'>Quick Tips</p>
-                        <p className='mt-1 text-xs text-slate-500'>Gunakan filter untuk memantau driver atau order tertentu.</p>
-                    </div>
-                </div>
-            </div>
         </aside>
     );
 }
 function DashboardLayout() {
     const [activeView, setActiveView] = useState('home');
+    
+    // Create a wrapped setActiveView with logging
+    const handleSetActiveView = (view) => {
+        console.log('Navigation requested to view:', view);
+        setActiveView(view);
+        console.log('ActiveView state updated to:', view);
+    };
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [showVehiclePopup, setShowVehiclePopup] = useState(false);
+    const [showVehicleTypesPopup, setShowVehicleTypesPopup] = useState(false);
+    const [sidebarTransitioning, setSidebarTransitioning] = useState(false);
 
     const activeConfig = viewConfigs[activeView] ?? viewConfigs.home;
+    
+    console.log('Current activeView:', activeView);
+    console.log('Active config:', activeConfig);
 
     useEffect(() => {
         if (activeView !== 'vehicleList') {
             setShowVehiclePopup(false);
         }
+        if (activeView !== 'vehicleTypes') {
+            setShowVehicleTypesPopup(false);
+        }
     }, [activeView]);
 
+    // Handle smooth sidebar transitions
+    useEffect(() => {
+        setSidebarTransitioning(true);
+        const timer = setTimeout(() => {
+            setSidebarTransitioning(false);
+        }, isSidebarOpen ? 400 : 600); // Match animation durations
+
+        return () => clearTimeout(timer);
+    }, [isSidebarOpen]);
+
     const mainContent = useMemo(() => {
+        console.log('Rendering mainContent for activeView:', activeView);
+        
         if (activeView === 'vehicleList') {
             return (
                 <VehicleListContent showPopup={showVehiclePopup} setShowPopup={setShowVehiclePopup} />
             );
         }
+        
+        if (activeView === 'vehicleTypes') {
+            return (
+                <VehicleTypesContent showPopup={showVehicleTypesPopup} setShowPopup={setShowVehicleTypesPopup} />
+            );
+        }
 
-        return activeConfig.getContent();
-    }, [activeConfig, activeView, showVehiclePopup, setShowVehiclePopup]);
+        console.log('Using activeConfig.getContent() for:', activeView);
+        try {
+            const content = activeConfig.getContent();
+            console.log('Content result:', content);
+            if (!content) {
+                console.warn('getContent() returned null/undefined for view:', activeView);
+                return <div className="p-4">Content not available for view: {activeView}</div>;
+            }
+            return content;
+        } catch (error) {
+            console.error('Error rendering content for view:', activeView, error);
+            return (
+                <div className="p-4 bg-red-50 border border-red-200 rounded">
+                    <h3 className="text-red-800 font-semibold">Error Loading Content</h3>
+                    <p className="text-red-600 mt-1">Failed to load content for view: {activeView}</p>
+                    <pre className="text-xs text-red-500 mt-2 overflow-auto">{error.message}</pre>
+                </div>
+            );
+        }
+    }, [activeConfig, activeView, showVehiclePopup, setShowVehiclePopup, showVehicleTypesPopup, setShowVehicleTypesPopup]);
 
     const actionButton = activeConfig.actionButton;
     const ActionIcon = actionButton?.icon;
     const isNotificationsView = activeView === 'notifications';
 
-    const handleActionClick = () => {
+    const handleActionClick = (e) => {
+        e.preventDefault();
+        // All popups disabled - no action
+        /*
         if (activeView === 'vehicleList') {
             setShowVehiclePopup(true);
+            return;
+        }
+        
+        if (activeView === 'vehicleTypes') {
+            setShowVehicleTypesPopup(true);
             return;
         }
 
         if (typeof actionButton?.onClick === 'function') {
             actionButton.onClick();
         }
+        */
     };
     return (
         <div className='flex h-screen w-full overflow-hidden bg-white text-slate-700'>
@@ -1305,13 +1463,20 @@ function DashboardLayout() {
                     isSidebarOpen 
                         ? 'opacity-100 visible bg-slate-900/25' 
                         : 'opacity-0 invisible bg-slate-900/0'
-                }`}
+                } ${isSidebarOpen ? 'visible' : ''} ${sidebarTransitioning ? 'transitioning' : ''}`}
                 style={{
-                    backdropFilter: isSidebarOpen ? 'blur(6px)' : 'blur(0px)'
+                    backdropFilter: isSidebarOpen ? 'blur(6px)' : 'blur(0px)',
+                    pointerEvents: isSidebarOpen ? 'auto' : 'none'
                 }}
                 onClick={() => setIsSidebarOpen(false)}
             />
-            <Sidebar activeView={activeView} onNavigate={setActiveView} isOpen={isSidebarOpen} onToggle={setIsSidebarOpen} />
+            <Sidebar 
+                activeView={activeView} 
+                onNavigate={handleSetActiveView} 
+                isOpen={isSidebarOpen} 
+                onToggle={setIsSidebarOpen}
+                isTransitioning={sidebarTransitioning}
+            />
             <div className="flex flex-1 flex-col overflow-y-auto sidebar-content-slide">
                 <header className='sticky top-0 z-10 flex h-20 p-5 items-center justify-between border-b border-slate-200 bg-white px-8 shadow-sm'>
                     <div className='flex items-center gap-4 text-sm text-slate-500'>
@@ -1405,11 +1570,41 @@ function Dashboard() {
     );
 }
 
+// Global error handling
+window.addEventListener('error', (event) => {
+    console.error('Global JavaScript Error:', event.error);
+    console.error('Error details:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error
+    });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled Promise Rejection:', event.reason);
+});
+
 const container = document.getElementById('dashboard');
 
 if (container) {
-    const root = ReactDOM.createRoot(container);
-    root.render(<Dashboard />);
+    console.log('Dashboard container found, mounting React app...');
+    try {
+        const root = ReactDOM.createRoot(container);
+        console.log('React root created, rendering Dashboard component...');
+        root.render(<Dashboard />);
+        console.log('Dashboard component rendered successfully');
+    } catch (error) {
+        console.error('Error rendering Dashboard component:', error);
+        container.innerHTML = `
+            <div style="padding: 20px; background: #fee; color: #c00; font-family: Arial, sans-serif;">
+                <h2>Application Error</h2>
+                <p>Failed to load dashboard: ${error.message}</p>
+                <pre style="background: #f5f5f5; padding: 10px; overflow: auto;">${error.stack}</pre>
+            </div>
+        `;
+    }
+} else {
+    console.error('Dashboard container not found!');
 }
-
-

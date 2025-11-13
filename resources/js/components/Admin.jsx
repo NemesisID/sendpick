@@ -1,5 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import FilterDropdown from './common/FilterDropdown';
+import EditModal from './common/EditModal';
+import DeleteConfirmModal from './common/DeleteConfirmModal';
+import { 
+    HiUsers, 
+    HiCheckCircle, 
+    HiCalendarDays, 
+    HiShieldCheck, 
+    HiPlus, 
+    HiFunnel, 
+    HiMagnifyingGlass, 
+    HiPencil, 
+    HiTrash, 
+    HiEye,
+    HiEnvelope,
+    HiPhone
+} from 'react-icons/hi2';
 
 const summaryCards = [
     {
@@ -8,14 +24,7 @@ const summaryCards = [
         description: 'Termasuk super admin & staff',
         iconBg: 'bg-sky-100',
         iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1' strokeLinecap='round' strokeLinejoin='round' />
-                <circle cx='10' cy='7' r='3' />
-                <path d='M20 19v-1a4 4 0 0 0-2.62-3.73' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M16 4a3 3 0 1 1 0 6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiUsers className='h-5 w-5' />,
     },
     {
         title: 'Admin Aktif',
@@ -23,12 +32,7 @@ const summaryCards = [
         description: '87% dari total admin',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiCheckCircle className='h-5 w-5' />,
     },
     {
         title: 'Online Hari Ini',
@@ -36,12 +40,7 @@ const summaryCards = [
         description: 'Admin dengan aktivitas hari ini',
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M7 4h10l3 5v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M7 9h13' strokeLinecap='round' />
-            </svg>
-        ),
+        icon: <HiCalendarDays className='h-5 w-5' />,
     },
     {
         title: 'Total Role',
@@ -49,12 +48,7 @@ const summaryCards = [
         description: 'Role aktif dalam sistem',
         iconBg: 'bg-purple-100',
         iconColor: 'text-purple-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 3a4 4 0 0 1 4 4v2h2a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-4' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M12 3a4 4 0 0 0-4 4v2H6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <HiShieldCheck className='h-5 w-5' />,
     },
 ];
 
@@ -184,41 +178,11 @@ const rolesOverview = [
     },
 ];
 
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='6' />
-        <path d='m20 20-3.5-3.5' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const MailIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <rect x='3' y='5' width='18' height='14' rx='2' />
-        <path d='m4 7 8 6 8-6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const PhoneIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M6.5 3h2a1 1 0 0 1 1 .72c.23.92.65 2.19 1.3 3.5a1 1 0 0 1-.23 1.15L9.1 10.04c1.4 2.3 3.2 4.1 5.5 5.5l1.67-1.47a1 1 0 0 1 1.15-.23c1.3.65 2.58 1.07 3.5 1.3a1 1 0 0 1 .72 1v2a1 1 0 0 1-1.05 1 16 16 0 0 1-14.5-14.45A1 1 0 0 1 6.5 3z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='m14.5 5.5 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const TrashIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M5 7h14' strokeLinecap='round' />
-        <path d='M10 11v6M14 11v6' strokeLinecap='round' />
-        <path d='M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+const SearchIcon = ({ className = 'h-5 w-5' }) => <HiMagnifyingGlass className={className} />;
+const MailIcon = ({ className = 'h-4 w-4' }) => <HiEnvelope className={className} />;
+const PhoneIcon = ({ className = 'h-4 w-4' }) => <HiPhone className={className} />;
+const EditIcon = ({ className = 'h-4 w-4' }) => <HiPencil className={className} />;
+const TrashIcon = ({ className = 'h-4 w-4' }) => <HiTrash className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -254,7 +218,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function AdminRow({ admin }) {
+function AdminRow({ admin, onEdit, onDelete }) {
     const initial = admin.name.charAt(0).toUpperCase();
 
     return (
@@ -294,6 +258,10 @@ function AdminRow({ admin }) {
                 <div className='flex items-center gap-2'>
                     <button
                         type='button'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onEdit(admin);
+                        }}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Edit ${admin.name}`}
                     >
@@ -301,6 +269,10 @@ function AdminRow({ admin }) {
                     </button>
                     <button
                         type='button'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onDelete(admin);
+                        }}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
                         aria-label={`Hapus ${admin.name}`}
                     >
@@ -312,7 +284,7 @@ function AdminRow({ admin }) {
     );
 }
 
-function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChange }) {
+function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChange, onEdit, onDelete }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
@@ -356,7 +328,14 @@ function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChan
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {admins.length > 0 ? (
-                            admins.map((admin) => <AdminRow key={admin.code} admin={admin} />)
+                            admins.map((admin) => (
+                                <AdminRow 
+                                    key={admin.code} 
+                                    admin={admin}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                />
+                            ))
                         ) : (
                             <tr>
                                 <td colSpan={7} className='px-6 py-12 text-center text-sm text-slate-400'>
@@ -410,6 +389,115 @@ function RolePermissionsSection() {
 export default function AdminContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+    
+    // Modal states
+    const [editModal, setEditModal] = useState({ isOpen: false, admin: null });
+    const [deleteModal, setDeleteModal] = useState({ isOpen: false, admin: null });
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Edit modal handlers
+    const handleEdit = (admin) => {
+        setEditModal({ isOpen: true, admin });
+    };
+
+    const handleEditSubmit = async (formData) => {
+        setIsLoading(true);
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Update admin data (in real app, this would be an API call)
+            console.log('Updating admin:', editModal.admin.code, 'with data:', formData);
+            
+            // Close modal
+            setEditModal({ isOpen: false, admin: null });
+        } catch (error) {
+            console.error('Error updating admin:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleEditClose = () => {
+        setEditModal({ isOpen: false, admin: null });
+    };
+
+    // Delete modal handlers
+    const handleDelete = (admin) => {
+        setDeleteModal({ isOpen: true, admin });
+    };
+
+    const handleDeleteConfirm = async () => {
+        setIsLoading(true);
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Delete admin (in real app, this would be an API call)
+            console.log('Deleting admin:', deleteModal.admin.code);
+            
+            // Close modal
+            setDeleteModal({ isOpen: false, admin: null });
+        } catch (error) {
+            console.error('Error deleting admin:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDeleteClose = () => {
+        setDeleteModal({ isOpen: false, admin: null });
+    };
+
+    // Admin form fields configuration
+    const adminFields = [
+        {
+            name: 'name',
+            label: 'Nama Admin',
+            type: 'text',
+            required: true,
+            placeholder: 'Masukkan nama admin'
+        },
+        {
+            name: 'email',
+            label: 'Email',
+            type: 'email',
+            required: true,
+            placeholder: 'Masukkan alamat email'
+        },
+        {
+            name: 'phone',
+            label: 'Nomor Telepon',
+            type: 'tel',
+            required: true,
+            placeholder: 'Contoh: +62812345678'
+        },
+        {
+            name: 'role',
+            label: 'Role',
+            type: 'select',
+            required: true,
+            options: [
+                { value: 'super_admin', label: 'Super Admin' },
+                { value: 'admin', label: 'Admin' },
+                { value: 'staff', label: 'Staff' },
+                { value: 'viewer', label: 'Viewer' }
+            ]
+        },
+        {
+            name: 'department',
+            label: 'Departemen',
+            type: 'select',
+            required: true,
+            options: [
+                { value: 'IT', label: 'IT' },
+                { value: 'Operations', label: 'Operations' },
+                { value: 'Customer Service', label: 'Customer Service' },
+                { value: 'Finance', label: 'Finance' },
+                { value: 'HR', label: 'Human Resources' }
+            ]
+        }
+    ];
 
     const filteredAdmins = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -440,8 +528,35 @@ export default function AdminContent() {
                 onSearchChange={setSearchTerm}
                 roleFilter={roleFilter}
                 onRoleChange={setRoleFilter}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
             />
             <RolePermissionsSection />
+
+            {/* Edit Modal */}
+            {editModal.isOpen && (
+                <EditModal
+                    title={editModal.admin ? 'Edit Admin' : 'Tambah Admin'}
+                    fields={adminFields}
+                    initialData={editModal.admin}
+                    isOpen={editModal.isOpen}
+                    onClose={handleEditClose}
+                    onSubmit={handleEditSubmit}
+                    isLoading={isLoading}
+                />
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteModal.isOpen && (
+                <DeleteConfirmModal
+                    title="Hapus Admin"
+                    message={`Apakah Anda yakin ingin menghapus admin "${deleteModal.admin?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+                    isOpen={deleteModal.isOpen}
+                    onClose={handleDeleteClose}
+                    onConfirm={handleDeleteConfirm}
+                    isLoading={isLoading}
+                />
+            )}
         </>
     );
 }

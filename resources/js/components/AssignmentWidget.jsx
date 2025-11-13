@@ -35,6 +35,39 @@ const assignmentSummaryData = {
             status: 'completed',
             priority: 'medium',
         },
+        {
+            id: 'ASG-2024-005',
+            type: 'driver_assignment',
+            assignedTo: 'Agus Rahman',
+            jobOrder: 'JO-2024-878',
+            customer: 'PT Sejahtera Abadi',
+            route: 'Jakarta → Bali',
+            startTime: '10:00',
+            status: 'pending',
+            priority: 'medium',
+        },
+        {
+            id: 'ASG-2024-006',
+            type: 'loading_supervisor',
+            assignedTo: 'Doni Pratama',
+            jobOrder: 'JO-2024-879',
+            customer: 'CV Mitra Logistik',
+            route: 'Surabaya → Balikpapan',
+            startTime: '11:30',
+            status: 'active',
+            priority: 'low',
+        },
+        {
+            id: 'ASG-2024-007',
+            type: 'delivery_coordinator',
+            assignedTo: 'Sari Indah',
+            jobOrder: 'JO-2024-880',
+            customer: 'PT Global Express',
+            route: 'Medan → Aceh',
+            startTime: '12:00',
+            status: 'standby',
+            priority: 'high',
+        },
     ],
     metrics: {
         totalToday: 12,
@@ -206,27 +239,78 @@ function AssignmentMetrics({ metrics }) {
 export default function AssignmentWidget({ limit = 5, showMetrics = true }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [displayLimit, setDisplayLimit] = useState(limit); // ✅ State untuk limit tampilan
 
     useEffect(() => {
-        // Simulate API call
-        setTimeout(() => {
+        const timer = setTimeout(() => {
             setData(assignmentSummaryData);
             setLoading(false);
-        }, 300);
+        }, 1000);
+
+        return () => clearTimeout(timer);
     }, []);
 
-    if (loading) {
+    // ✅ Handler untuk expand/collapse widget
+    const handleViewAll = () => {
+        console.log('View All clicked!', { data, displayLimit, limit }); // Debug log
+        if (data && data.todayAssignments) {
+            setDisplayLimit(data.todayAssignments.length); // Tampilkan semua
+            console.log('Setting display limit to:', data.todayAssignments.length);
+        }
+    };
+
+    const handleShowLess = () => {
+        console.log('Show Less clicked!'); // Debug log
+        setDisplayLimit(limit); // Kembali ke limit awal
+    };
+
+    const handleShowMore = () => {
+        console.log('Show More clicked!', { data, displayLimit }); // Debug log
+        if (data && data.todayAssignments) {
+            setDisplayLimit(data.todayAssignments.length); // Tampilkan semua
+            console.log('Setting display limit to:', data.todayAssignments.length);
+        }
+    };
+
+    const isExpanded = data && displayLimit > limit;
+
+    if (loading || !data) {
         return (
             <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-                <h2 className='text-lg font-semibold text-slate-900'>Today's Assignments</h2>
-                <div className='mt-6 flex items-center justify-center py-8'>
-                    <div className='h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600'></div>
+                <div className='animate-pulse space-y-6'>
+                    <div className='flex items-center justify-between'>
+                        <div className='space-y-2'>
+                            <div className='h-5 w-40 rounded bg-slate-200'></div>
+                            <div className='h-4 w-32 rounded bg-slate-200'></div>
+                        </div>
+                        <div className='h-8 w-20 rounded bg-slate-200'></div>
+                    </div>
+                    <div className='grid grid-cols-4 gap-4'>
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className='space-y-2'>
+                                <div className='h-4 w-12 rounded bg-slate-200'></div>
+                                <div className='h-6 w-8 rounded bg-slate-200'></div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className='space-y-3'>
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className='flex items-center gap-3 rounded-2xl border border-slate-100 p-4'>
+                                <div className='h-10 w-10 rounded-lg bg-slate-200'></div>
+                                <div className='flex-1 space-y-2'>
+                                    <div className='h-4 w-24 rounded bg-slate-200'></div>
+                                    <div className='h-3 w-32 rounded bg-slate-200'></div>
+                                </div>
+                                <div className='h-6 w-16 rounded bg-slate-200'></div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </section>
         );
     }
 
-    const displayAssignments = data.todayAssignments.slice(0, limit);
+    const displayAssignments = data?.todayAssignments?.slice(0, displayLimit) || [];
 
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -237,10 +321,11 @@ export default function AssignmentWidget({ limit = 5, showMetrics = true }) {
                 </div>
                 <button
                     type='button'
+                    onClick={isExpanded ? handleShowLess : handleViewAll} // ✅ Toggle expand/collapse
                     className='inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
                 >
-                    View All
-                    <ArrowRightIcon className='h-3 w-3' />
+                    {isExpanded ? 'Show Less' : 'View All'}
+                    <ArrowRightIcon className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
             </div>
 
@@ -268,13 +353,26 @@ export default function AssignmentWidget({ limit = 5, showMetrics = true }) {
                 )}
             </div>
 
-            {data.todayAssignments.length > limit && (
+            {data?.todayAssignments?.length > displayLimit && !isExpanded && (
                 <div className='mt-4 text-center'>
                     <button
                         type='button'
+                        onClick={handleShowMore} // ✅ Expand untuk show more
                         className='text-sm font-medium text-indigo-600 hover:text-indigo-700'
                     >
-                        Show {data.todayAssignments.length - limit} more assignments
+                        Show {(data?.todayAssignments?.length || 0) - displayLimit} more assignments
+                    </button>
+                </div>
+            )}
+
+            {isExpanded && (
+                <div className='mt-4 text-center'>
+                    <button
+                        type='button'
+                        onClick={handleShowLess}
+                        className='text-sm font-medium text-indigo-600 hover:text-indigo-700'
+                    >
+                        ← Show Less
                     </button>
                 </div>
             )}

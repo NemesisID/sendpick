@@ -518,10 +518,3 @@ export default function GuideContent() {
         </div>
     );
 }
-
-
-
-
-
-
-

@@ -1,4 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
+import FilterDropdown from './common/FilterDropdown';
+import {
+    BarChart,
+    Bar as ReBar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip as ReTooltip,
+    ResponsiveContainer,
+    Legend as ReLegend,
+    LabelList,
+    Cell
+} from 'recharts';
 
 const kpiCards = [
     {
@@ -71,10 +84,24 @@ const topCustomers = [
 ];
 
 const exportOptions = [
-    { label: 'Monthly Report (PDF)', icon: '??' },
-    { label: 'Analytics Dashboard (Excel)', icon: '??' },
-    { label: 'Customer Summary (CSV)', icon: '??' },
-    { label: 'Performance Metrics (PDF)', icon: '??' },
+    { 
+        label: 'Download Report (PDF)', 
+        icon: '📄', 
+        format: 'pdf',
+        options: [
+            { value: 'summary', label: 'Summary' },
+            { value: 'detailed', label: 'Detailed' }
+        ]
+    },
+    { 
+        label: 'Export Data (CSV)', 
+        icon: '📋', 
+        format: 'csv',
+        options: [
+            { value: 'all', label: 'All Data' },
+            { value: 'filtered', label: 'Current View' }
+        ]
+    },
 ];
 
 function KPI({ card }) {
@@ -89,19 +116,6 @@ function KPI({ card }) {
                 {card.icon}
             </div>
         </article>
-    );
-}
-function MetricBar({ metric }) {
-    return (
-        <div className='space-y-2'>
-            <div className='flex items-center justify-between text-xs font-semibold text-slate-500'>
-                <span>{metric.name}</span>
-                <span>{metric.value}%</span>
-            </div>
-            <div className='h-2 rounded-full bg-slate-100'>
-                <div className={`h-full rounded-full ${metric.color}`} style={{ width: `${metric.value}%` }} />
-            </div>
-        </div>
     );
 }
 
@@ -132,95 +146,124 @@ const AreaChart = () => (
     </div>
 );
 
-function ExportButton({ option }) {
+function SimpleExportButton({ option }) {
+    const handleExport = (exportType) => {
+        console.log(`Exporting ${option.format} - ${exportType}...`);
+        // TODO: Implement actual export functionality
+        
+        // Simulate export process
+        if (exportType === 'summary') {
+            console.log('Exporting PDF summary report...');
+        } else if (exportType === 'detailed') {
+            console.log('Exporting detailed PDF report...');
+        } else if (exportType === 'all') {
+            console.log('Exporting all data to CSV...');
+        } else if (exportType === 'filtered') {
+            console.log('Exporting current filtered data to CSV...');
+        }
+    };
+
     return (
-        <button
-            type='button'
-            className='flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-indigo-200 hover:text-indigo-600'
-        >
-            <span className='flex items-center gap-3'>
-                <span className='text-base'>{option.icon}</span>
+        <div className="space-y-3">
+            {/* Export Type Label */}
+            <div className="text-sm font-medium text-slate-700 flex items-center gap-2">
+                <span className="text-base">{option.icon}</span>
                 {option.label}
-            </span>
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                <path d='m9 18 6-6-6-6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        </button>
+            </div>
+            
+            {/* Two Export Buttons */}
+            <div className="flex gap-2">
+                {option.options.map((opt) => (
+                    <button
+                        key={opt.value}
+                        onClick={() => handleExport(opt.value)}
+                        className="flex-1 px-3 py-2 text-xs font-medium border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-indigo-200 hover:text-indigo-600 transition-colors"
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
+            
+            {/* Helper Text */}
+            <div className="text-xs text-slate-400">
+                {option.format === 'pdf' ? (
+                    <>
+                        <span className="font-medium">Summary:</span> Key metrics only • 
+                        <span className="font-medium"> Detailed:</span> Complete report
+                    </>
+                ) : (
+                    <>
+                        <span className="font-medium">All Data:</span> Complete dataset • 
+                        <span className="font-medium"> Current View:</span> Filtered data
+                    </>
+                )}
+            </div>
+        </div>
     );
 }
 
-function RevenueChart() {
-    return (
-        <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <div className='flex items-center justify-between'>
-                <div>
-                    <h3 className='text-sm font-semibold text-slate-700'>Monthly Revenue & Orders</h3>
-                    <p className='text-xs text-slate-400'>Revenue and order trends over the last 6 months</p>
-                </div>
-                <button
-                    type='button'
-                    className='inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600'
-                >
-                    View Details
-                </button>
-            </div>
-            <div className='mt-6 h-72'>
-                <svg viewBox='0 0 500 260' className='h-full w-full'>
-                    <defs>
-                        <linearGradient id='monthlyRevenueGradient' x1='0' x2='0' y1='0' y2='1'>
-                            <stop offset='0%' stopColor='#3b82f6' stopOpacity='0.35' />
-                            <stop offset='100%' stopColor='#3b82f6' stopOpacity='0.05' />
-                        </linearGradient>
-                    </defs>
-                    <g stroke='#e2e8f0' strokeWidth='1'>
-                        {[50, 90, 130, 170, 210].map((y) => (
-                            <line key={y} x1='50' x2='480' y1={y} y2={y} />
-                        ))}
-                        {[80, 160, 240, 320, 400, 480].map((x) => (
-                            <line key={x} x1={x} x2={x} y1='40' y2='240' />
-                        ))}
-                    </g>
-                    <path
-                        d='M50 200 C120 160 160 180 200 170 C240 160 270 110 320 130 C360 150 380 180 480 120 V240 H50 Z'
-                        fill='url(#monthlyRevenueGradient)'
-                    />
-                    <path
-                        d='M50 200 C120 160 160 180 200 170 C240 160 270 110 320 130 C360 150 380 180 480 120'
-                        stroke='#3b82f6'
-                        strokeWidth='4'
-                        strokeLinecap='round'
-                        fill='none'
-                    />
-                    {[
-                        { x: 80, label: 'Jan' },
-                        { x: 160, label: 'Feb' },
-                        { x: 240, label: 'Mar' },
-                        { x: 320, label: 'Apr' },
-                        { x: 400, label: 'May' },
-                        { x: 480, label: 'Jun' },
-                    ].map((point) => (
-                        <text key={point.label} x={point.x} y='255' fontSize='12' textAnchor='middle' className='fill-slate-400'>
-                            {point.label}
-                        </text>
-                    ))}
-                </svg>
-            </div>
-        </section>
-    );
+function SimpleRevenueChart() {
+  const revenueData = [
+    { month: 'Jan', revenue: 45 },
+    { month: 'Feb', revenue: 52 },
+    { month: 'Mar', revenue: 48 },
+    { month: 'Apr', revenue: 61 },
+    { month: 'Mei', revenue: 55 },
+    { month: 'Jun', revenue: 67 },
+  ];
+  return (
+    <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+      <div className='flex items-center justify-between'>
+        <div>
+          <h3 className='text-sm font-semibold text-slate-700'>Monthly Revenue</h3>
+          <p className='text-xs text-slate-400'>Revenue trends over the last 6 months</p>
+        </div>
+        <div className='text-right'>
+          <div className='text-2xl font-bold text-blue-600'>Rp 322M</div>
+          <div className='text-xs text-green-600'>+18.2% vs last period</div>
+        </div>
+      </div>
+      <div className='mt-6 h-64'>
+        <ResponsiveContainer width='100%' height='100%'>
+          <BarChart data={revenueData} barSize={32} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke='rgba(226,232,240,0.5)' vertical={false} />
+            <XAxis dataKey='month' tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={v => 'Rp ' + v + 'M'} />
+            <ReTooltip formatter={v => 'Rp ' + v + 'M'} contentStyle={{ background: 'rgba(15,23,42,0.9)', borderRadius: 8, borderColor: '#3b82f6', color: '#fff' }} itemStyle={{ color: '#fff' }} />
+            <ReBar dataKey='revenue' fill='rgba(59,130,246,0.8)' radius={[8, 8, 0, 0]}>
+              <LabelList dataKey='revenue' position='top' formatter={v => 'Rp ' + v + 'M'} style={{ fill: '#3b82f6', fontWeight: 600, fontSize: 12 }} />
+            </ReBar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
 }
 
 function PerformanceCard() {
-    return (
-        <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-sm font-semibold text-slate-700'>Performance Metrics</h3>
-            <p className='text-xs text-slate-400'>Key operational KPIs based on the selected period</p>
-            <div className='mt-6 space-y-4'>
-                {performanceMetrics.map((metric) => (
-                    <MetricBar key={metric.name} metric={metric} />)
-                )}
-            </div>
-        </section>
-    );
+  const performanceData = performanceMetrics.map(metric => ({ name: metric.name, value: metric.value, color: metric.color }));
+  return (
+    <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+      <h3 className='text-sm font-semibold text-slate-700'>Performance Metrics</h3>
+      <p className='text-xs text-slate-400'>Key operational KPIs based on the selected period</p>
+      <div className='mt-6 h-80'>
+        <ResponsiveContainer width='100%' height='100%'>
+          <BarChart data={performanceData} layout='vertical' margin={{ top: 10, right: 30, left: 0, bottom: 0 }} barSize={28}>
+            <CartesianGrid stroke='rgba(226,232,240,0.5)' horizontal={true} vertical={false} />
+            <XAxis type='number' domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v + '%'} />
+            <YAxis type='category' dataKey='name' tick={{ fill: '#475569', fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} width={140} />
+            <ReTooltip formatter={v => v + '%'} contentStyle={{ background: 'rgba(15,23,42,0.9)', borderRadius: 8, borderColor: '#3b82f6', color: '#fff' }} itemStyle={{ color: '#fff' }} />
+            <ReBar dataKey='value' radius={6} isAnimationActive fill='#3b82f6'>
+              {performanceData.map((entry, idx) => (
+                <Cell key={`cell-${idx}`} fill={entry.color.replace('bg-', '').replace('-500', '')} />
+              ))}
+              <LabelList dataKey='value' position='right' formatter={v => v + '%'} style={{ fill: '#3b82f6', fontWeight: 600, fontSize: 12 }} />
+            </ReBar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </section>
+  );
 }
 
 function TopCustomersPanel() {
@@ -237,63 +280,98 @@ function TopCustomersPanel() {
 }
 
 function ExportReportsPanel() {
+    const [exportPeriod, setExportPeriod] = useState('7d');
+    
+    const exportPeriodOptions = [
+        { value: '7d', label: 'Last 7 Days' },
+        { value: '30d', label: 'Last 30 Days' },
+        { value: '90d', label: 'Last 90 Days' }
+    ];
+
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-sm font-semibold text-slate-700'>Export Reports</h3>
-            <p className='text-xs text-slate-400'>Download recurring reports or generate custom output.</p>
-            <div className='mt-4 space-y-3'>
+            <div className="flex items-center justify-between mb-4">
+                <div>
+                    <h3 className='text-sm font-semibold text-slate-700'>Export Reports</h3>
+                    <p className='text-xs text-slate-400'>Download current report data</p>
+                </div>
+            </div>
+
+            {/* Period Selector */}
+            <div className="mb-6">
+                <label className="block text-xs font-medium text-slate-600 mb-2">
+                    Export Period
+                </label>
+                <FilterDropdown
+                    value={exportPeriod}
+                    onChange={setExportPeriod}
+                    options={exportPeriodOptions}
+                    widthClass="w-full"
+                    placeholder="Pilih periode export"
+                />
+            </div>
+
+            {/* Export Options */}
+            <div className='space-y-6'>
                 {exportOptions.map((option) => (
-                    <ExportButton key={option.label} option={option} />
+                    <SimpleExportButton key={option.format} option={option} />
                 ))}
             </div>
+
+            {/* Divider */}
+            <div className="my-4 border-t border-slate-200"></div>
+
+            {/* Quick Export All Button */}
             <button
-                type='button'
-                className='mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-500 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50'
+                type="button"
+                className="w-full px-4 py-3 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                onClick={() => {
+                    console.log('Quick export all data...');
+                }}
             >
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                    <path d='M12 5v14M5 12h14' strokeLinecap='round' />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
+                    <path d="M12 5v14" strokeLinecap="round" />
+                    <path d="M5 12h14" strokeLinecap="round" />
                 </svg>
-                Custom Report
+                Export All Data
             </button>
         </section>
     );
 }
 
 export default function ReportContent() {
+    const [selectedPeriod, setSelectedPeriod] = useState('7d');
+    
+    const periodOptions = [
+        { value: '7d', label: '7 Hari Terakhir' },
+        { value: '30d', label: '30 Hari Terakhir' },
+        { value: '90d', label: '90 Hari Terakhir' }
+    ];
+
     return (
         <div className='flex flex-col gap-8'>
-            <header className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
-                <div className='flex flex-wrap items-center gap-3'>
+            <header className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between -mt-2'>
+                <div>
+                    <h1 className='text-2xl font-semibold text-slate-900'>Reports & Exports</h1>
+                    <p className='text-sm text-slate-500'>Analytics overview dan export data laporan operasional</p>
+                </div>
+                
+                <div className='flex items-center gap-3'>
+                    <FilterDropdown
+                        value={selectedPeriod}
+                        onChange={setSelectedPeriod}
+                        options={periodOptions}
+                        widthClass="w-48"
+                        placeholder="Pilih periode"
+                    />
                     <button
                         type='button'
-                        className='inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600'
+                        className='inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600'
                     >
                         <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                            <path d='M4 6h16' strokeLinecap='round' />
-                            <path d='M8 6v12' />
-                            <path d='M12 10v8' />
-                            <path d='M16 8v10' />
+                            <path d='M3 4a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v2.586a1 1 0 0 1-.293.707l-6.414 6.414a1 1 0 0 0-.293.707V17l-4 2v-6.586a1 1 0 0 0-.293-.707L3.293 7.207A1 1 0 0 1 3 6.5V4z' />
                         </svg>
                         Filter
-                    </button>
-                    <button
-                        type='button'
-                        className='inline-flex items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600'
-                    >
-                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                            <path d='M8 7h8M5 12h14M8 17h8' strokeLinecap='round' />
-                        </svg>
-                        Date Range
-                    </button>
-                    <button
-                        type='button'
-                        className='inline-flex items-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500'
-                    >
-                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                            <path d='M12 5v14' strokeLinecap='round' />
-                            <path d='M5 12h14' strokeLinecap='round' />
-                        </svg>
-                        Export PDF
                     </button>
                 </div>
             </header>
@@ -304,14 +382,18 @@ export default function ReportContent() {
                 ))}
             </section>
 
-            <section className='grid grid-cols-1 gap-6 xl:grid-cols-2'>
-                <RevenueChart />
-                <PerformanceCard />
+            <section className='grid grid-cols-1 gap-6 xl:grid-cols-3'>
+                <div className="xl:col-span-2">
+                    <SimpleRevenueChart />
+                </div>
+                <div>
+                    <ExportReportsPanel />
+                </div>
             </section>
 
             <section className='grid grid-cols-1 gap-6 xl:grid-cols-2'>
+                <PerformanceCard />
                 <TopCustomersPanel />
-                <ExportReportsPanel />
             </section>
         </div>
     );
