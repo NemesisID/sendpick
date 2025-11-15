@@ -19,7 +19,7 @@ use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GpsController;
 use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\Api\DriverAppController;
+use App\Http\Controllers\Api\Driver\DriverAppController;
 
 // Terdapat Additional Routes di setiap resource untuk fungsi-fungsi spesifik diluar standar CRUD, spesifiknya untuk kebutuhan proses bisnis.
 
@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Additional Admin routes:
     // 1. Mendapatkan daftar role yang tersedia untuk admin
     Route::get('/admins/roles', [AdminController::class, 'getRoles'])->name('api.admins.roles'); // ada
+
     // Admins (apiResource)
     Route::apiResource('admins', AdminController::class)
         ->parameters(['admins' => 'userId'])
@@ -51,7 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
             'destroy' => 'api.admins.destroy', // --> DELETE /api/admins/{userId}
         ]);
 
-    // Additional Role routes (HARUS SEBELUM apiResource untuk avoid route conflict):
+
+    // Additional Roles routes (HARUS SEBELUM apiResource untuk avoid route conflict):
     // 1. Mendapatkan daftar role yang dapat ditugaskan ke admin
     Route::get('/roles/available', [RoleController::class, 'getAvailableRoles'])->name('api.roles.available'); // ada
     // 2. Mendapatkan statistik penggunaan role
@@ -88,9 +90,11 @@ Route::middleware('auth:sanctum')->group(function () {
             'destroy' => 'api.customers.destroy', // --> DELETE /api/customers/{customerId}
         ]);
 
+
     // Additional Driver routes:
     // 1. Mendapatkan daftar driver yang bersedia untuk ditugaskan (tidak memiliki assignment aktif)
     Route::get('/drivers/available', [DriverController::class, 'getAvailable'])->name('api.drivers.available'); // ada
+
     // Drivers (apiResource)
     Route::apiResource('drivers', DriverController::class)
         ->parameters(['drivers' => 'driverId'])
@@ -109,6 +113,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Additional Vehicle Type routes:
     // 1. Mendapatkan daftar tipe kendaraan yang statusnya masih 'Aktif'
     Route::get('/vehicle-types/active', [VehicleTypeController::class, 'getActive'])->name('api.vehicle-types.active');
+
     // Vehicle Types (apiResource)
     Route::apiResource('vehicle-types', VehicleTypeController::class)
         ->parameters(['vehicle-types' => 'id'])
@@ -120,6 +125,7 @@ Route::middleware('auth:sanctum')->group(function () {
             'destroy' => 'api.vehicle-types.destroy', // --> DELETE /api/vehicle-types/{id}
         ]);
 
+
     // Additional Vehicle routes:
     // 1. Mendapatkan daftar kendaraan yang tersedia untuk ditugaskan (tidak memiliki assignment aktif).
     Route::get('/vehicles/available', [VehicleController::class, 'getAvailable'])->name('api.vehicles.available');
@@ -127,6 +133,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/vehicles/{vehicleId}/maintenance', [VehicleController::class, 'updateMaintenance'])->name('api.vehicles.update-maintenance');
     // 3. Memperbarui level bahan bakar kendaraan (Tidak perlu, karena Controller ini bisa digunakan untuk keperluan lain atau controller lain seperti DriverAppController)
     // Route::patch('/vehicles/{vehicleId}/fuel', [VehicleController::class, 'updateFuelLevel'])->name('api.vehicles.update-fuel');
+
     // Vehicles (apiResource)
     Route::apiResource('vehicles', VehicleController::class)
         ->parameters(['vehicles' => 'vehicleId'])
@@ -137,6 +144,7 @@ Route::middleware('auth:sanctum')->group(function () {
             'update' => 'api.vehicles.update', // --> PUT /api/vehicles/{vehicleId}
             'destroy' => 'api.vehicles.destroy', // --> DELETE /api/vehicles/{vehicleId}
         ]);
+
 
     // Additional Job Order routes:
     // 1. Menambahkan assignment ke job order
@@ -156,6 +164,7 @@ Route::middleware('auth:sanctum')->group(function () {
             'update' => 'api.job-orders.update', // --> PUT /api/job-orders/{jobOrderId}
             'destroy' => 'api.job-orders.destroy', // --> DELETE /api/job-orders/{jobOrderId}
         ]);
+
 
     // Additional Manifest routes:
     // 1. Mendapatkan data daftar job order yang tersedia untuk ditambahkan ke manifest
@@ -180,6 +189,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/delivery-orders/{doId}/assign-driver', [DeliveryOrderController::class, 'assignDriverToDO'])->name('api.delivery-orders.assign-driver'); // ada
     // 2. Complete delivery order
     Route::post('/delivery-orders/{doId}/complete', [DeliveryOrderController::class, 'completeDeliveryOrder'])->name('api.delivery-orders.complete'); // ada
+
     // Delivery Orders (apiResource)
     Route::apiResource('delivery-orders', DeliveryOrderController::class)
         ->parameters(['delivery-orders' => 'doId'])
@@ -221,7 +231,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // NOTE: Method bulkStore() dipindah ke DriverAppController (akan dibuat nanti)
     // Karena ini adalah WRITE operation yang hanya boleh dilakukan dari Mobile App Driver
 
-    // Dashboard - Single endpoint untuk semua data dashboard
+    // Dashboard - Single endpoint untuk semua data dashboard READ ONLY
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard.index');
 
     // Reports - Read-Only endpoints untuk analytics
