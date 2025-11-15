@@ -7,14 +7,26 @@ Dokumen ini merangkum arsitektur backend yang direkomendasikan untuk aplikasi Se
 Berikut adalah 14 model Eloquent yang merepresentasikan entitas data utama dalam sistem:
 
 * **Model Profiles & Peran:**  
-  1. **`Admin`**: Mengelola data Admin/Super Admin yang bisa login ke dashboard (data di tabel `users`).  
-  2. **`Role`**: Mengelola data peran/hak akses (misal: "Super Admin", "Operations Manager").  
+  1. **`Admin`**: Mengelola data Admin/Super Admin yang bisa login ke dashboard (datanya ada di halaman `users` pada bagian sidebar Dashboard).  
+  2. **`Role`**: Mengelola data peran/hak akses (misal: "Super Admin", "Operations Manager", "Admin") ada di halaman `users` pada bagian Role & Permissions.  
        
-* **Model Master Data:** **`Customer`**: Mengelola data master pelanggan. **`Driver`**: Mengelola data master driver. **`VehicleType`**: Mengelola kategori/tipe kendaraan. **`Vehicle`**: Mengelola unit/armada kendaraan.  
+* **Model Master Data:** 
+3. **`Customer`**: Mengelola data master pelanggan. 
+4. **`Driver`**: Mengelola data master driver. 
+5. **`VehicleType`**: Mengelola kategori/tipe kendaraan. 
+6. **`Vehicle`**: Mengelola unit/armada kendaraan.  
     
-* **Model Transaksi Inti:** **`JobOrder`**: Model utama untuk mengelola order pengiriman. **`Manifest`**: Mengelola dokumen manifest/packing list. **`DeliveryOrder`**: Mengelola dokumen eksekusi pengiriman. **`Invoice`**: Mengelola data tagihan/invoice.  
+* **Model Transaksi Inti:** 
+7. **`JobOrder`**: Model utama untuk mengelola order pengiriman. 
+8. **`Manifest`**: Mengelola dokumen manifest/packing list. 
+9. **`DeliveryOrder`**: Mengelola dokumen eksekusi pengiriman. 
+10. **`Invoice`**: Mengelola data tagihan/invoice pelanggan.  
     
-* **Model Penugasan & Log (Pendukung):**  **`JobOrderAssignment`**: Model pivot (dengan data tambahan) untuk mencatat penugasan driver/kendaraan ke `JobOrder`. **`ProofOfDelivery`**: Menyimpan log bukti kirim (foto) dari driver. **`OrderStatusHistory`**: Menyimpan log riwayat perubahan status `JobOrder`. **`GpsTrackingLog`**: Menyimpan log data koordinat GPS dari driver.
+* **Model Penugasan & Log (Pendukung):**  
+11. **`JobOrderAssignment`**: Model pivot (dengan data tambahan) untuk mencatat penugasan driver/kendaraan ke `JobOrder`. 
+12. **`ProofOfDelivery`**: Menyimpan log data bukti kirim (foto) dari driver. 
+13. **`JobOrderStatusHistory`**: Menyimpan log riwayat perubahan status `JobOrder`.
+14. **`GpsTrackingLog`**: Menyimpan log data mentah dari koordinat GPS dari driver.
 
 ---
 
@@ -28,13 +40,15 @@ Berikut adalah 16 tabel database yang perlu dibuat. (Kolom `id`, `created_at`, d
    * **`Id (PK, BigInt)`**  
    * `name` (string, unique): Nama peran.  
    * `description` (text, nullable): Penjelasan peran.  
-   * `Timestamps`   
+   * `Timestamps`
+   
 2. **`create_admin_table`**  
    * `user_id` (string, primary): PK kustom jika diperlukan, atau `id` (bigIncrements).  
    * `name` (string).  
    * `email` (string, unique).  
    * `password` (string).  
    * `Timestamps`   
+
 3. **`create_role_admin_table` (Pivot)**  
    * `id (Pk, BigInt)`  
    * `user_id` (foreignId, constrained ke `users`).  
@@ -293,14 +307,26 @@ Berikut adalah 15 controller API dan tanggung jawab utamanya:
 ## **4\. Logika Relasi Antar Tabel**
 
 * **`Admin` \<-\> `Role`**: Relasi Many-to-Many melalui tabel `role_admin`.  
-* **`Admin` \-\> Transaksi**: Relasi One-to-Many ke `JobOrder`, `Manifest`, `DeliveryOrder`, `Invoice` (melalui *foreign key* `created_by`).  
-* **`Customer` \-\> Transaksi**: Relasi One-to-Many ke `JobOrder`, `DeliveryOrder`, `Invoice` (melalui *foreign key* `customer_id`).  
-* **`VehicleType` \-\> `Vehicle`**: Relasi One-to-Many (satu tipe memiliki banyak unit kendaraan).  
-* **`JobOrder` \-\> Penugasan**: Relasi One-to-Many ke `JobOrderAssignment`. (Satu JO bisa punya banyak assignment, misal "Active" dan "Backup").  
-* **`Driver` \-\> Penugasan**: Relasi One-to-Many ke `JobOrderAssignment`.  
-* **`Vehicle` \-\> Penugasan**: Relasi One-to-Many ke `JobOrderAssignment`.  
+Penjelasan simpel: Ini adalah relasi Many-to-Many (Banyak-ke-Banyak). Jadi Satu User (Admin) bisa memiliki banyak Role (misal: "Admin" dan "Finance"), dan satu Role (misal: "Admin") bisa dimiliki oleh banyak User. Tabel pivot role_user adalah "jembatan" yang menghubungkan keduanya.
+
 * **`Manifest` \<-\> `JobOrder`**: Relasi Many-to-Many melalui tabel `manifest_jobs`.  
+relasinya Many-to-Many untuk mendukung konsolidasi LTL (banyak JO dalam 1 Manifest).
+
+* **`Admin` \-\> Transaksi**: Relasi One-to-Many ke `JobOrder`, `Manifest`, `DeliveryOrder`, `Invoice` (melalui *foreign key* `created_by`).  
+Penjelasan: Ini adalah relasi One-to-Many (Satu-ke-Banyak). Satu Customer (misal: "PT Maju Jaya") bisa memiliki banyak JobOrders, banyak Invoices, dan banyak DeliveryOrders dari waktu ke waktu.
+
+* **`Customer` \-\> Transaksi**: Relasi One-to-Many ke `JobOrder`, `DeliveryOrder`, `Invoice` (melalui *foreign key* `customer_id`).  
+
+* **`VehicleType` \-\> `Vehicle`**: Relasi One-to-Many (satu tipe memiliki banyak unit kendaraan).  
+
+* **`JobOrder` \-\> Penugasan**: Relasi One-to-Many ke `JobOrderAssignment`. (Satu JO bisa punya banyak assignment, misal "Active" dan "Backup").  
+
+* **`Driver` \-\> Penugasan**: Relasi One-to-Many ke `JobOrderAssignment`.  
+
+* **`Vehicle` \-\> Penugasan**: Relasi One-to-Many ke `JobOrderAssignment`.  
+
 * **`JobOrder` \-\> Logs**: Relasi One-to-Many ke `OrderStatusHistory` dan `ProofOfDelivery`.  
+
 * **`Driver` \-\> Logs**: Relasi One-to-Many ke `GpsTrackingLog`.  
 
 * **Relasi Polimorfik**:  

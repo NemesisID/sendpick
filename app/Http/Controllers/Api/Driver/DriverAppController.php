@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\Driver;
 
 use App\Http\Controllers\Controller;
 use App\Models\Drivers;
@@ -46,7 +46,6 @@ class DriverAppController extends Controller
 
     /**
      * Driver login - Autentikasi untuk mobile app
-     * UI: login v1.png
      * 
      * @param Request $request
      * @return JsonResponse
@@ -301,7 +300,7 @@ class DriverAppController extends Controller
             ->first();
 
         // Get POD if exists
-        $pod = ProofOfDelivery::where('do_id', $deliveryOrder?->do_id)->first();
+        $pod = ProofOfDelivery::where('job_order_id', $jobOrderId)->first();
 
         return response()->json([
             'success' => true,
@@ -599,7 +598,7 @@ class DriverAppController extends Controller
         DB::beginTransaction();
         try {
             $podData = [
-                'do_id' => $deliveryOrder->do_id,
+                'job_order_id' => $jobOrderId,
                 'recipient_name' => $request->recipient_name,
                 'notes' => $request->notes,
                 'delivered_at' => now()
@@ -619,7 +618,7 @@ class DriverAppController extends Controller
 
             // Create or update POD
             $pod = ProofOfDelivery::updateOrCreate(
-                ['do_id' => $deliveryOrder->do_id],
+                ['job_order_id' => $jobOrderId],
                 $podData
             );
 
@@ -885,7 +884,7 @@ class DriverAppController extends Controller
 
             'total_weight_kg' => JobOrder::whereHas('assignments', function($q) use ($driver) {
                     $q->where('driver_id', $driver->driver_id)
-                      ->where('status', 'Completed');
+                    ->where('status', 'Completed');
                 })
                 ->sum('goods_weight'),
 

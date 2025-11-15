@@ -3,6 +3,8 @@ import FilterDropdown from './common/FilterDropdown';
 import EditModal from './common/EditModal';
 import DeleteConfirmModal from './common/DeleteConfirmModal';
 import JobOrderDetail from './JobOrderDetail';
+import { fetchJobOrders } from '../services/jobOrderService';
+import { fetchCustomers } from '../services/customerService';
 
 const summaryCards = [
     {
@@ -60,13 +62,6 @@ const summaryCards = [
             </svg>
         ),
     },
-];
-
-const orderTabs = [
-    { key: 'all', label: 'Semua Order', count: 3 },
-    { key: 'jobOrder', label: 'Job Order', count: 1 },
-    { key: 'manifest', label: 'Manifest', count: 1 },
-    { key: 'delivery', label: 'Delivery Order', count: 1 },
 ];
 
 const orderTypeStyles = {
@@ -140,7 +135,7 @@ const statusFilterOptions = [
     { value: 'completed', label: 'Completed' }
 ];
 
-const orderRecords = [
+const fallbackOrderRecords = [
     {
         id: 'JO-2024-001',
         type: 'jobOrder',
@@ -196,6 +191,14 @@ const orderRecords = [
         ship_date: '2024-01-10', // Add ship_date for form
         value: '4100000',
     },
+];
+
+const fallbackCustomers = [
+    { id: '1', nama: 'PT Maju Jaya', kode: 'PMJ' },
+    { id: '2', nama: 'CV Sukses Mandiri', kode: 'CSM' },
+    { id: '3', nama: 'UD Berkah', kode: 'UDB' },
+    { id: '4', nama: 'PT Global Logistik', kode: 'PGL' },
+    { id: '5', nama: 'CV Sentosa Transport', kode: 'CST' },
 ];
 
 const SearchIcon = ({ className = 'h-5 w-5' }) => (
@@ -261,6 +264,9 @@ function StatusBadge({ status }) {
 }
 
 function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
+    const numericValue = Number(order.value ?? 0);
+    const formattedValue = Number.isFinite(numericValue) ? numericValue.toLocaleString('id-ID') : '0';
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
@@ -309,7 +315,7 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
                 </div>
             </td>
             <td className='px-6 py-4 text-sm font-semibold text-slate-700'>
-                Rp {parseInt(order.value).toLocaleString('id-ID')}
+                Rp {formattedValue}
             </td>
             <td className='px-6 py-4'>
                 <div className='flex items-center gap-2'>
@@ -352,7 +358,7 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
     );
 }
 
-function OrdersTable({ orders, onViewDetail, onEdit, onCancel }) {
+function OrdersTable({ orders, isLoading, error, onViewDetail, onEdit, onCancel }) {
     return (
         <div className='mt-6 overflow-x-auto'>
             <table className='w-full min-w-[960px] border-collapse'>
@@ -371,7 +377,19 @@ function OrdersTable({ orders, onViewDetail, onEdit, onCancel }) {
                     </tr>
                 </thead>
                 <tbody className='divide-y divide-slate-100'>
-                    {orders.length > 0 ? (
+                    {isLoading ? (
+                        <tr>
+                            <td colSpan={10} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                Memuat data job order...
+                            </td>
+                        </tr>
+                    ) : error ? (
+                        <tr>
+                            <td colSpan={10} className='px-6 py-12 text-center text-sm text-rose-500'>
+                                {error}
+                            </td>
+                        </tr>
+                    ) : orders.length > 0 ? (
                         orders.map((order) => (
                             <OrderRow 
                                 key={order.id} 
@@ -396,44 +414,162 @@ function OrdersTable({ orders, onViewDetail, onEdit, onCancel }) {
 
 export default function JobOrderContent() {
     console.log('JobOrderContent component mounted and rendering...');
-    
-    // Add useEffect to track component lifecycle
-    useEffect(() => {
-        console.log('JobOrderContent useEffect: Component did mount');
-        
-        // Test API connectivity
-        fetch('/api/v1/job-orders')
-            .then(response => {
-                console.log('Job Orders API response status:', response.status);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Job Orders API data received:', data);
-            })
-            .catch(error => {
-                console.error('Job Orders API error:', error);
-            });
-        
-        return () => {
-            console.log('JobOrderContent useEffect: Component will unmount');
-        };
-    }, []);
-    
+
+    const [orders, setOrders] = useState(fallbackOrderRecords);
+    const [ordersLoading, setOrdersLoading] = useState(false);
+    const [ordersError, setOrdersError] = useState(null);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const [activeTab, setActiveTab] = useState('all');
     const [currentView, setCurrentView] = useState('list'); // 'list' or 'detail'
     const [selectedOrderId, setSelectedOrderId] = useState(null);
-    
+
     // Modal states
     const [editModal, setEditModal] = useState({ isOpen: false, order: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, order: null });
     const [createModal, setCreateModal] = useState({ isOpen: false });
     const [isLoading, setIsLoading] = useState(false);
+
+    const [customers, setCustomers] = useState([]);
+
+    const allowedStatuses = useMemo(
+        () => new Set(statusFilterOptions.map((option) => option.value)),
+        []
+    );
+
+    const normalizeStatus = (status) => {
+        if (!status) {
+            return 'pending';
+        }
+
+        const normalized = status.toString().toLowerCase().replace(/\s+/g, '_');
+        return allowedStatuses.has(normalized) ? normalized : 'pending';
+    };
+
+    const mapJobOrderToRecord = (order) => {
+        if (!order) {
+            return null;
+        }
+
+        const assignments = Array.isArray(order.assignments) ? order.assignments : [];
+        const firstAssignment = assignments[0] ?? {};
+
+        const driverName =
+            firstAssignment?.driver?.driver_name ??
+            firstAssignment?.driver?.name ??
+            firstAssignment?.driver_name ??
+            '-';
+
+        const vehicleName =
+            firstAssignment?.vehicle?.plate_number ??
+            firstAssignment?.vehicle?.vehicle_name ??
+            firstAssignment?.vehicle?.registration_number ??
+            '-';
+
+        const shipDate = order.ship_date ?? order.startDate ?? order.created_at ?? '';
+        const endDate = order.delivery_date ?? order.endDate ?? order.completed_at ?? '';
+        const value = order.order_value ?? order.value ?? 0;
+
+        return {
+            id: order.job_order_id ?? order.id ?? '',
+            type: 'jobOrder',
+            jobOrderType: order.order_type ?? order.jobOrderType ?? 'LTL',
+            customer: order.customer?.customer_name ?? order.customer_name ?? order.customer?.name ?? '-',
+            customer_id: order.customer_id ?? '',
+            origin: order.pickup_address ?? order.origin ?? '-',
+            destination: order.delivery_address ?? order.destination ?? '-',
+            commodity: order.goods_desc ?? order.commodity ?? '-',
+            weight: order.goods_weight != null ? `${order.goods_weight}` : order.weight ?? '',
+            items: order.goods_desc ?? order.items ?? '-',
+            driver: driverName,
+            vehicle: vehicleName,
+            status: normalizeStatus(order.status),
+            startDate: shipDate,
+            endDate,
+            ship_date: shipDate,
+            value,
+        };
+    };
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadJobOrders = async () => {
+            console.log('JobOrderContent useEffect: loading job orders');
+            setOrdersLoading(true);
+            setOrdersError(null);
+
+            try {
+                const { items } = await fetchJobOrders({ per_page: 50 });
+                if (!isMounted) {
+                    return;
+                }
+
+                if (Array.isArray(items)) {
+                    const mappedOrders = items.map(mapJobOrderToRecord).filter(Boolean);
+                    setOrders(mappedOrders);
+                } else {
+                    setOrders(fallbackOrderRecords);
+                    setOrdersError('Format data job order tidak valid. Menampilkan data contoh.');
+                }
+            } catch (error) {
+                console.error('JobOrderContent useEffect: failed to load job orders', error);
+                if (isMounted) {
+                    setOrders(fallbackOrderRecords);
+                    setOrdersError('Gagal memuat data job order. Menampilkan data contoh.');
+                }
+            } finally {
+                if (isMounted) {
+                    setOrdersLoading(false);
+                }
+            }
+        };
+
+        loadJobOrders();
+
+        return () => {
+            isMounted = false;
+            console.log('JobOrderContent useEffect: Component will unmount');
+        };
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        const loadCustomers = async () => {
+            try {
+                const { items } = await fetchCustomers({ per_page: 100, status: 'Aktif' });
+                if (!isMounted) {
+                    return;
+                }
+
+                if (Array.isArray(items) && items.length > 0) {
+                    const normalizedCustomers = items.map((customer) => ({
+                        id: customer.customer_id ?? customer.id ?? '',
+                        nama: customer.customer_name ?? customer.nama ?? customer.name ?? '-',
+                        kode: customer.customer_code ?? customer.kode ?? customer.code ?? '-',
+                    }));
+
+                    setCustomers(normalizedCustomers);
+                } else {
+                    setCustomers(fallbackCustomers);
+                }
+            } catch (error) {
+                console.error('Error loading customers:', error);
+                if (isMounted) {
+                    setCustomers(fallbackCustomers);
+                }
+            }
+        };
+
+        loadCustomers();
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const handleViewDetail = (orderId) => {
         setSelectedOrderId(orderId);
@@ -539,34 +675,57 @@ export default function JobOrderContent() {
         setCreateModal({ isOpen: false });
     };
 
-    // State for customers data
-    const [customers, setCustomers] = useState([]);
+    const summaryCardsData = useMemo(() => {
+        const formatter = new Intl.NumberFormat('id-ID');
+        const totalOrders = orders.length;
+        const pendingCount = orders.filter((order) => order.status === 'pending').length;
+        const inProgressCount = orders.filter((order) => order.status === 'in_progress').length;
+        const completedCount = orders.filter((order) => ['completed', 'delivered'].includes(order.status)).length;
 
-    // Load customers data
-    useEffect(() => {
-        const loadCustomers = async () => {
-            try {
-                const response = await fetch('/api/v1/customers');
-                if (response.ok) {
-                    const data = await response.json();
-                    setCustomers(data.data || []);
-                } else {
-                    throw new Error('API not available');
-                }
-            } catch (error) {
-                console.error('Error loading customers:', error);
-                // Fallback customers for demo purposes
-                setCustomers([
-                    { id: '1', nama: 'PT Maju Jaya', kode: 'PMJ' },
-                    { id: '2', nama: 'CV Sukses Mandiri', kode: 'CSM' },
-                    { id: '3', nama: 'UD Berkah', kode: 'UDB' },
-                    { id: '4', nama: 'PT Global Logistik', kode: 'PGL' },
-                    { id: '5', nama: 'CV Sentosa Transport', kode: 'CST' }
-                ]);
+        return summaryCards.map((card) => {
+            let computedValue = card.value;
+
+            switch (card.title) {
+                case 'Total Order':
+                    computedValue = formatter.format(totalOrders);
+                    break;
+                case 'Pending':
+                    computedValue = formatter.format(pendingCount);
+                    break;
+                case 'In Progress':
+                    computedValue = formatter.format(inProgressCount);
+                    break;
+                case 'Completed':
+                    computedValue = formatter.format(completedCount);
+                    break;
+                default:
+                    break;
             }
-        };
-        loadCustomers();
-    }, []);
+
+            return {
+                ...card,
+                value: computedValue,
+            };
+        });
+    }, [orders]);
+
+    const orderTabsData = useMemo(() => {
+        const countsByType = orders.reduce(
+            (accumulator, order) => {
+                const typeKey = order.type ?? 'jobOrder';
+                accumulator[typeKey] = (accumulator[typeKey] ?? 0) + 1;
+                return accumulator;
+            },
+            {}
+        );
+
+        return [
+            { key: 'all', label: 'Semua Order', count: orders.length },
+            { key: 'jobOrder', label: 'Job Order', count: countsByType.jobOrder ?? 0 },
+            { key: 'manifest', label: 'Manifest', count: countsByType.manifest ?? 0 },
+            { key: 'delivery', label: 'Delivery Order', count: countsByType.delivery ?? 0 },
+        ];
+    }, [orders]);
 
     // Job order form fields configuration
     const jobOrderFields = [
@@ -720,20 +879,29 @@ export default function JobOrderContent() {
 
     const filteredOrders = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
-        return orderRecords.filter((order) => {
+
+        return orders.filter((order) => {
+            const idValue = (order.id ?? '').toString().toLowerCase();
+            const customerValue = (order.customer ?? '').toString().toLowerCase();
+            const originValue = (order.origin ?? '').toString().toLowerCase();
+            const destinationValue = (order.destination ?? '').toString().toLowerCase();
+
             const matchesSearch =
                 term.length === 0 ||
-                order.id.toLowerCase().includes(term) ||
-                order.customer.toLowerCase().includes(term) ||
-                order.origin.toLowerCase().includes(term) ||
-                order.destination.toLowerCase().includes(term);
+                idValue.includes(term) ||
+                customerValue.includes(term) ||
+                originValue.includes(term) ||
+                destinationValue.includes(term);
+
             const matchesType =
                 (activeTab !== 'all' ? order.type === activeTab : true) &&
                 (typeFilter === 'all' || order.type === typeFilter);
+
             const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+
             return matchesSearch && matchesType && matchesStatus;
         });
-    }, [searchTerm, typeFilter, statusFilter, activeTab]);
+    }, [orders, searchTerm, typeFilter, statusFilter, activeTab]);
 
     // Render JobOrderDetail if in detail view
     if (currentView === 'detail' && selectedOrderId) {
@@ -761,7 +929,7 @@ export default function JobOrderContent() {
             </header> */}
 
             <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
-                {summaryCards.map((card) => (
+                {summaryCardsData.map((card) => (
                     <SummaryCard key={card.title} card={card} />
                 ))}
             </section>
@@ -807,7 +975,7 @@ export default function JobOrderContent() {
                 </div>
                 <div className='mt-6 overflow-x-auto'>
                     <div className='inline-flex min-w-full rounded-2xl border border-slate-200 bg-slate-50 p-1 text-sm font-medium text-slate-500'>
-                        {orderTabs.map((tab) => {
+                        {orderTabsData.map((tab) => {
                             const isActive = activeTab === tab.key;
                             return (
                                 <button
@@ -828,7 +996,9 @@ export default function JobOrderContent() {
                     </div>
                 </div>
                 <OrdersTable 
-                    orders={filteredOrders} 
+                    orders={filteredOrders}
+                    isLoading={ordersLoading}
+                    error={ordersError}
                     onViewDetail={handleViewDetail}
                     onEdit={handleEdit}
                     onCancel={handleCancel}
