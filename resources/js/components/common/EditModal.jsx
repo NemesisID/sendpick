@@ -80,10 +80,14 @@ const EditModal = ({
         
         fields.forEach(field => {
             const fieldKey = field.key || field.name;
-            if (field.required && (!formData[fieldKey] || formData[fieldKey].toString().trim() === '')) {
+            const value = formData[fieldKey];
+            const isEmptyArray = Array.isArray(value) && value.length === 0;
+            const isEmptyString = typeof value === 'string' && value.trim() === '';
+            const isMissing = value === undefined || value === null || isEmptyString || isEmptyArray;
+            if (field.required && isMissing) {
                 newErrors[fieldKey] = `${field.label} harus diisi`;
             }
-            
+
             // Custom validation
             if (field.validate && formData[fieldKey]) {
                 const validationResult = field.validate(formData[fieldKey]);
@@ -139,6 +143,16 @@ const EditModal = ({
             readOnly: field.readOnly
         };
 
+        if (field.type === 'select' && field.multiple) {
+            commonProps.value = Array.isArray(formData[fieldKey]) ? formData[fieldKey] : [];
+            commonProps.onChange = (event) => {
+                const selectedValues = Array.from(event.target.selectedOptions).map((option) => option.value);
+                handleChange(fieldKey, selectedValues);
+            };
+        }
+
+        const resolvedOptions = typeof field.options === 'function' ? field.options() : field.options;
+
         switch (field.type) {
             case 'multiselect':
                 const selectedValues = Array.isArray(formData[fieldKey]) ? formData[fieldKey] : [];
@@ -156,7 +170,7 @@ const EditModal = ({
                                 }}
                             >
                                 <option value="">-- Pilih Job Order --</option>
-                                {field.options?.filter(option => !selectedValues.includes(option.value)).map(option => (
+                                {resolvedOptions?.filter(option => !selectedValues.includes(option.value)).map(option => (
                                     <option key={option.value} value={option.value}>
                                         {option.label}
                                     </option>
@@ -166,7 +180,7 @@ const EditModal = ({
                         {selectedValues.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                                 {selectedValues.map(value => {
-                                    const option = field.options?.find(opt => opt.value === value);
+                                    const option = resolvedOptions?.find(opt => opt.value === value);
                                     return (
                                         <span
                                             key={value}
@@ -204,11 +218,11 @@ const EditModal = ({
             
             case 'select':
                 return (
-                    <select {...commonProps}>
-                        {!field.options?.some(opt => opt.value === '') && (
+                    <select {...commonProps} multiple={field.multiple}>
+                        {!field.multiple && !resolvedOptions?.some(opt => opt.value === '') && (
                             <option value="">-- Pilih {field.label} --</option>
                         )}
-                        {field.options?.map(option => (
+                        {resolvedOptions?.map(option => (
                             <option key={option.value} value={option.value}>
                                 {option.label}
                             </option>
@@ -236,6 +250,16 @@ const EditModal = ({
                     />
                 );
             
+            case 'password':
+                return (
+                    <input
+                        {...commonProps}
+                        type="password"
+                        placeholder={field.placeholder}
+                        autoComplete="new-password"
+                    />
+                );
+
             case 'number':
                 return (
                     <input

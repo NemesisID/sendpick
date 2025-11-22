@@ -132,7 +132,6 @@ const DeleteConfirmModal = ({
                             flex-1 group relative px-6 py-3 rounded-xl text-white font-semibold 
                             btn-interactive shadow-glow focus:outline-none focus:ring-2 focus:ring-offset-2 
                             disabled:opacity-50 disabled:hover:scale-100
-                            ${config.buttonBg} focus:ring-red-500
                             bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800
                         `}
                     >

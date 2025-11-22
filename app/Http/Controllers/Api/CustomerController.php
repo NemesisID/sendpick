@@ -54,7 +54,7 @@ class CustomerController extends Controller
 
         // Filter berdasarkan tipe customer
         if ($customerType) {
-            $query->where('customer_type', $customerType);
+            $query->whereRaw('LOWER(customer_type) = ?', [strtolower($customerType)]);
         }
 
         // Pencarian input teks berdasarkan nama, kode, kontak, email, atau no. telepon customer

@@ -55,6 +55,7 @@ class AuthController extends Controller
 
             // ✅ CEK: User ditemukan DAN password benar
             if ($user && Hash::check($request->password, $user->password)) {
+                $user->update(['last_login' => now()]);
                 $token = $user->createToken($tokenName, ['*'], $expiresAt)->plainTextToken;
                 
                 return response()->json([

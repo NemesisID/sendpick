@@ -32,7 +32,6 @@ const Modal = ({
                 setIsAnimating(true);
             }, 10);
         } else if (shouldRender) {
-            // Only animate exit if modal is currently rendered
             console.log('🔴 Closing modal - Starting exit animation');
             setIsAnimating(false);
             // Remove from DOM after animation completes

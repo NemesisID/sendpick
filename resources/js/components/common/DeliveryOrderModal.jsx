@@ -15,10 +15,10 @@ import Modal from './Modal';
  * Data Customer, Rute, dan Barang akan terisi otomatis berdasarkan sumber yang dipilih
  */
 
-const DeliveryOrderModal = ({ 
-    isOpen, 
-    onClose, 
-    onSubmit, 
+const DeliveryOrderModal = ({
+    isOpen,
+    onClose,
+    onSubmit,
     initialData,
     title = 'Tambah Delivery Order',
     isLoading = false
@@ -58,15 +58,15 @@ const DeliveryOrderModal = ({
     const handleChange = (name, value) => {
         setFormData(prev => {
             const newData = { ...prev, [name]: value };
-            
+
             // Reset source selection when source type changes
             if (name === 'source_type') {
                 newData.source_id = '';
             }
-            
+
             return newData;
         });
-        
+
         // Clear error for this field
         if (errors[name]) {
             setErrors(prev => ({
@@ -79,19 +79,19 @@ const DeliveryOrderModal = ({
     // Validate form
     const validateForm = () => {
         const newErrors = {};
-        
+
         if (!formData.source_type) {
             newErrors.source_type = 'Tipe sumber harus dipilih';
         }
-        
+
         if (!formData.source_id) {
             newErrors.source_id = 'Sumber harus dipilih';
         }
-        
+
         if (!formData.do_date) {
             newErrors.do_date = 'Tanggal DO harus diisi';
         }
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -99,11 +99,11 @@ const DeliveryOrderModal = ({
     // Handle form submit
     const handleSubmit = async (event) => {
         event.preventDefault();
-        
+
         if (!validateForm()) {
             return;
         }
-        
+
         try {
             await onSubmit(formData);
         } catch (error) {
@@ -126,9 +126,9 @@ const DeliveryOrderModal = ({
                 w-full rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all duration-200
                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
                 placeholder:text-slate-400
-                ${hasError 
-                    ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500' 
-                    : value 
+                ${hasError
+                    ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500'
+                    : value
                         ? 'border-green-300 bg-green-50/50 text-slate-900 focus:border-indigo-500'
                         : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:bg-indigo-50/50'
                 }
@@ -138,8 +138,8 @@ const DeliveryOrderModal = ({
 
         return (
             <div key={name} className="group field-wrapper">
-                <label 
-                    htmlFor={name} 
+                <label
+                    htmlFor={name}
                     className="mb-3 block text-sm font-semibold text-slate-700 group-focus-within:text-indigo-600 transition-colors"
                 >
                     {label}
@@ -147,7 +147,7 @@ const DeliveryOrderModal = ({
                         <span className="ml-1 text-red-500 font-medium">*</span>
                     )}
                 </label>
-                
+
                 <div className="relative">
                     {type === 'select' ? (
                         <select {...commonProps}>
@@ -170,7 +170,7 @@ const DeliveryOrderModal = ({
                             placeholder={placeholder}
                         />
                     )}
-                    
+
                     {/* Icon untuk field yang required dan sudah diisi */}
                     {required && !hasError && value && (
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -180,7 +180,7 @@ const DeliveryOrderModal = ({
                         </div>
                     )}
                 </div>
-                
+
                 {hasError && (
                     <div className="mt-2 flex items-center gap-2 error-shake">
                         <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,13 +191,13 @@ const DeliveryOrderModal = ({
                         </p>
                     </div>
                 )}
-                
+
                 {description && (
                     <p className="mt-2 text-xs text-slate-500 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-lg border border-blue-200">
                         ℹ️ {description}
                     </p>
                 )}
-                
+
                 {help && (
                     <p className="mt-2 text-xs text-slate-500 bg-gradient-to-r from-slate-50 to-blue-50 px-3 py-2 rounded-lg border border-slate-200">
                         💡 {help}
@@ -270,7 +270,7 @@ const DeliveryOrderModal = ({
                         );
                     })}
                 </div>
-                
+
                 {/* Fixed action buttons dengan desain yang lebih menarik */}
                 <div className="flex justify-end gap-4 border-t border-slate-200 pt-6 mt-8 shrink-0 bg-gradient-to-r from-slate-50 to-white px-1">
                     <button
@@ -287,22 +287,22 @@ const DeliveryOrderModal = ({
                         className="group relative px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold btn-interactive shadow-glow focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
                     >
                         {isLoading && (
-                            <svg 
-                                className="mr-3 h-5 w-5 animate-spin inline" 
-                                fill="none" 
+                            <svg
+                                className="mr-3 h-5 w-5 animate-spin inline"
+                                fill="none"
                                 viewBox="0 0 24 24"
                             >
-                                <circle 
-                                    className="opacity-25" 
-                                    cx="12" 
-                                    cy="12" 
-                                    r="10" 
-                                    stroke="currentColor" 
+                                <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
                                     strokeWidth="4"
                                 />
-                                <path 
-                                    className="opacity-75" 
-                                    fill="currentColor" 
+                                <path
+                                    className="opacity-75"
+                                    fill="currentColor"
                                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                                 />
                             </svg>

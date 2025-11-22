@@ -53,17 +53,14 @@ class Customers extends Model
      * Format: CUST + 4 digit counter
      * Contoh: CUST0001, CUST0002, ...
      */
-    public static function generateCustomerId()
+    public static function generateCustomerId(): string
     {
-        $lastCustomer = self::orderBy('customer_id', 'desc')->first();
+        $lastNumber = self::query()
+            ->selectRaw("COALESCE(MAX(CAST(REGEXP_REPLACE(customer_id, '[^0-9]', '', 'g') AS INTEGER)), 0) AS last_number")
+            ->value('last_number');
 
-        if ($lastCustomer) {
-            $lastNumber = (int) substr($lastCustomer->customer_id, 4);
-            $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-        } else {
-            $newNumber = '0001';
-        }
+        $nextNumber = ((int) $lastNumber) + 1;
 
-        return 'CUST' . $newNumber;
+        return 'CUST' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 }
