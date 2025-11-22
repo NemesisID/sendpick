@@ -103,7 +103,9 @@ class AdminController extends Controller
                     Password::min(8)->letters()->mixedCase()->numbers()
                 ],
                 'role_ids' => 'required|array',
-                'role_ids.*' => 'exists:roles,id'
+                'role_ids.*' => 'exists:roles,id',
+                'phone' => 'nullable|string|max:20',
+                'department' => 'nullable|string|max:255',
             ]);
     
             // Generate unique user_id secara otomatis
@@ -117,7 +119,9 @@ class AdminController extends Controller
                 'user_id' => $userId,
                 'name' => $request->name,
                 'email' => $request->email,
-                'password' => Hash::make($request->password)
+                'password' => Hash::make($request->password),
+                'phone' => $request->phone,
+                'department' => $request->department,
             ]);
     
             // Assign rolenya sesuai yang dipilih.
@@ -207,12 +211,16 @@ class AdminController extends Controller
                 Password::min(8)->letters()->mixedCase()->numbers()
             ],
             'role_ids' => 'required|array',
-            'role_ids.*' => 'exists:roles,id'
+            'role_ids.*' => 'exists:roles,id',
+            'phone' => 'nullable|string|max:20',
+            'department' => 'nullable|string|max:255',
         ]);
 
         // Jika data berhasil diupdate, simpan data nama & email admin
         $admin->name = $request->name;
         $admin->email = $request->email;
+        $admin->phone = $request->phone;
+        $admin->department = $request->department;
 
         // Update password jika diisi oleh Admin
         if ($request->filled('password')) {

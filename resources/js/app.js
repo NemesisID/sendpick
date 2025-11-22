@@ -1,3 +1,3 @@
 import './bootstrap';
-import './components/Auth';
-import './components/Driver';
+import './features/auth/components/Auth';
+import './features/drivers/components/Driver';

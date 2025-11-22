@@ -39,7 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Additional Admin routes:
     // 1. Mendapatkan daftar role yang tersedia untuk admin
-    Route::get('/admins/roles', [AdminController::class, 'getRoles'])->name('api.admins.roles'); // ada
+    Route::get('/admins/roles', [AdminController::class, 'getRoles'])->name('api.admins.roles')->withoutMiddleware('auth:sanctum'); // ada
 
     // Admins (apiResource)
     Route::apiResource('admins', AdminController::class)
@@ -50,8 +50,7 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.admins.show', // --> GET /api/admins/{userId}
             'update' => 'api.admins.update', // --> PUT /api/admins/{userId}
             'destroy' => 'api.admins.destroy', // --> DELETE /api/admins/{userId}
-        ]);
-
+        ])->withoutMiddleware('auth:sanctum');
 
     // Additional Roles routes (HARUS SEBELUM apiResource untuk avoid route conflict):
     // 1. Mendapatkan daftar role yang dapat ditugaskan ke admin
@@ -69,15 +68,15 @@ Route::middleware('auth:sanctum')->group(function () {
             'update' => 'api.roles.update', // --> PUT /api/roles/{roleId}
             'destroy' => 'api.roles.destroy', // --> DELETE /api/roles/{roleId}
         ]);
-    // 3. Mendapatkan daftar admin yang memiliki role tertentu
-    // Route::post('/roles/bulk-assign', [RoleController::class, 'bulkAssignToAdmin'])->name('api.roles.bulk-assign'); // ada 
-    // 4. Menugaskan atau menghapus role dari admin
-    // Route::post('/roles/{roleId}/assign', [RoleController::class, 'assignToAdmin'])->name('api.roles.assign-admin'); // ada
-    // 5. Menghapus role dari admin
-    // Route::post('/roles/{roleId}/remove', [RoleController::class, 'removeFromAdmin'])->name('api.roles.remove-admin'); // ada
-    // 6. Mendapatkan daftar admin berdasarkan role tertentu
-    // Route::get('/roles/{roleId}/admins', [RoleController::class, 'getAdmins'])->name('api.roles.admins'); // ada
 
+    // 3. Mendapatkan daftar admin yang memiliki role tertentu
+    // Route::post('/roles/bulk-assign', [RoleController::class, 'bulkAssignToAdmin'])->name('api.roles.bulk-assign')->withoutMiddleware('auth:sanctum'); // ada 
+    // 4. Menugaskan atau menghapus role dari admin
+    // Route::post('/roles/{roleId}/assign', [RoleController::class, 'assignToAdmin'])->name('api.roles.assign-admin')->withoutMiddleware('auth:sanctum'); // ada
+    // 5. Menghapus role dari admin
+    // Route::post('/roles/{roleId}/remove', [RoleController::class, 'removeFromAdmin'])->name('api.roles.remove-admin')->withoutMiddleware('auth:sanctum'); // ada
+    // 6. Mendapatkan daftar admin berdasarkan role tertentu
+    // Route::get('/roles/{roleId}/admins', [RoleController::class, 'getAdmins'])->name('api.roles.admins')->withoutMiddleware('auth:sanctum'); // ada
 
     // Customers (apiResource)
     Route::apiResource('customers', CustomerController::class)
@@ -88,12 +87,11 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.customers.show', // --> GET /api/customers/{customerId}
             'update' => 'api.customers.update', // --> PUT /api/customers/{customerId}
             'destroy' => 'api.customers.destroy', // --> DELETE /api/customers/{customerId}
-        ]);
-
+        ])->withoutMiddleware('auth:sanctum');
 
     // Additional Driver routes:
     // 1. Mendapatkan daftar driver yang bersedia untuk ditugaskan (tidak memiliki assignment aktif)
-    Route::get('/drivers/available', [DriverController::class, 'getAvailable'])->name('api.drivers.available'); // ada
+    Route::get('/drivers/available', [DriverController::class, 'getAvailable'])->name('api.drivers.available')->withoutMiddleware('auth:sanctum'); // ada
 
     // Drivers (apiResource)
     Route::apiResource('drivers', DriverController::class)
@@ -104,15 +102,14 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.drivers.show', // --> GET /api/drivers/{driverId}
             'update' => 'api.drivers.update', // --> PUT /api/drivers/{driverId}
             'destroy' => 'api.drivers.destroy', // --> DELETE /api/drivers/{driverId}
-        ]);
+        ])->withoutMiddleware('auth:sanctum');
     
     // 2. Memperbarui lokasi driver secara real-time (ini bisa dipindah ke DriverAppController jika ada)
-    // Route::patch('/drivers/{driverId}/location', [DriverController::class, 'updateLocation'])->name('api.drivers.update-location');
-
+    // Route::patch('/drivers/{driverId}/location', [DriverController::class, 'updateLocation'])->name('api.drivers.update-location')->withoutMiddleware('auth:sanctum');
 
     // Additional Vehicle Type routes:
     // 1. Mendapatkan daftar tipe kendaraan yang statusnya masih 'Aktif'
-    Route::get('/vehicle-types/active', [VehicleTypeController::class, 'getActive'])->name('api.vehicle-types.active');
+    Route::get('/vehicle-types/active', [VehicleTypeController::class, 'getActive'])->name('api.vehicle-types.active')->withoutMiddleware('auth:sanctum');
 
     // Vehicle Types (apiResource)
     Route::apiResource('vehicle-types', VehicleTypeController::class)
@@ -123,16 +120,15 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.vehicle-types.show', // --> GET /api/vehicle-types/{id}
             'update' => 'api.vehicle-types.update', // --> PUT /api/vehicle-types/{id}
             'destroy' => 'api.vehicle-types.destroy', // --> DELETE /api/vehicle-types/{id}
-        ]);
-
+        ])->withoutMiddleware('auth:sanctum');
 
     // Additional Vehicle routes:
     // 1. Mendapatkan daftar kendaraan yang tersedia untuk ditugaskan (tidak memiliki assignment aktif).
-    Route::get('/vehicles/available', [VehicleController::class, 'getAvailable'])->name('api.vehicles.available');
+    Route::get('/vehicles/available', [VehicleController::class, 'getAvailable'])->name('api.vehicles.available')->withoutMiddleware('auth:sanctum');
     // 2. Memperbarui status maintenance kendaraan
-    Route::patch('/vehicles/{vehicleId}/maintenance', [VehicleController::class, 'updateMaintenance'])->name('api.vehicles.update-maintenance');
+    Route::patch('/vehicles/{vehicleId}/maintenance', [VehicleController::class, 'updateMaintenance'])->name('api.vehicles.update-maintenance')->withoutMiddleware('auth:sanctum');
     // 3. Memperbarui level bahan bakar kendaraan (Tidak perlu, karena Controller ini bisa digunakan untuk keperluan lain atau controller lain seperti DriverAppController)
-    // Route::patch('/vehicles/{vehicleId}/fuel', [VehicleController::class, 'updateFuelLevel'])->name('api.vehicles.update-fuel');
+    // Route::patch('/vehicles/{vehicleId}/fuel', [VehicleController::class, 'updateFuelLevel'])->name('api.vehicles.update-fuel')->withoutMiddleware('auth:sanctum');
 
     // Vehicles (apiResource)
     Route::apiResource('vehicles', VehicleController::class)
@@ -143,16 +139,15 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.vehicles.show', // --> GET /api/vehicles/{vehicleId}
             'update' => 'api.vehicles.update', // --> PUT /api/vehicles/{vehicleId}
             'destroy' => 'api.vehicles.destroy', // --> DELETE /api/vehicles/{vehicleId}
-        ]);
-
+        ])->withoutMiddleware('auth:sanctum');
 
     // Additional Job Order routes:
     // 1. Menambahkan assignment ke job order
-    Route::post('/job-orders/{jobOrderId}/assignments', [JobOrderController::class, 'storeAssignment'])->name('api.job-orders.store-assignment');
+    Route::post('/job-orders/{jobOrderId}/assignments', [JobOrderController::class, 'storeAssignment'])->name('api.job-orders.store-assignment')->withoutMiddleware('auth:sanctum');
     // 2. Memperbarui status job order (Disarankan dipindah ke DriverAppController jika ada)
-    // Route::patch('/job-orders/{jobOrderId}/status', [JobOrderController::class, 'updateStatus'])->name('api.job-orders.update-status');
+    // Route::patch('/job-orders/{jobOrderId}/status', [JobOrderController::class, 'updateStatus'])->name('api.job-orders.update-status')->withoutMiddleware('auth:sanctum');
     // 3. Mendapatkan semua data assignment untuk job order tertentu
-    Route::get('/job-orders/{jobOrderId}/assignments', [JobOrderController::class, 'getAssignments'])->name('api.job-orders.assignments');
+    Route::get('/job-orders/{jobOrderId}/assignments', [JobOrderController::class, 'getAssignments'])->name('api.job-orders.assignments')->withoutMiddleware('auth:sanctum');
 
     // Job Orders (apiResource)
     Route::apiResource('job-orders', JobOrderController::class)
@@ -163,16 +158,16 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.job-orders.show', // --> GET /api/job-orders/{jobOrderId}
             'update' => 'api.job-orders.update', // --> PUT /api/job-orders/{jobOrderId}
             'destroy' => 'api.job-orders.destroy', // --> DELETE /api/job-orders/{jobOrderId}
-        ]);
-
+        ])->withoutMiddleware('auth:sanctum');
 
     // Additional Manifest routes:
     // 1. Mendapatkan data daftar job order yang tersedia untuk ditambahkan ke manifest
-    Route::get('/manifests/{manifestId}/available-job-orders', [ManifestController::class, 'getAvailableJobOrders'])->name('api.manifests.available-job-orders');
+    Route::get('/manifests/{manifestId}/available-job-orders', [ManifestController::class, 'getAvailableJobOrders'])->name('api.manifests.available-job-orders')->withoutMiddleware('auth:sanctum');
     // 2. Menambahkan job order ke manifest
-    Route::post('/manifests/{manifestId}/add-job-orders', [ManifestController::class, 'addJobOrders'])->name('api.manifests.add-job-orders');
+    Route::post('/manifests/{manifestId}/add-job-orders', [ManifestController::class, 'addJobOrders'])->name('api.manifests.add-job-orders')->withoutMiddleware('auth:sanctum');
     // 3. Menghapus job order dari manifest
-    Route::post('/manifests/{manifestId}/remove-job-orders', [ManifestController::class, 'removeJobOrders'])->name('api.manifests.remove-job-orders');
+    Route::post('/manifests/{manifestId}/remove-job-orders', [ManifestController::class, 'removeJobOrders'])->name('api.manifests.remove-job-orders')->withoutMiddleware('auth:sanctum');
+
     // Manifests (apiResource)
     Route::apiResource('manifests', ManifestController::class)
         ->parameters(['manifests' => 'manifestId'])
@@ -182,13 +177,13 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.manifests.show', // --> GET /api/manifests/{manifestId}
             'update' => 'api.manifests.update', // --> PUT /api/manifests/{manifestId}
             'destroy' => 'api.manifests.destroy', // --> DELETE /api/manifests/{manifestId}
-        ]);
+        ])->withoutMiddleware('auth:sanctum');
 
     // Additional Delivery Order routes:
     // 1. Menugaskan driver dan kendaraan ke delivery order
-    Route::post('/delivery-orders/{doId}/assign-driver', [DeliveryOrderController::class, 'assignDriverToDO'])->name('api.delivery-orders.assign-driver'); // ada
+    Route::post('/delivery-orders/{doId}/assign-driver', [DeliveryOrderController::class, 'assignDriverToDO'])->name('api.delivery-orders.assign-driver')->withoutMiddleware('auth:sanctum'); // ada
     // 2. Complete delivery order
-    Route::post('/delivery-orders/{doId}/complete', [DeliveryOrderController::class, 'completeDeliveryOrder'])->name('api.delivery-orders.complete'); // ada
+    Route::post('/delivery-orders/{doId}/complete', [DeliveryOrderController::class, 'completeDeliveryOrder'])->name('api.delivery-orders.complete')->withoutMiddleware('auth:sanctum'); // ada
 
     // Delivery Orders (apiResource)
     Route::apiResource('delivery-orders', DeliveryOrderController::class)
@@ -199,7 +194,7 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.delivery-orders.show', // --> GET /api/delivery-orders/{doId}
             'update' => 'api.delivery-orders.update', // --> PUT /api/delivery-orders/{doId}
             'destroy' => 'api.delivery-orders.destroy', // --> DELETE /api/delivery-orders/{doId}
-        ]);
+        ])->withoutMiddleware('auth:sanctum');
 
     // Additional Invoice routes:
     // 1. Mendapatkan sumber invoice yang tersedia untuk membuat invoice baru
