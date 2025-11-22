@@ -215,36 +215,45 @@ const driverSummaryCards = [
 ];
 
 const driverStatusStyles = {
-    active: {
-        label: 'Aktif',
-        badgeBg: 'bg-emerald-50',
-        text: 'text-emerald-600',
-        dot: 'bg-emerald-500',
-    },
+    // Format yang sesuai dengan backend
     'Aktif': {
         label: 'Aktif',
-        badgeBg: 'bg-emerald-50',
-        text: 'text-emerald-600',
-        dot: 'bg-emerald-500',
+        badgeBg: 'bg-green-50',
+        text: 'text-green-600',
+        dot: 'bg-green-500',
     },
     'Tidak Aktif': {
         label: 'Tidak Aktif',
-        badgeBg: 'bg-slate-100',
-        text: 'text-slate-600',
-        dot: 'bg-slate-500',
+        badgeBg: 'bg-red-50',
+        text: 'text-red-600',
+        dot: 'bg-red-500',
     },
-    standby: {
-        label: 'Standby',
-        badgeBg: 'bg-sky-50',
-        text: 'text-sky-600',
-        dot: 'bg-sky-500',
+    // Fallback untuk format lama (jika ada di database)
+    'aktif': {
+        label: 'Aktif',
+        badgeBg: 'bg-green-50',
+        text: 'text-green-600',
+        dot: 'bg-green-500',
     },
-    off: {
-        label: 'Off Duty',
-        badgeBg: 'bg-slate-100',
-        text: 'text-slate-500',
-        dot: 'bg-slate-400',
+    'tidak_aktif': {
+        label: 'Tidak Aktif',
+        badgeBg: 'bg-red-50',
+        text: 'text-red-600',
+        dot: 'bg-red-500',
     },
+    'inactive': {
+        label: 'Tidak Aktif',
+        badgeBg: 'bg-red-50',
+        text: 'text-red-600',
+        dot: 'bg-red-500',
+    },
+    // Fallback lainnya
+    'active': {
+        label: 'Aktif',
+        badgeBg: 'bg-green-50',
+        text: 'text-green-600',
+        dot: 'bg-green-500',
+    }
 };
 
 const driverShiftOptions = [
@@ -518,6 +527,12 @@ function DriverRow({ driver, onEdit, onDelete }) {
                 </div>
             </td>
             <td className='px-6 py-4'>
+                <div className='flex items-center gap-1'>
+                    <StarIcon className='h-4 w-4 text-amber-400' />
+                    <span className='text-sm font-medium text-slate-600'>0.0</span>
+                </div>
+            </td>
+            <td className='px-6 py-4'>
                 <div className='flex items-center gap-2'>
                     <button
                         type='button'
@@ -653,6 +668,7 @@ function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShift
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Order</th>
                             <th className='px-6 py-3'>Shift</th>
+                            <th className='px-6 py-3'>Rating</th>
                             <th className='px-6 py-3'>Aksi</th>
                         </tr>
                     </thead>
@@ -782,8 +798,15 @@ function DriverManagementContent() {
         console.log('🔄 useEffect triggered - drivers changed:', drivers);
         console.log('📊 Number of drivers:', drivers?.length);
         console.log('📋 Drivers data:', drivers);
-        setDriversList(drivers ?? []);
-        console.log('✅ driversList updated');
+        
+        // Update driversList with the new data
+        if (drivers && Array.isArray(drivers)) {
+            setDriversList([...drivers]);
+            console.log('✅ driversList updated with', drivers.length, 'drivers');
+        } else {
+            console.warn('⚠️ No valid drivers data received');
+            setDriversList([]);
+        }
     }, [drivers]);
 
     useEffect(() => {
@@ -938,16 +961,19 @@ function DriverManagementContent() {
                             { value: 'malam', label: 'Malam (22:00-06:00)' },
                         ],
                     },
-                    {
+                    // Hanya tampilkan status jika dalam mode edit
+                    ...(editModal.driver ? [{
                         name: 'status',
                         label: 'Status',
                         type: 'select',
                         required: true,
                         options: [
                             { value: 'Aktif', label: 'Aktif' },
-                            { value: 'Tidak Aktif', label: 'Tidak aktif' },
+                            { value: 'Tidak Aktif', label: 'Tidak Aktif' },
+                            { value: 'Siaga', label: 'Siaga' },
+                            { value: 'Off Duty', label: 'Off Duty' },
                         ],
-                    },
+                    }] : []),
                 ]}
                 initialData={editModal.driver}
                 isOpen={editModal.isOpen}
@@ -973,22 +999,48 @@ function DriverManagementContent() {
                 onSubmit={async (formData) => {
                     try {
                         console.log('📝 Submitting driver data:', formData);
+                        
+                        // Siapkan data yang akan dikirim
+                        const dataToSubmit = {
+                            ...formData,
+                            // Ubah field 'vehicle' menjadi 'vehicle_id' untuk backend
+                            vehicle_id: formData.vehicle,
+                            // Hapus field 'vehicle' asli untuk menghindari duplikasi
+                            vehicle: undefined
+                        };
+                        
+                        // Hapus field yang tidak diperlukan
+                        delete dataToSubmit.vehicle;
+                        
+                        console.log('📤 Data to submit:', dataToSubmit);
 
                         if (editModal.driver) {
                             console.log('✏️ Updating driver:', editModal.driver.driver_id);
-                            await updateDriver(editModal.driver.driver_id, formData);
+                            const result = await updateDriver(editModal.driver.driver_id, dataToSubmit);
+                            console.log('✅ Update result:', result);
+                            
+                            if (result && !result.success) {
+                                throw new Error(result.error || 'Gagal memperbarui data driver');
+                            }
                         } else {
-                            console.log('📝 Creating new driver:', formData);
-                            const result = await createDriver(formData);
-                            console.log('✅ Driver created, result:', result);
+                            console.log('📝 Creating new driver:', dataToSubmit);
+                            const result = await createDriver(dataToSubmit);
+                            console.log('✅ Create result:', result);
+                            
+                            if (result && !result.success) {
+                                throw new Error(result.error || 'Gagal menambahkan driver baru');
+                            }
                         }
+                        
                         console.log('🔄 Refetching drivers list...');
                         await refetch();
-                        console.log('✅ Refetch complete')
+                        console.log('✅ Refetch complete');
 
                         setEditModal({ isOpen: false, driver: null });
                     } catch (error) {
                         console.error('❌ Error saving driver:', error);
+                        // Tampilkan pesan error ke user
+                        alert(error.message || 'Terjadi kesalahan saat menyimpan data. Silakan coba lagi.');
                         console.error('Error saving driver:', error);
                     }
                 }}
