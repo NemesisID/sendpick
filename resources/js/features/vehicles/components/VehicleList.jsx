@@ -192,16 +192,18 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
-                <p className='text-sm font-semibold text-slate-800'>{vehicle.plate}</p>
-                <p className='text-xs text-slate-400'>{vehicle.model}</p>
+                <p className='text-sm font-semibold text-slate-800'>{vehicle.plate_no || 'N/A'}</p>
+                <p className='text-xs text-slate-400'>{vehicle.model || 'N/A'}</p>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>{vehicle.type}</p>
-                    <p className='text-xs text-slate-400'>{vehicle.capacity}</p>
+                    <p>{vehicle.vehicle_type?.name || vehicle.type || 'N/A'}</p>
+                    <p className='text-xs text-slate-400'>{vehicle.capacity_label || 'N/A'}</p>
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{vehicle.driver}</td>
+            <td className='px-6 py-4 text-sm text-slate-600'>
+                {vehicle.driver?.name || 'Tidak ada driver'}
+            </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{vehicle.location}</td>
             <td className='px-6 py-4'>
                 <Tag bg={statusStyle.bg} text={statusStyle.text}>
@@ -218,8 +220,8 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>Last: {vehicle.lastMaintenance}</p>
-                    <p>Next: {vehicle.nextMaintenance}</p>
+                    <p>Last: {vehicle.last_maintenance_date || 'Belum ada'}</p>
+                    <p>Next: {vehicle.next_maintenance_date || 'Belum dijadwalkan'}</p>
                 </div>
             </td>
             <td className='px-6 py-4'>
@@ -383,24 +385,31 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
         setDeleteModal({ isOpen: false, vehicle: null });
     };
 
-    // Vehicle form fields configuration
-    const vehicleFields = [
+    // Base vehicle form fields (for Add form)
+    const baseVehicleFields = [
         {
-            name: 'plate',
+            name: 'plate_no',
             label: 'Nomor Plat',
             type: 'text',
             required: true,
             placeholder: 'Contoh: B 1234 ABC'
         },
         {
+            name: 'brand',
+            label: 'Merk Kendaraan',
+            type: 'text',
+            required: true,
+            placeholder: 'Contoh: Toyota, Suzuki, Mitsubishi'
+        },
+        {
             name: 'model',
             label: 'Model Kendaraan',
             type: 'text',
             required: true,
-            placeholder: 'Contoh: Toyota Hiace, Suzuki Carry'
+            placeholder: 'Contoh: Hiace, Carry, L300'
         },
         {
-            name: 'type_id',
+            name: 'vehicle_type_id',
             label: 'Tipe Kendaraan',
             type: 'select',
             required: true,
@@ -414,11 +423,20 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             placeholder: 'Contoh: 2023'
         },
         {
-            name: 'capacity',
-            label: 'Kapasitas',
+            name: 'capacity_label',
+            label: 'Label Kapasitas',
             type: 'text',
             required: true,
-            placeholder: 'Contoh: 1000kg, 5m³'
+            placeholder: 'Contoh: 1 Ton, 5m³, 10 Kubik'
+        },
+        {
+            name: 'max_weight',
+            label: 'Berat Maksimal (kg)',
+            type: 'number',
+            required: true,
+            placeholder: 'Contoh: 1000',
+            min: 0,
+            step: '0.01'
         },
         {
             name: 'current_kilometer',
@@ -443,6 +461,41 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             ]
         }
     ];
+
+    // Additional fields for Edit form only
+    const editOnlyFields = [
+        {
+            name: 'status',
+            label: 'Status',
+            type: 'select',
+            required: true,
+            options: [
+                { value: 'active', label: 'Aktif' },
+                { value: 'maintenance', label: 'Maintenance' },
+                { value: 'inactive', label: 'Tidak Aktif' },
+                { value: 'blocked', label: 'Blocked' }
+            ]
+        },
+        {
+            name: 'last_maintenance_date',
+            label: 'Tanggal Service Terakhir',
+            type: 'date',
+            required: false,
+            placeholder: 'Pilih tanggal service terakhir'
+        },
+        {
+            name: 'next_maintenance_date',
+            label: 'Jadwal Service Berikutnya',
+            type: 'date',
+            required: false,
+            placeholder: 'Pilih jadwal service berikutnya'
+        }
+    ];
+
+    // Combine fields based on whether we're adding or editing
+    const getFormFields = (isEdit) => {
+        return isEdit ? [...baseVehicleFields, ...editOnlyFields] : baseVehicleFields;
+    };
 
     return (
         <>
@@ -513,7 +566,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
 
             <EditModal
                 title={editModal.vehicle ? 'Edit Kendaraan' : 'Tambah Kendaraan'}
-                fields={vehicleFields}
+                fields={getFormFields(!!editModal.vehicle)}
                 initialData={editModal.vehicle}
                 isOpen={editModal.isOpen}
                 onClose={handleEditClose}
