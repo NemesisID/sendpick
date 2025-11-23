@@ -1006,11 +1006,7 @@ function DriverManagementContent() {
                             // Ubah field 'vehicle' menjadi 'vehicle_id' untuk backend
                             vehicle_id: formData.vehicle,
                             // Hapus field 'vehicle' asli untuk menghindari duplikasi
-                            vehicle: undefined
                         };
-                        
-                        // Hapus field yang tidak diperlukan
-                        delete dataToSubmit.vehicle;
                         
                         console.log('📤 Data to submit:', dataToSubmit);
 
