@@ -67,8 +67,8 @@ const summaryCards = [
 
 const statusOptions = [
     { value: 'all', label: 'Semua Status' },
-    { value: 'active', label: 'Aktif' },
-    { value: 'inactive', label: 'Non-Aktif' },
+    { value: 'Aktif', label: 'Aktif' },
+    { value: 'Tidak Aktif', label: 'Non-Aktif' },
 ];
 
 const PlusIcon = () => (
@@ -115,7 +115,7 @@ function Tag({ children, bg, text }) {
 }
 
 function VehicleTypeRow({ vehicleType, onEdit, onDelete }) {
-    const statusConfig = vehicleType.status === 'active'
+    const statusConfig = vehicleType.status === 'Aktif'
         ? { label: 'Aktif', bg: 'bg-emerald-50', text: 'text-emerald-600' }
         : { label: 'Non-Aktif', bg: 'bg-slate-100', text: 'text-slate-500' };
 
@@ -130,12 +130,12 @@ function VehicleTypeRow({ vehicleType, onEdit, onDelete }) {
             <td className='px-6 py-4'>
                 <div className='text-sm text-slate-900'>{vehicleType.capacity_range}</div>
                 <div className='text-xs text-slate-500'>
-                    {vehicleType.min_capacity_kg}kg - {vehicleType.max_capacity_kg}kg
+                    {vehicleType.capacity_min_kg}kg - {vehicleType.capacity_max_kg}kg
                 </div>
             </td>
             <td className='px-6 py-4'>
                 <div className='text-sm text-slate-900'>
-                    {vehicleType.min_capacity_m3}m³ - {vehicleType.max_capacity_m3}m³
+                    {vehicleType.volume_min_m3}m³ - {vehicleType.volume_max_m3}m³
                 </div>
             </td>
             <td className='px-6 py-4'>
@@ -311,7 +311,7 @@ export default function VehicleTypesContent({ showPopup = false, setShowPopup = 
     const handleEditClose = () => setEditModal({ isOpen: false, vehicleType: null });
     const handleDeleteClose = () => setDeleteModal({ isOpen: false, vehicleType: null });
 
-    const editFormFields = [
+    const baseFormFields = [
         {
             name: 'name',
             label: 'Nama Tipe',
@@ -327,44 +327,50 @@ export default function VehicleTypesContent({ showPopup = false, setShowPopup = 
             placeholder: 'Deskripsi singkat tentang tipe kendaraan'
         },
         {
-            name: 'min_capacity_kg',
+            name: 'capacity_min_kg',
             label: 'Kapasitas Minimum (Kg)',
             type: 'number',
             required: false,
             placeholder: '1000'
         },
         {
-            name: 'max_capacity_kg',
+            name: 'capacity_max_kg',
             label: 'Kapasitas Maksimum (Kg)',
             type: 'number',
             required: false,
             placeholder: '5000'
         },
         {
-            name: 'min_capacity_m3',
+            name: 'volume_min_m3',
             label: 'Volume Minimum (m³)',
             type: 'number',
             required: false,
             placeholder: '5'
         },
         {
-            name: 'max_capacity_m3',
+            name: 'volume_max_m3',
             label: 'Volume Maksimum (m³)',
             type: 'number',
             required: false,
             placeholder: '20'
-        },
-        {
-            name: 'status',
-            label: 'Status',
-            type: 'select',
-            required: true,
-            options: [
-                { value: 'active', label: 'Aktif' },
-                { value: 'inactive', label: 'Non-Aktif' }
-            ]
         }
     ];
+
+    const statusField = {
+        name: 'status',
+        label: 'Status',
+        type: 'select',
+        required: true,
+        options: [
+            { value: 'Aktif', label: 'Aktif' },
+            { value: 'Tidak Aktif', label: 'Non-Aktif' }
+        ]
+    };
+
+    // Only include status field when editing an existing vehicle type
+    const editFormFields = editModal.vehicleType
+        ? [...baseFormFields, statusField]
+        : baseFormFields;
 
     return (
         <>

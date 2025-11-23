@@ -213,7 +213,6 @@ function AdminRow({ admin, onEdit, onDelete }) {
                     </div>
                 </div>
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{admin.department}</td>
             <td className='px-6 py-4'>
                 <StatusBadge status={admin.status} />
             </td>
@@ -278,9 +277,6 @@ function AdminTableSkeleton({ rows = 6 }) {
                     </td>
                     <td className='px-6 py-4'>
                         <div className='h-3 w-28 rounded bg-slate-200' />
-                    </td>
-                    <td className='px-6 py-4'>
-                        <div className='h-3 w-32 rounded bg-slate-200' />
                     </td>
                     <td className='px-6 py-4'>
                         <div className='h-6 w-20 rounded-full bg-slate-200' />
@@ -352,7 +348,6 @@ function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChan
                             <th className='px-6 py-3'>Admin</th>
                             <th className='px-6 py-3'>Role</th>
                             <th className='px-6 py-3'>Kontak</th>
-                            <th className='px-6 py-3'>Departemen</th>
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Last Login</th>
                             <th className='px-6 py-3'>Aksi</th>
@@ -566,19 +561,6 @@ export default function AdminContent() {
                     label: role.name,
                 })),
             },
-            {
-                name: 'department',
-                label: 'Departemen',
-                type: 'select',
-                required: true,
-                options: [
-                    { value: 'IT', label: 'IT' },
-                    { value: 'Operations', label: 'Operations' },
-                    { value: 'Customer Service', label: 'Customer Service' },
-                    { value: 'Finance', label: 'Finance' },
-                    { value: 'HR', label: 'Human Resources' },
-                ],
-            },
         ];
 
         const passwordFields = editModal.admin
@@ -616,7 +598,22 @@ export default function AdminContent() {
                 },
             ];
 
-        return [...baseFields, ...passwordFields];
+        const statusFields = editModal.admin
+            ? [
+                {
+                    name: 'status',
+                    label: 'Status Akun',
+                    type: 'select',
+                    required: true,
+                    options: [
+                        { value: 'active', label: 'Aktif' },
+                        { value: 'inactive', label: 'Tidak Aktif' },
+                    ],
+                },
+            ]
+            : [];
+
+        return [...baseFields, ...statusFields, ...passwordFields];
     }, [roles, editModal.admin]);
 
     const modalInitialData = useMemo(() => {
