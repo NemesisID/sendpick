@@ -519,7 +519,7 @@ function DriverRow({ driver, onEdit, onDelete }) {
             </td>
             <td className='px-6 py-4'>
                 <div className='text-sm font-semibold text-slate-800'>{driver.completed}</div>
-                <p className='text-xs text-slate-400'>Order selesai</p>
+                <p className='text-xs text-slate-400'>0 Order</p>
             </td>
             <td className='px-6 py-4'>
                 <div className='flex items-center gap-1 text-sm font-semibold text-slate-800'>

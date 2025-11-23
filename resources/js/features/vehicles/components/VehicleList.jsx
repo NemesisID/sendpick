@@ -69,22 +69,22 @@ const tabs = [
 ];
 
 const vehicleStatusStyles = {
-    active: {
+    'Aktif': {
         label: 'Aktif',
         bg: 'bg-emerald-50',
         text: 'text-emerald-600',
     },
-    onRoute: {
+    'Sedang Kirim': {
         label: 'Sedang Kirim',
         bg: 'bg-sky-50',
         text: 'text-sky-600',
     },
-    maintenance: {
+    'Maintenance': {
         label: 'Maintenance',
         bg: 'bg-amber-50',
         text: 'text-amber-600',
     },
-    inactive: {
+    'Tidak Aktif': {
         label: 'Tidak Aktif',
         bg: 'bg-rose-50',
         text: 'text-rose-600',
@@ -92,29 +92,41 @@ const vehicleStatusStyles = {
 };
 
 const conditionStyles = {
-    good: {
+    'Baru': {
+        label: 'Baru',
+        bg: 'bg-blue-50',
+        text: 'text-blue-600',
+    },
+    'Sangat Baik': {
+        label: 'Sangat Baik',
+        bg: 'bg-emerald-50',
+        text: 'text-emerald-600',
+    },
+    'Baik': {
         label: 'Baik',
         bg: 'bg-emerald-50',
         text: 'text-emerald-600',
     },
-    warning: {
-        label: 'Perlu Cek',
+    'Perlu Perbaikan': {
+        label: 'Perlu Perbaikan',
         bg: 'bg-amber-50',
         text: 'text-amber-600',
     },
-    maintenance: {
-        label: 'Maintenance',
-        bg: 'bg-slate-100',
-        text: 'text-slate-500',
-    },
 };
+
+const driverFilterOptions = [
+    { value: 'all', label: 'Semua Driver' },
+    { value: '1', label: 'Ahmad Subandi' },
+    { value: '2', label: 'Budi Santoso' },
+    { value: '3', label: 'Siti Nurhaliza' },
+    { value: '4', label: 'Dedi Mulyadi' },
+    { value: '5', label: 'Rina Sari' }
+];
 
 const statusFilterOptions = [
     { value: 'all', label: 'Semua Status' },
-    { value: 'active', label: 'Aktif' },
-    { value: 'onRoute', label: 'Sedang Kirim' },
-    { value: 'maintenance', label: 'Maintenance' },
-    { value: 'inactive', label: 'Tidak Aktif' },
+    { value: 'Aktif', label: 'Aktif' },
+    { value: 'Tidak Aktif', label: 'Tidak Aktif' },
 ];
 
 const EXIT_ANIMATION_DURATION = 280; // Keep in sync with CSS modal exit duration
@@ -186,19 +198,24 @@ function FuelBar({ value }) {
 }
 
 function VehicleRow({ vehicle, onEdit, onDelete }) {
-    const statusStyle = vehicleStatusStyles[vehicle.status] ?? vehicleStatusStyles.active;
-    const conditionStyle = conditionStyles[vehicle.condition] ?? conditionStyles.good;
+    const statusStyle = vehicleStatusStyles[vehicle.status] ?? vehicleStatusStyles['Aktif'];
+    const conditionStyle = conditionStyles[vehicle.condition_label] ?? conditionStyles['Baik'];
 
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
                 <p className='text-sm font-semibold text-slate-800'>{vehicle.plate_no || 'N/A'}</p>
-                <p className='text-xs text-slate-400'>{vehicle.model || 'N/A'}</p>
+                <p className='text-xs text-slate-500'>
+                    {vehicle.brand} {vehicle.model} • {vehicle.odometer_km ? `${vehicle.odometer_km.toLocaleString('id-ID')} Km` : '0 Km'}
+                </p>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>{vehicle.vehicle_type?.name || vehicle.type || 'N/A'}</p>
-                    <p className='text-xs text-slate-400'>{vehicle.capacity_label || 'N/A'}</p>
+                    <p className='font-medium text-slate-900'>{vehicle.vehicle_type?.name || vehicle.type || 'N/A'}</p>
+                    <p className='text-xs text-slate-500'>{vehicle.capacity_label || 'N/A'}</p>
+                    <p className='text-xs text-slate-400'>
+                        Kapasitas: {vehicle.vehicle_type?.capacity_max_kg ? `${parseInt(vehicle.vehicle_type.capacity_max_kg).toLocaleString('id-ID')} Kg` : 'N/A'}
+                    </p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -291,7 +308,7 @@ function VehicleTable({ vehicles, onEdit, onDelete, loading }) {
                         ) : vehicles.length > 0 ? (
                             vehicles.map((vehicle) => (
                                 <VehicleRow
-                                    key={vehicle.id || vehicle.plate}
+                                    key={vehicle.vehicle_id || vehicle.id || vehicle.plate}
                                     vehicle={vehicle}
                                     onEdit={onEdit}
                                     onDelete={onDelete}
@@ -315,6 +332,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
     const [activeTab, setActiveTab] = useState('vehicles');
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [driverFilter, setDriverFilter] = useState('all');
 
     // Hooks integration
     const { vehicles, loading, error, refetch, setParams } = useVehicles();
@@ -331,11 +349,12 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             setParams(prev => ({
                 ...prev,
                 search: searchTerm,
-                status: statusFilter === 'all' ? null : statusFilter
+                status: statusFilter === 'all' ? null : statusFilter,
+                driver_id: driverFilter === 'all' ? null : driverFilter
             }));
         }, 500);
         return () => clearTimeout(timer);
-    }, [searchTerm, statusFilter, setParams]);
+    }, [searchTerm, statusFilter, driverFilter, setParams]);
 
     // Edit modal handlers
     const handleAdd = () => {
@@ -349,7 +368,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
     const handleEditSubmit = async (formData) => {
         try {
             if (editModal.vehicle) {
-                await updateVehicle(editModal.vehicle.id, formData);
+                await updateVehicle(editModal.vehicle.vehicle_id, formData);
             } else {
                 await createVehicle(formData);
             }
@@ -372,7 +391,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
     const handleDeleteConfirm = async () => {
         try {
             if (deleteModal.vehicle) {
-                await deleteVehicle(deleteModal.vehicle.id);
+                await deleteVehicle(deleteModal.vehicle.vehicle_id);
                 refetch();
             }
             setDeleteModal({ isOpen: false, vehicle: null });
@@ -439,7 +458,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             step: '0.01'
         },
         {
-            name: 'current_kilometer',
+            name: 'odometer_km',
             label: 'Kilometer Saat Ini',
             type: 'number',
             required: true,
@@ -470,10 +489,8 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             type: 'select',
             required: true,
             options: [
-                { value: 'active', label: 'Aktif' },
-                { value: 'maintenance', label: 'Maintenance' },
-                { value: 'inactive', label: 'Tidak Aktif' },
-                { value: 'blocked', label: 'Blocked' }
+                { value: 'Aktif', label: 'Aktif' },
+                { value: 'Tidak Aktif', label: 'Tidak Aktif' }
             ]
         },
         {
@@ -489,6 +506,18 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             type: 'date',
             required: false,
             placeholder: 'Pilih jadwal service berikutnya'
+        },
+        {
+            name: 'condition_label',
+            label: 'Kondisi',
+            type: 'select',
+            required: true,
+            options: [
+                { value: 'Baru', label: 'Baru' },
+                { value: 'Sangat Baik', label: 'Sangat Baik' },
+                { value: 'Baik', label: 'Baik' },
+                { value: 'Perlu Perbaikan', label: 'Perlu Perbaikan' }
+            ]
         }
     ];
 
@@ -540,7 +569,13 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
                                 value={statusFilter}
                                 onChange={setStatusFilter}
                                 options={statusFilterOptions}
-                                widthClass='w-full sm:w-40'
+                                className='w-full sm:w-40'
+                            />
+                            <FilterDropdown
+                                value={driverFilter}
+                                onChange={setDriverFilter}
+                                options={driverFilterOptions}
+                                className="w-full sm:w-48"
                             />
                         </div>
                         {/* Action Button Row */}
@@ -557,6 +592,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
                     </div>
                 </div>
             </section>
+
             <VehicleTable
                 vehicles={vehicles}
                 onEdit={handleEdit}
