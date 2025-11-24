@@ -4,16 +4,16 @@ import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import { useCustomers } from '../hooks/useCustomers';
 import { useCustomersCrud } from '../hooks/useCustomersCrud';
-import { 
-    HiUsers, 
-    HiCheckCircle, 
-    HiBuildingOffice, 
-    HiStar, 
-    HiMagnifyingGlass, 
-    HiFunnel, 
-    HiPlus, 
-    HiPencil, 
-    HiTrash, 
+import {
+    HiUsers,
+    HiCheckCircle,
+    HiBuildingOffice,
+    HiStar,
+    HiMagnifyingGlass,
+    HiFunnel,
+    HiPlus,
+    HiPencil,
+    HiTrash,
     HiEye,
     HiPhone,
     HiEnvelope,
@@ -233,14 +233,7 @@ function CustomerRow({ customer, onEdit, onDelete }) {
             <td className='px-3 py-4 sm:px-6'>
                 <CustomerStatusBadge status={customer.status} />
             </td>
-            <td className='px-3 py-4 sm:px-6 text-sm font-semibold text-slate-700'>{customer.totalOrders}</td>
-            <td className='px-3 py-4 sm:px-6 text-sm font-semibold text-slate-700'>{customer.totalValue}</td>
-            <td className='px-3 py-4 sm:px-6'>
-                <div className='flex items-center gap-1 text-sm font-semibold text-slate-700'>
-                    <StarIcon className='text-amber-400' />
-                    <span>{ratingDisplay}</span>
-                </div>
-            </td>
+
             <td className='px-3 py-4 sm:px-6'>
                 <div className='flex items-center gap-1 sm:gap-2'>
                     <button
@@ -306,7 +299,7 @@ function CustomerTable({ customers, loading, searchTerm, onSearchChange, typeFil
                         <span className='inline md:hidden'>Tambah</span>
                     </button>
                 </div>
-                
+
                 {/* Controls section - search dan filter */}
                 <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
                     <div className='group relative flex-1 min-w-0'>
@@ -338,9 +331,7 @@ function CustomerTable({ customers, loading, searchTerm, onSearchChange, typeFil
                             <th className='px-3 py-3 sm:px-6'>Kontak</th>
                             <th className='px-3 py-3 sm:px-6'>Alamat</th>
                             <th className='px-3 py-3 sm:px-6'>Status</th>
-                            <th className='px-3 py-3 sm:px-6'>Total Order</th>
-                            <th className='px-3 py-3 sm:px-6'>Total Nilai</th>
-                            <th className='px-3 py-3 sm:px-6'>Rating</th>
+
                             <th className='px-3 py-3 sm:px-6'>Aksi</th>
                         </tr>
                     </thead>
@@ -350,9 +341,9 @@ function CustomerTable({ customers, loading, searchTerm, onSearchChange, typeFil
                         <tbody className='divide-y divide-slate-100'>
                             {customers.length > 0 ? (
                                 customers.map((customer, index) => (
-                                    <CustomerRow 
+                                    <CustomerRow
                                         key={customer.id ?? customer.code ?? index}
-                                        customer={customer} 
+                                        customer={customer}
                                         onEdit={onEdit}
                                         onDelete={onDelete}
                                     />
@@ -449,10 +440,10 @@ export default function CustomerContent() {
 
             const matchesSearch = normalizedSearch
                 ? name.includes(normalizedSearch)
-                    || contact.includes(normalizedSearch)
-                    || phone.includes(searchTerm)
-                    || email.includes(normalizedSearch)
-                    || code.includes(normalizedSearch)
+                || contact.includes(normalizedSearch)
+                || phone.includes(searchTerm)
+                || email.includes(normalizedSearch)
+                || code.includes(normalizedSearch)
                 : true;
 
             const matchesType = typeFilter === 'all' || customer.type === typeFilter;
@@ -519,13 +510,7 @@ export default function CustomerContent() {
             placeholder: 'Masukkan nama pelanggan',
             required: true,
         },
-        {
-            key: 'code',
-            label: 'Kode Pelanggan',
-            type: 'text',
-            placeholder: 'Masukkan kode pelanggan',
-            required: true,
-        },
+
         {
             key: 'type',
             label: 'Tipe Pelanggan',
@@ -565,21 +550,12 @@ export default function CustomerContent() {
             placeholder: 'Masukkan alamat lengkap',
             required: true,
         },
-        {
-            key: 'status',
-            label: 'Status',
-            type: 'select',
-            options: [
-                { value: 'active', label: 'Aktif' },
-                { value: 'inactive', label: 'Tidak Aktif' },
-            ],
-            required: true,
-        },
+
     ];
 
     return (
         <div className='space-y-4 p-4 sm:space-y-6 sm:p-6'>
-          
+
             <section className='grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4'>
                 {summaryCards.map((card) => (
                     <CustomerSummaryCard key={card.title} card={card} />

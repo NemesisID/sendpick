@@ -103,11 +103,11 @@ class CustomerController extends Controller
         // Validasi input data
         $validator = Validator::make($request->all(), [
             'customer_code' => [
-                'required',
-            'string',
-            'max:50',
-            Rule::unique('customers', 'customer_code')
-        ],
+                'nullable',
+                'string',
+                'max:50',
+                'unique:customers,customer_code'
+            ],
         'customer_name' => 'required|string|max:255',
         'customer_type' => 'nullable|string|max:100',
         'contact_name' => 'nullable|string|max:255',
@@ -129,7 +129,7 @@ class CustomerController extends Controller
         $customer = Customers::create([
             'customer_id' => Customers::generateCustomerId(),
             'customer_name' => $request->customer_name,
-            'customer_code' => $request->customer_code,
+            'customer_code' => $request->customer_code ?? Customers::generateCustomerCode(),
             'customer_type' => $request->customer_type,
             'contact_name' => $request->contact_name,
             'phone' => $request->phone,
@@ -216,7 +216,7 @@ class CustomerController extends Controller
             'customer_name' => 'sometimes|required|string|max:255',
             'customer_code' => [
                 'sometimes',
-                'required',
+                'nullable',
                 'string',
                 'max:50',
                 Rule::unique('customers', 'customer_code')->ignore($customer->customer_id, 'customer_id')
@@ -238,7 +238,8 @@ class CustomerController extends Controller
         }
 
         // Jika validasi berhasil, update data customer ke database
-        $customer->update($request->only([
+        // Filter data yang akan diupdate, hanya ambil yang tidak null
+        $dataToUpdate = array_filter($request->only([
             'customer_name',
             'customer_code',
             'customer_type',
@@ -247,7 +248,12 @@ class CustomerController extends Controller
             'email',
             'address',
             'status'
-        ]));
+        ]), function ($value) {
+            return !is_null($value) && $value !== '';
+        });
+
+        // Jika validasi berhasil, update data customer ke database
+        $customer->update($dataToUpdate);
 
         return response()->json([
             'success' => true,

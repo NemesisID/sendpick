@@ -63,4 +63,25 @@ class Customers extends Model
 
         return 'CUST' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
+
+    /**
+     * Generate Customer Code
+     * Format: CUST-001, CUST-002, ...
+     */
+    public static function generateCustomerCode(): string
+    {
+        $lastCode = self::query()
+            ->where('customer_code', 'LIKE', 'CUST-%')
+            ->orderByRaw("CAST(SUBSTRING(customer_code FROM 6) AS INTEGER) DESC")
+            ->value('customer_code');
+
+        if (!$lastCode) {
+            return 'CUST-001';
+        }
+
+        $number = (int) substr($lastCode, 5);
+        $nextNumber = $number + 1;
+
+        return 'CUST-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+    }
 }

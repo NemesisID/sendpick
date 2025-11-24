@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
-import { 
-    HiOutlineDocumentText, 
-    HiOutlineCheckCircle, 
-    HiOutlineClock, 
+import {
+    HiOutlineDocumentText,
+    HiOutlineCheckCircle,
+    HiOutlineClock,
     HiOutlineExclamation,
     HiOutlineCurrencyDollar,
     HiOutlineSearch,
@@ -394,7 +394,7 @@ export default function InvoiceContent() {
 
     return (
         <>
-            <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5'>
+            <section className='grid grid-cols-5 gap-4'>
                 {summaryCards.map((card) => (
                     <SummaryCard key={card.title} card={card} />
                 ))}
