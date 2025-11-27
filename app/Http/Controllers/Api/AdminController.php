@@ -214,6 +214,7 @@ class AdminController extends Controller
             'role_ids.*' => 'exists:roles,id',
             'phone' => 'nullable|string|max:20',
             'department' => 'nullable|string|max:255',
+            'status' => 'nullable|in:active,inactive',
         ]);
 
         // Jika data berhasil diupdate, simpan data nama & email admin
@@ -221,6 +222,10 @@ class AdminController extends Controller
         $admin->email = $request->email;
         $admin->phone = $request->phone;
         $admin->department = $request->department;
+
+        if ($request->filled('status')) {
+            $admin->status = $request->status;
+        }
 
         // Update password jika diisi oleh Admin
         if ($request->filled('password')) {

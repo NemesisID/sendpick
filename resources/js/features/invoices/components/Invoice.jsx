@@ -16,6 +16,21 @@ import {
     HiOutlinePlus
 } from 'react-icons/hi';
 
+import InvoiceFormModal from './InvoiceFormModal';
+import CancelInvoiceModal from './CancelInvoiceModal';
+import RecordPaymentModal from './RecordPaymentModal';
+import InvoiceDetailModal from './InvoiceDetailModal';
+
+// Helper for currency formatting
+const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(amount);
+};
+
 const summaryCards = [
     {
         title: 'Total Invoice',
@@ -80,6 +95,11 @@ const statusStyles = {
         bg: 'bg-sky-50',
         text: 'text-sky-600',
     },
+    cancelled: {
+        label: 'Cancelled',
+        bg: 'bg-slate-50',
+        text: 'text-slate-600',
+    },
 };
 
 const statusFilterOptions = [
@@ -88,6 +108,7 @@ const statusFilterOptions = [
     { value: 'pending', label: 'Pending' },
     { value: 'overdue', label: 'Overdue' },
     { value: 'partial', label: 'Partial' },
+    { value: 'cancelled', label: 'Cancelled' },
 ];
 
 const monthFilterOptions = [
@@ -103,12 +124,13 @@ const invoiceRecords = [
         customer: 'PT Maju Jaya',
         date: '2024-01-15',
         dueDate: '2024-01-30',
-        amount: 'Rp 2.500.000',
-        tax: 'Rp 250.000',
-        total: 'Rp 2.750.000',
+        total_amount: 2750000,
+        paid_amount: 2750000,
         status: 'paid',
-        paymentDate: '2024-01-28',
-        paymentMethod: 'Bank Transfer',
+        last_payment: {
+            payment_date: '2024-01-28',
+            payment_method: 'Bank Transfer'
+        },
         month: '2024-01',
     },
     {
@@ -117,12 +139,10 @@ const invoiceRecords = [
         customer: 'CV Sukses Mandiri',
         date: '2024-01-16',
         dueDate: '2024-01-31',
-        amount: 'Rp 3.200.000',
-        tax: 'Rp 320.000',
-        total: 'Rp 3.520.000',
+        total_amount: 3520000,
+        paid_amount: 0,
         status: 'pending',
-        paymentDate: '',
-        paymentMethod: '-',
+        last_payment: null,
         month: '2024-01',
     },
     {
@@ -131,12 +151,10 @@ const invoiceRecords = [
         customer: 'UD Berkah',
         date: '2024-01-12',
         dueDate: '2024-01-27',
-        amount: 'Rp 4.100.000',
-        tax: 'Rp 410.000',
-        total: 'Rp 4.510.000',
+        total_amount: 4510000,
+        paid_amount: 0,
         status: 'overdue',
-        paymentDate: '',
-        paymentMethod: '-',
+        last_payment: null,
         month: '2024-01',
     },
     {
@@ -145,12 +163,13 @@ const invoiceRecords = [
         customer: 'PT Sejahtera Abadi',
         date: '2024-01-14',
         dueDate: '2024-01-29',
-        amount: 'Rp 1.800.000',
-        tax: 'Rp 180.000',
-        total: 'Rp 1.980.000',
+        total_amount: 1980000,
+        paid_amount: 1000000,
         status: 'partial',
-        paymentDate: '2024-01-25',
-        paymentMethod: 'Cash',
+        last_payment: {
+            payment_date: '2024-01-25',
+            payment_method: 'Cash'
+        },
         month: '2024-01',
     },
 ];
@@ -208,7 +227,7 @@ function SummaryCard({ card }) {
 }
 
 function StatusBadge({ status }) {
-    const style = statusStyles[status] ?? statusStyles.pending;
+    const style = statusStyles[status?.toLowerCase()] ?? statusStyles.pending;
     return (
         <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${style.bg} ${style.text}`}>
             {style.label}
@@ -216,7 +235,11 @@ function StatusBadge({ status }) {
     );
 }
 
-function InvoiceRow({ invoice }) {
+function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }) {
+    const totalAmount = invoice.total_amount || 0;
+    const paidAmount = invoice.paid_amount || 0;
+    const dueAmount = totalAmount - paidAmount;
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
@@ -232,19 +255,19 @@ function InvoiceRow({ invoice }) {
             <td className='px-6 py-4 text-sm text-slate-600'>{invoice.dueDate}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>{invoice.amount}</p>
-                    <p className='text-xs text-slate-400'>Tax: {invoice.tax}</p>
-                    <p className='text-xs font-semibold text-slate-500'>Total: {invoice.total}</p>
+                    <p className='font-bold text-slate-800'>Total: {formatCurrency(totalAmount)}</p>
+                    <p className='text-xs font-medium text-emerald-600'>Paid: {formatCurrency(paidAmount)}</p>
+                    <p className='text-xs font-medium text-rose-600'>Due: {formatCurrency(dueAmount)}</p>
                 </div>
             </td>
             <td className='px-6 py-4'>
                 <StatusBadge status={invoice.status} />
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                {invoice.paymentDate ? (
+                {invoice.last_payment ? (
                     <div>
-                        <p>{invoice.paymentDate}</p>
-                        <p className='text-xs text-slate-400'>{invoice.paymentMethod}</p>
+                        <p>{invoice.last_payment.payment_date}</p>
+                        <p className='text-xs text-slate-400'>{invoice.last_payment.payment_method}</p>
                     </div>
                 ) : (
                     <span className='text-xs text-slate-400'>-</span>
@@ -254,6 +277,7 @@ function InvoiceRow({ invoice }) {
                 <div className='flex items-center gap-2'>
                     <button
                         type='button'
+                        onClick={() => onViewDetail(invoice)}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Detail invoice ${invoice.id}`}
                     >
@@ -261,6 +285,7 @@ function InvoiceRow({ invoice }) {
                     </button>
                     <button
                         type='button'
+                        onClick={() => onEdit(invoice)}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-emerald-200 hover:text-emerald-600'
                         aria-label={`Edit invoice ${invoice.id}`}
                     >
@@ -268,27 +293,16 @@ function InvoiceRow({ invoice }) {
                     </button>
                     <button
                         type='button'
+                        onClick={() => onRecordPayment(invoice)}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-purple-200 hover:text-purple-600'
                         aria-label={`Record payment ${invoice.id}`}
                     >
                         <HiOutlineCash className='h-4 w-4' />
                     </button>
+
                     <button
                         type='button'
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
-                        aria-label={`Download invoice ${invoice.id}`}
-                    >
-                        <HiOutlineDownload className='h-4 w-4' />
-                    </button>
-                    <button
-                        type='button'
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
-                        aria-label={`Print invoice ${invoice.id}`}
-                    >
-                        <HiOutlinePrinter className='h-4 w-4' />
-                    </button>
-                    <button
-                        type='button'
+                        onClick={() => onCancel(invoice)}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
                         aria-label={`Cancel invoice ${invoice.id}`}
                     >
@@ -300,7 +314,7 @@ function InvoiceRow({ invoice }) {
     );
 }
 
-function InvoiceTable({ invoices }) {
+function InvoiceTable({ invoices, onEdit, onCancel, onRecordPayment, onViewDetail }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <header className='flex items-center justify-between'>
@@ -321,15 +335,15 @@ function InvoiceTable({ invoices }) {
                             <th className='px-6 py-3'>Customer</th>
                             <th className='px-6 py-3'>Tanggal</th>
                             <th className='px-6 py-3'>Due Date</th>
-                            <th className='px-6 py-3'>Amount</th>
+                            <th className='px-6 py-3'>Amount / Paid</th>
                             <th className='px-6 py-3'>Status</th>
-                            <th className='px-6 py-3'>Payment</th>
+                            <th className='px-6 py-3'>Last Payment</th>
                             <th className='px-6 py-3'>Aksi</th>
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {invoices.length > 0 ? (
-                            invoices.map((invoice) => <InvoiceRow key={invoice.id} invoice={invoice} />)
+                            invoices.map((invoice) => <InvoiceRow key={invoice.id} invoice={invoice} onEdit={onEdit} onCancel={onCancel} onRecordPayment={onRecordPayment} onViewDetail={onViewDetail} />)
                         ) : (
                             <tr>
                                 <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
@@ -374,13 +388,24 @@ function PaymentTracking() {
 }
 
 export default function InvoiceContent() {
+    const [invoices, setInvoices] = useState(invoiceRecords);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('all');
 
+    // Modal State
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+    const [isRecordPaymentModalOpen, setIsRecordPaymentModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState(null);
+    const [invoiceToCancel, setInvoiceToCancel] = useState(null);
+    const [invoiceToRecordPayment, setInvoiceToRecordPayment] = useState(null);
+    const [invoiceToView, setInvoiceToView] = useState(null);
+
     const filteredInvoices = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
-        return invoiceRecords.filter((invoice) => {
+        return invoices.filter((invoice) => {
             const matchesSearch =
                 term.length === 0 ||
                 invoice.id.toLowerCase().includes(term) ||
@@ -390,10 +415,151 @@ export default function InvoiceContent() {
             const matchesMonth = monthFilter === 'all' || invoice.month === monthFilter;
             return matchesSearch && matchesStatus && matchesMonth;
         });
-    }, [searchTerm, statusFilter, monthFilter]);
+    }, [searchTerm, statusFilter, monthFilter, invoices]);
+
+    const handleCreate = () => {
+        setSelectedInvoice(null);
+        setIsModalOpen(true);
+    };
+
+    const handleViewDetail = (invoice) => {
+        setInvoiceToView(invoice);
+        setIsDetailModalOpen(true);
+    };
+
+    const handleEdit = (invoice) => {
+        if (invoice.status === 'paid') {
+            alert('Invoice yang sudah lunas tidak dapat diedit.');
+            return;
+        }
+        if (invoice.status === 'cancelled') {
+            alert('Invoice yang sudah dibatalkan tidak dapat diedit.');
+            return;
+        }
+        setSelectedInvoice(invoice);
+        setIsModalOpen(true);
+    };
+
+    const handleCancel = (invoice) => {
+        if (invoice.status === 'paid') {
+            alert('Invoice yang sudah lunas tidak dapat dibatalkan.');
+            return;
+        }
+        if (invoice.status === 'cancelled') {
+            return;
+        }
+        setInvoiceToCancel(invoice);
+        setIsCancelModalOpen(true);
+    };
+
+    const handleConfirmCancel = (invoiceId, reason) => {
+        console.log(`Cancelling invoice ${invoiceId} for reason: ${reason}`);
+        setInvoices(prev => prev.map(inv => {
+            if (inv.id === invoiceId) {
+                return { ...inv, status: 'cancelled' }; // In a real app, we'd also save the reason
+            }
+            return inv;
+        }));
+        setIsCancelModalOpen(false);
+    };
+
+    const handleRecordPayment = (invoice) => {
+        if (invoice.status === 'paid') {
+            alert('Invoice sudah lunas.');
+            return;
+        }
+        if (invoice.status === 'cancelled') {
+            alert('Invoice sudah dibatalkan.');
+            return;
+        }
+        setInvoiceToRecordPayment(invoice);
+        setIsRecordPaymentModalOpen(true);
+    };
+
+    const handleConfirmRecordPayment = (invoiceId, paymentData) => {
+        console.log(`Recording payment for invoice ${invoiceId}:`, paymentData);
+        setInvoices(prev => prev.map(inv => {
+            if (inv.id === invoiceId) {
+                const totalAmount = inv.total_amount;
+                const paidAmount = (inv.paid_amount || 0) + parseInt(paymentData.amount);
+
+                let newStatus = inv.status;
+                if (paidAmount >= totalAmount) {
+                    newStatus = 'paid';
+                } else if (paidAmount > 0) {
+                    newStatus = 'partial';
+                }
+
+                return {
+                    ...inv,
+                    status: newStatus,
+                    paid_amount: paidAmount,
+                    last_payment: {
+                        payment_date: paymentData.paymentDate,
+                        payment_method: paymentData.paymentMethod === 'transfer' ? 'Bank Transfer' :
+                            paymentData.paymentMethod === 'cash' ? 'Cash' : 'Check'
+                    }
+                };
+            }
+            return inv;
+        }));
+        setIsRecordPaymentModalOpen(false);
+    };
+
+    const handleModalSubmit = (formData) => {
+        if (selectedInvoice) {
+            // Update existing invoice
+            setInvoices(prev => prev.map(inv => {
+                if (inv.id === selectedInvoice.id) {
+                    const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+                    const total = subtotal + formData.tax;
+                    return {
+                        ...inv,
+                        date: formData.date,
+                        dueDate: formData.dueDate,
+                        total_amount: total,
+                        // In a real app, we'd update other fields too
+                    };
+                }
+                return inv;
+            }));
+        } else {
+            // Create new invoice
+            const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+            const total = subtotal + formData.tax;
+            const newInvoice = {
+                id: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
+                orderId: formData.orderId,
+                customer: formData.customer,
+                date: formData.date,
+                dueDate: formData.dueDate,
+                total_amount: total,
+                paid_amount: 0,
+                status: 'pending',
+                last_payment: null,
+                month: formData.date.slice(0, 7),
+            };
+            setInvoices([newInvoice, ...invoices]);
+        }
+        setIsModalOpen(false);
+    };
 
     return (
         <>
+            <div className="mb-6 flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Invoices</h1>
+                    <p className="text-sm text-slate-500">Kelola tagihan, pembayaran, dan status penagihan</p>
+                </div>
+                <button
+                    onClick={handleCreate}
+                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 hover:shadow-indigo-300"
+                >
+                    <HiOutlinePlus className="h-5 w-5" />
+                    Buat Invoice
+                </button>
+            </div>
+
             <section className='grid grid-cols-5 gap-4'>
                 {summaryCards.map((card) => (
                     <SummaryCard key={card.title} card={card} />
@@ -429,8 +595,41 @@ export default function InvoiceContent() {
                     </div>
                 </div>
             </section>
-            <InvoiceTable invoices={filteredInvoices} />
+            <InvoiceTable
+                invoices={filteredInvoices}
+                onEdit={handleEdit}
+                onCancel={handleCancel}
+                onRecordPayment={handleRecordPayment}
+                onViewDetail={handleViewDetail}
+            />
             <PaymentTracking />
+
+            <InvoiceFormModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleModalSubmit}
+                initialData={selectedInvoice}
+            />
+
+            <CancelInvoiceModal
+                isOpen={isCancelModalOpen}
+                onClose={() => setIsCancelModalOpen(false)}
+                onConfirm={handleConfirmCancel}
+                invoice={invoiceToCancel}
+            />
+
+            <RecordPaymentModal
+                isOpen={isRecordPaymentModalOpen}
+                onClose={() => setIsRecordPaymentModalOpen(false)}
+                onConfirm={handleConfirmRecordPayment}
+                invoice={invoiceToRecordPayment}
+            />
+
+            <InvoiceDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                invoice={invoiceToView}
+            />
         </>
     );
 }

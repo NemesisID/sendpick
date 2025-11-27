@@ -43,6 +43,7 @@ import {
 } from 'react-icons/hi2';
 
 import { ThemeProvider } from '../../../context/ThemeContext';
+import { UserProvider, useUser } from '../../../context/UserContext';
 import HomeContent from '../../../pages/Home';
 import CustomerContent from '../../customers/components/Customer';
 import AdminContent from '../../admin/components/Users';
@@ -60,7 +61,7 @@ import TrackingContent from '../../tracking/components/Tracking';
 import GuideContent from '../../../pages/Guide';
 import ManifestContent from '../../manifests/components/Manifest';
 import DeliveryOrderContent from '../../orders/components/DeliveryOrder';
-import ProfileContent from '../../../pages/Profile';
+import ProfileContent from '../../../features/auth/components/Profile';
 import NotificationsContent, { unreadNotificationsCount as dashboardUnreadNotifications } from '../../../pages/Notifications';
 import { useDrivers } from '../hooks/useDrivers';
 import { useDriversCRUD } from '../hooks/useDriversCrud';
@@ -518,8 +519,8 @@ function DriverRow({ driver, onEdit, onDelete }) {
                 <DriverStatusBadge status={driver.status} />
             </td>
             <td className='px-6 py-4'>
-                <div className='text-sm font-semibold text-slate-800'>{driver.completed}</div>
-                <p className='text-xs text-slate-400'>0 Order</p>
+                <div className='text-sm font-semibold text-slate-800'>{driver.delivery_count || 0}</div>
+                <p className='text-xs text-slate-400'>Completed</p>
             </td>
             <td className='px-6 py-4'>
                 <div className='flex items-center gap-1 text-sm font-semibold text-slate-800'>
@@ -798,7 +799,7 @@ function DriverManagementContent() {
         console.log('🔄 useEffect triggered - drivers changed:', drivers);
         console.log('📊 Number of drivers:', drivers?.length);
         console.log('📋 Drivers data:', drivers);
-        
+
         // Update driversList with the new data
         if (drivers && Array.isArray(drivers)) {
             setDriversList([...drivers]);
@@ -999,7 +1000,7 @@ function DriverManagementContent() {
                 onSubmit={async (formData) => {
                     try {
                         console.log('📝 Submitting driver data:', formData);
-                        
+
                         // Siapkan data yang akan dikirim
                         const dataToSubmit = {
                             ...formData,
@@ -1007,14 +1008,14 @@ function DriverManagementContent() {
                             vehicle_id: formData.vehicle,
                             // Hapus field 'vehicle' asli untuk menghindari duplikasi
                         };
-                        
+
                         console.log('📤 Data to submit:', dataToSubmit);
 
                         if (editModal.driver) {
                             console.log('✏️ Updating driver:', editModal.driver.driver_id);
                             const result = await updateDriver(editModal.driver.driver_id, dataToSubmit);
                             console.log('✅ Update result:', result);
-                            
+
                             if (result && !result.success) {
                                 throw new Error(result.error || 'Gagal memperbarui data driver');
                             }
@@ -1022,12 +1023,12 @@ function DriverManagementContent() {
                             console.log('📝 Creating new driver:', dataToSubmit);
                             const result = await createDriver(dataToSubmit);
                             console.log('✅ Create result:', result);
-                            
+
                             if (result && !result.success) {
                                 throw new Error(result.error || 'Gagal menambahkan driver baru');
                             }
                         }
-                        
+
                         console.log('🔄 Refetching drivers list...');
                         await refetch();
                         console.log('✅ Refetch complete');
@@ -1421,6 +1422,7 @@ function DashboardLayout() {
     const [showVehiclePopup, setShowVehiclePopup] = useState(false);
     const [showVehicleTypesPopup, setShowVehicleTypesPopup] = useState(false);
     const [sidebarTransitioning, setSidebarTransitioning] = useState(false);
+    const { user } = useUser();
 
     const activeConfig = viewConfigs[activeView] ?? viewConfigs.home;
 
@@ -1547,26 +1549,33 @@ function DashboardLayout() {
                             ) : null}
                         </button>
                         <div className='flex items-center gap-3'>
-                            <div className='flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-600'>
-                                AD
-                            </div>
-                            <div className='text-sm leading-tight'>
-                                <p className='font-semibold text-slate-800'>Admin User</p>
+                            <div className='flex items-center gap-3'>
+                                <div className='relative h-10 w-10 overflow-hidden rounded-full border border-indigo-100 shadow-sm'>
+                                    <img
+                                        src={user.photo}
+                                        alt={user.fullName}
+                                        className='h-full w-full object-cover'
+                                    />
+                                </div>
+                                <div className='text-sm leading-tight'>
+                                    <p className='font-semibold text-slate-800'>{user.fullName}</p>
+                                    <button
+                                        type='button'
+                                        onClick={() => setActiveView('profile')}
+                                        className='text-xs text-slate-400 transition hover:text-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+                                    >
+                                        {user.username}
+                                    </button>
+                                </div>
                                 <button
                                     type='button'
-                                    onClick={() => setActiveView('profile')}
-                                    className='text-xs text-slate-400 transition hover:text-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+                                    className='text-slate-400 transition hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+                                    aria-label='Buka menu akun'
                                 >
-                                    admin@sendpick.com
+                                    <ChevronDownIcon />
                                 </button>
                             </div>
-                            <button
-                                type='button'
-                                className='text-slate-400 transition hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
-                                aria-label='Buka menu akun'
-                            >
-                                <ChevronDownIcon />
-                            </button>
+
                         </div>
                     </div>
                 </header>
@@ -1598,7 +1607,9 @@ function DashboardLayout() {
 function Dashboard() {
     return (
         <ThemeProvider>
-            <DashboardLayout />
+            <UserProvider>
+                <DashboardLayout />
+            </UserProvider>
         </ThemeProvider>
     );
 }
