@@ -209,7 +209,19 @@ class JobOrderController extends Controller
             'order_value' => 'sometimes|nullable|numeric|min:0'
         ]);
 
+        $oldStatus = $jobOrder->status;
+
         $jobOrder->update($validated);
+
+        // Check if status changed to Completed
+        if (isset($validated['status']) && $validated['status'] === 'Completed' && $oldStatus !== 'Completed') {
+            // Find active assignment
+            $activeAssignment = $jobOrder->assignments()->where('status', 'Active')->first();
+            
+            if ($activeAssignment && $activeAssignment->driver) {
+                $activeAssignment->driver->increment('delivery_count');
+            }
+        }
 
         $jobOrder->load(['customer', 'createdBy']);
 

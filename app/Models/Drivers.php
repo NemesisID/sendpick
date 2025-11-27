@@ -28,7 +28,8 @@ class Drivers extends Authenticatable
         'status',
         'shift',
         'last_lat',
-        'last_lng'
+        'last_lng',
+        'delivery_count'
     ];
 
     protected $hidden = [

@@ -89,6 +89,30 @@ class Invoices extends Model
         return null;
     }
 
+    // Relasi ke Payments (One to Many)
+    public function payments()
+    {
+        return $this->hasMany(Payment::class, 'invoice_id', 'invoice_id');
+    }
+
+    // Relasi ke Payment Terakhir
+    public function lastPayment()
+    {
+        return $this->hasOne(Payment::class, 'invoice_id', 'invoice_id')->latestOfMany();
+    }
+
+    // Helper Keren: Hitung total yang sudah dibayar
+    public function getTotalPaidAttribute()
+    {
+        return $this->payments()->sum('amount');
+    }
+
+    // Helper Keren: Hitung sisa tagihan
+    public function getRemainingAmountAttribute()
+    {
+        return $this->total_amount - $this->total_paid;
+    }
+
     /**
      * Get outstanding amount (unpaid amount)
      */

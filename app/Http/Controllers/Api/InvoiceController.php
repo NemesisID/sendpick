@@ -8,6 +8,7 @@ use App\Models\Customers;
 use App\Models\JobOrder;
 use App\Models\Manifests;
 use App\Models\DeliveryOrder;
+use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -36,7 +37,7 @@ class InvoiceController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Invoices::with(['customer', 'createdBy']);
+        $query = Invoices::with(['customer', 'createdBy', 'lastPayment']);
 
         // Search functionality
         if ($request->filled('search')) {
@@ -311,6 +312,13 @@ class InvoiceController extends Controller
      * @param string $invoiceId
      * @return JsonResponse
      */
+    /**
+     * Record a payment for invoice (support partial and full payment)
+     * 
+     * @param Request $request
+     * @param string $invoiceId
+     * @return JsonResponse
+     */
     public function recordPayment(Request $request, string $invoiceId): JsonResponse
     {
         $invoice = Invoices::where('invoice_id', $invoiceId)->first();
@@ -332,6 +340,8 @@ class InvoiceController extends Controller
         // Validate payment amount
         $request->validate([
             'payment_amount' => 'required|numeric|min:0.01',
+            'payment_date' => 'required|date',
+            'payment_method' => 'required|string',
             'payment_notes' => 'nullable|string|max:500'
         ]);
 
@@ -354,40 +364,37 @@ class InvoiceController extends Controller
             ], 422);
         }
 
+        // Create Payment Record
+        Payment::create([
+            'invoice_id' => $invoice->invoice_id,
+            'amount' => $paymentAmount,
+            'payment_date' => $request->payment_date,
+            'payment_method' => $request->payment_method,
+            'notes' => $request->payment_notes,
+            'created_by' => Auth::id()
+        ]);
+
         // Determine new status based on payment amount
         $newStatus = 'Pending';
-        $paymentDate = null;
 
         if ($newPaidAmount > 0 && $newPaidAmount < $invoice->total_amount) {
             $newStatus = 'Partial';
-        } elseif ($newPaidAmount == $invoice->total_amount) {
+        } elseif ($newPaidAmount >= $invoice->total_amount) {
             $newStatus = 'Paid';
-            $paymentDate = now()->toDateString();
         }
-
-        // Build payment notes history
-        $timestamp = now()->format('Y-m-d H:i:s');
-        $paymentEntry = "[{$timestamp}] Payment: Rp " . number_format($paymentAmount, 2);
-        if ($request->filled('payment_notes')) {
-            $paymentEntry .= " - " . $request->payment_notes;
-        }
-
-        $existingNotes = $invoice->payment_notes ?? '';
-        $newPaymentNotes = $existingNotes ? $existingNotes . "\n" . $paymentEntry : $paymentEntry;
 
         // Update invoice
         $invoice->update([
             'paid_amount' => $newPaidAmount,
-            'payment_date' => $paymentDate ?? $invoice->payment_date,
-            'payment_notes' => $newPaymentNotes,
+            'payment_date' => $request->payment_date, // Update last payment date
             'status' => $newStatus
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Payment reocorded successfully',
+            'message' => 'Payment recorded successfully',
             'data' => [
-                'invoice' => $invoice->load(['customer', 'createdBy']),
+                'invoice' => $invoice->load(['customer', 'createdBy', 'lastPayment']),
                 'payment_summary' => [
                     'total_amount' => $invoice->total_amount,
                     'paid_amount' => $newPaidAmount,
