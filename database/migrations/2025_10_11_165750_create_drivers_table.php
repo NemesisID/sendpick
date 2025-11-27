@@ -12,7 +12,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('drivers', function (Blueprint $table) {
+        if (!Schema::hasTable('drivers')) {
+            Schema::create('drivers', function (Blueprint $table) {
             $table->string('driver_id')->primary(); // driver_id sebagai primary key string
             $table->string('driver_name'); // Nama driver
             $table->string('phone')->unique(); // Nomor telepon
@@ -35,6 +36,7 @@ return new class extends Migration
             $table->index('status');
             $table->index('shift');
         });
+        }
     }
 
     /**
