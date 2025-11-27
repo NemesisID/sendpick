@@ -5,20 +5,27 @@ import Modal from '../../../components/common/Modal';
 export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
     if (!isOpen || !invoice) return null;
 
-    // Helper to parse currency string to number if needed, or just use the string
-    // Assuming invoice.amount, invoice.tax, invoice.total are strings like "Rp 2.500.000"
+    // Helper to parse currency value safely
+    const parseCurrencyValue = (value) => {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') return parseInt(value.replace(/[^0-9]/g, '')) || 0;
+        return 0;
+    };
+
+    const invoiceAmount = invoice.amount || invoice.total_amount || 0;
+    const invoiceTax = invoice.tax || 0;
 
     // Mock items if not present (since initial mock data doesn't have items)
     const items = invoice.items || [
         {
             description: 'Jasa Pengiriman (Default)',
             qty: 1,
-            price: parseInt(invoice.amount.replace(/[^0-9]/g, '')) || 0
+            price: parseCurrencyValue(invoiceAmount)
         }
     ];
 
     const subtotal = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
-    const tax = parseInt(invoice.tax.replace(/[^0-9]/g, '')) || 0;
+    const tax = parseCurrencyValue(invoiceTax);
     const total = subtotal + tax;
 
     return (
@@ -106,7 +113,7 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                             Riwayat Pembayaran
                         </h4>
 
-                        {invoice.paymentDate ? (
+                        {(invoice.last_payment || invoice.paymentDate) ? (
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-900/5">
                                     <div className="flex items-center gap-4">
@@ -114,13 +121,19 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                                             <HiOutlineDocumentText className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-slate-900">Pembayaran Diterima</p>
-                                            <p className="text-xs text-slate-500">{invoice.paymentMethod}</p>
+                                            <p className="font-semibold text-slate-900">Pembayaran Terakhir</p>
+                                            <p className="text-xs text-slate-500">
+                                                {invoice.last_payment?.payment_method || invoice.paymentMethod || '-'}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-bold text-emerald-600">{invoice.total}</p>
-                                        <p className="text-xs text-slate-400">{invoice.paymentDate}</p>
+                                        <p className="font-bold text-emerald-600">
+                                            Rp {total.toLocaleString('id-ID')}
+                                        </p>
+                                        <p className="text-xs text-slate-400">
+                                            {invoice.last_payment?.payment_date || invoice.paymentDate}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
