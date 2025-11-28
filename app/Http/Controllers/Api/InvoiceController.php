@@ -306,6 +306,55 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Cancel the specified invoice
+     * 
+     * @param string $invoiceId
+     * @return JsonResponse
+     */
+    /**
+     * Cancel the specified invoice
+     * 
+     * @param Request $request
+     * @param string $invoiceId
+     * @return JsonResponse
+     */
+    public function cancel(Request $request, string $invoiceId): JsonResponse
+    {
+        $invoice = Invoices::where('invoice_id', $invoiceId)->first();
+
+        if (!$invoice) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invoice not found'
+            ], 404);
+        }
+
+        // Cannot cancel paid invoices
+        if ($invoice->status === 'Paid') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot cancel paid invoice'
+            ], 422);
+        }
+
+        $reason = $request->input('reason');
+        $updateData = ['status' => 'Cancelled'];
+        
+        if ($reason) {
+            $currentNotes = $invoice->notes ? $invoice->notes . "\n" : "";
+            $updateData['notes'] = $currentNotes . "Cancelled Reason: " . $reason;
+        }
+
+        $invoice->update($updateData);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Invoice cancelled successfully',
+            'data' => $invoice
+        ], 200);
+    }
+
+    /**
      * Record a payment for invoice (support partial and full payment)
      * 
      * @param Request $request

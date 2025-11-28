@@ -358,7 +358,7 @@ export default function InvoiceContent() {
 
     // Hooks
     const { invoices, loading, refresh, updateParams } = useInvoices();
-    const { createInvoice, updateInvoice, deleteInvoice, recordPayment } = useInvoicesCrud(refresh);
+    const { createInvoice, updateInvoice, deleteInvoice, cancelInvoice, recordPayment } = useInvoicesCrud(refresh);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -429,7 +429,7 @@ export default function InvoiceContent() {
 
     const handleConfirmCancel = async (invoiceId, reason) => {
         try {
-            await deleteInvoice(invoiceId); // Assuming cancel means delete for now based on API
+            await cancelInvoice(invoiceId, reason);
             setIsCancelModalOpen(false);
         } catch (error) {
             console.error('Failed to cancel invoice:', error);

@@ -201,7 +201,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/invoices/available-sources', [InvoiceController::class, 'getAvailableSources'])->name('api.invoices.available-sources')->withoutMiddleware('auth:sanctum'); // ada
     // 2. Menandai invoice sebagai sudah dibayar
     Route::post('/invoices/{invoiceId}/record-payment', [InvoiceController::class, 'recordPayment'])->name('api.invoices.record-payment')->withoutMiddleware('auth:sanctum'); // ada
-    // 3. Mendapatkan statistik invoice
+    // 3. Membatalkan invoice
+    Route::post('/invoices/{invoiceId}/cancel', [InvoiceController::class, 'cancel'])->name('api.invoices.cancel')->withoutMiddleware('auth:sanctum');
+    // 4. Mendapatkan statistik invoice
     // Route::get('/invoices/stats', [InvoiceController::class, 'getStats'])->name('api.invoices.stats'); // ada
 
     // Invoices (apiResource)
