@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import {
     HiOutlineDocumentText,
@@ -20,6 +20,8 @@ import InvoiceFormModal from './InvoiceFormModal';
 import CancelInvoiceModal from './CancelInvoiceModal';
 import RecordPaymentModal from './RecordPaymentModal';
 import InvoiceDetailModal from './InvoiceDetailModal';
+import { useInvoices } from '../hooks/useInvoices';
+import { useInvoicesCrud } from '../hooks/useInvoicesCrud';
 
 // Helper for currency formatting
 const formatCurrency = (amount) => {
@@ -29,6 +31,17 @@ const formatCurrency = (amount) => {
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     }).format(amount);
+};
+
+// Helper for date formatting
+const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
 };
 
 const summaryCards = [
@@ -117,63 +130,6 @@ const monthFilterOptions = [
     { value: '2023-12', label: 'Desember 2023' },
 ];
 
-const invoiceRecords = [
-    {
-        id: 'INV-2024-001',
-        orderId: 'JO-2024-001',
-        customer: 'PT Maju Jaya',
-        date: '2024-01-15',
-        dueDate: '2024-01-30',
-        total_amount: 2750000,
-        paid_amount: 2750000,
-        status: 'paid',
-        last_payment: {
-            payment_date: '2024-01-28',
-            payment_method: 'Bank Transfer'
-        },
-        month: '2024-01',
-    },
-    {
-        id: 'INV-2024-002',
-        orderId: 'MF-2024-002',
-        customer: 'CV Sukses Mandiri',
-        date: '2024-01-16',
-        dueDate: '2024-01-31',
-        total_amount: 3520000,
-        paid_amount: 0,
-        status: 'pending',
-        last_payment: null,
-        month: '2024-01',
-    },
-    {
-        id: 'INV-2024-003',
-        orderId: 'DO-2024-003',
-        customer: 'UD Berkah',
-        date: '2024-01-12',
-        dueDate: '2024-01-27',
-        total_amount: 4510000,
-        paid_amount: 0,
-        status: 'overdue',
-        last_payment: null,
-        month: '2024-01',
-    },
-    {
-        id: 'INV-2024-004',
-        orderId: 'JO-2024-004',
-        customer: 'PT Sejahtera Abadi',
-        date: '2024-01-14',
-        dueDate: '2024-01-29',
-        total_amount: 1980000,
-        paid_amount: 1000000,
-        status: 'partial',
-        last_payment: {
-            payment_date: '2024-01-25',
-            payment_method: 'Cash'
-        },
-        month: '2024-01',
-    },
-];
-
 const paymentHighlights = [
     {
         title: 'This Month Paid',
@@ -209,8 +165,6 @@ const paymentHighlights = [
     },
 ];
 
-
-
 function SummaryCard({ card }) {
     return (
         <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -236,8 +190,8 @@ function StatusBadge({ status }) {
 }
 
 function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }) {
-    const totalAmount = invoice.total_amount || 0;
-    const paidAmount = invoice.paid_amount || 0;
+    const totalAmount = parseFloat(invoice.total_amount) || 0;
+    const paidAmount = parseFloat(invoice.paid_amount) || 0;
     const dueAmount = totalAmount - paidAmount;
 
     return (
@@ -251,8 +205,8 @@ function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }
                 </span>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{invoice.customer}</td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{invoice.date}</td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{invoice.dueDate}</td>
+            <td className='px-6 py-4 text-sm text-slate-600'>{formatDate(invoice.date)}</td>
+            <td className='px-6 py-4 text-sm text-slate-600'>{formatDate(invoice.dueDate)}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
                     <p className='font-bold text-slate-800'>Total: {formatCurrency(totalAmount)}</p>
@@ -266,7 +220,7 @@ function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }
             <td className='px-6 py-4 text-sm text-slate-600'>
                 {invoice.last_payment ? (
                     <div>
-                        <p>{invoice.last_payment.payment_date}</p>
+                        <p>{formatDate(invoice.last_payment.payment_date)}</p>
                         <p className='text-xs text-slate-400'>{invoice.last_payment.payment_method}</p>
                     </div>
                 ) : (
@@ -314,7 +268,17 @@ function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }
     );
 }
 
-function InvoiceTable({ invoices, onEdit, onCancel, onRecordPayment, onViewDetail }) {
+function InvoiceTable({ invoices, onEdit, onCancel, onRecordPayment, onViewDetail, loading }) {
+    if (loading) {
+        return (
+            <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+                <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+            </section>
+        );
+    }
+
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <header className='flex items-center justify-between'>
@@ -388,10 +352,13 @@ function PaymentTracking() {
 }
 
 export default function InvoiceContent() {
-    const [invoices, setInvoices] = useState(invoiceRecords);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('all');
+
+    // Hooks
+    const { invoices, loading, refresh, updateParams } = useInvoices();
+    const { createInvoice, updateInvoice, deleteInvoice, recordPayment } = useInvoicesCrud(refresh);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -403,19 +370,34 @@ export default function InvoiceContent() {
     const [invoiceToRecordPayment, setInvoiceToRecordPayment] = useState(null);
     const [invoiceToView, setInvoiceToView] = useState(null);
 
-    const filteredInvoices = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
-        return invoices.filter((invoice) => {
-            const matchesSearch =
-                term.length === 0 ||
-                invoice.id.toLowerCase().includes(term) ||
-                invoice.orderId.toLowerCase().includes(term) ||
-                invoice.customer.toLowerCase().includes(term);
-            const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
-            const matchesMonth = monthFilter === 'all' || invoice.month === monthFilter;
-            return matchesSearch && matchesStatus && matchesMonth;
-        });
-    }, [searchTerm, statusFilter, monthFilter, invoices]);
+    // Update params when filters change
+    useEffect(() => {
+        const params = {};
+        if (searchTerm) params.search = searchTerm;
+        if (statusFilter !== 'all') params.status = statusFilter;
+        // Note: monthFilter logic would need backend support for month filtering or date range
+        // For now we'll skip passing monthFilter to API unless backend supports it directly
+        updateParams(params);
+    }, [searchTerm, statusFilter, updateParams]);
+
+    // Transform API data to component format
+    const formattedInvoices = useMemo(() => {
+        return invoices.map(inv => ({
+            ...inv,
+            id: inv.invoice_id,
+            orderId: inv.source_id,
+            customer: inv.customer?.customer_name || 'Unknown',
+            date: inv.invoice_date,
+            dueDate: inv.due_date,
+            // Ensure numeric values
+            total_amount: parseFloat(inv.total_amount),
+            paid_amount: parseFloat(inv.paid_amount),
+            last_payment: inv.last_payment ? {
+                payment_date: inv.last_payment.payment_date,
+                payment_method: inv.last_payment.payment_method
+            } : null
+        }));
+    }, [invoices]);
 
     const handleCreate = () => {
         setSelectedInvoice(null);
@@ -428,12 +410,8 @@ export default function InvoiceContent() {
     };
 
     const handleEdit = (invoice) => {
-        if (invoice.status === 'paid') {
+        if (invoice.status === 'Paid') {
             alert('Invoice yang sudah lunas tidak dapat diedit.');
-            return;
-        }
-        if (invoice.status === 'cancelled') {
-            alert('Invoice yang sudah dibatalkan tidak dapat diedit.');
             return;
         }
         setSelectedInvoice(invoice);
@@ -441,107 +419,60 @@ export default function InvoiceContent() {
     };
 
     const handleCancel = (invoice) => {
-        if (invoice.status === 'paid') {
+        if (invoice.status === 'Paid') {
             alert('Invoice yang sudah lunas tidak dapat dibatalkan.');
-            return;
-        }
-        if (invoice.status === 'cancelled') {
             return;
         }
         setInvoiceToCancel(invoice);
         setIsCancelModalOpen(true);
     };
 
-    const handleConfirmCancel = (invoiceId, reason) => {
-        console.log(`Cancelling invoice ${invoiceId} for reason: ${reason}`);
-        setInvoices(prev => prev.map(inv => {
-            if (inv.id === invoiceId) {
-                return { ...inv, status: 'cancelled' }; // In a real app, we'd also save the reason
-            }
-            return inv;
-        }));
-        setIsCancelModalOpen(false);
+    const handleConfirmCancel = async (invoiceId, reason) => {
+        try {
+            await deleteInvoice(invoiceId); // Assuming cancel means delete for now based on API
+            setIsCancelModalOpen(false);
+        } catch (error) {
+            console.error('Failed to cancel invoice:', error);
+            alert('Gagal membatalkan invoice');
+        }
     };
 
     const handleRecordPayment = (invoice) => {
-        if (invoice.status === 'paid') {
+        if (invoice.status === 'Paid') {
             alert('Invoice sudah lunas.');
-            return;
-        }
-        if (invoice.status === 'cancelled') {
-            alert('Invoice sudah dibatalkan.');
             return;
         }
         setInvoiceToRecordPayment(invoice);
         setIsRecordPaymentModalOpen(true);
     };
 
-    const handleConfirmRecordPayment = (invoiceId, paymentData) => {
-        console.log(`Recording payment for invoice ${invoiceId}:`, paymentData);
-        setInvoices(prev => prev.map(inv => {
-            if (inv.id === invoiceId) {
-                const totalAmount = inv.total_amount;
-                const paidAmount = (inv.paid_amount || 0) + parseInt(paymentData.amount);
-
-                let newStatus = inv.status;
-                if (paidAmount >= totalAmount) {
-                    newStatus = 'paid';
-                } else if (paidAmount > 0) {
-                    newStatus = 'partial';
-                }
-
-                return {
-                    ...inv,
-                    status: newStatus,
-                    paid_amount: paidAmount,
-                    last_payment: {
-                        payment_date: paymentData.paymentDate,
-                        payment_method: paymentData.paymentMethod === 'transfer' ? 'Bank Transfer' :
-                            paymentData.paymentMethod === 'cash' ? 'Cash' : 'Check'
-                    }
-                };
-            }
-            return inv;
-        }));
-        setIsRecordPaymentModalOpen(false);
+    const handleConfirmRecordPayment = async (invoiceId, paymentData) => {
+        try {
+            await recordPayment(invoiceId, {
+                payment_amount: paymentData.amount,
+                payment_date: paymentData.paymentDate,
+                payment_method: paymentData.paymentMethod,
+                payment_notes: paymentData.notes
+            });
+            setIsRecordPaymentModalOpen(false);
+        } catch (error) {
+            console.error('Failed to record payment:', error);
+            alert('Gagal mencatat pembayaran');
+        }
     };
 
-    const handleModalSubmit = (formData) => {
-        if (selectedInvoice) {
-            // Update existing invoice
-            setInvoices(prev => prev.map(inv => {
-                if (inv.id === selectedInvoice.id) {
-                    const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
-                    const total = subtotal + formData.tax;
-                    return {
-                        ...inv,
-                        date: formData.date,
-                        dueDate: formData.dueDate,
-                        total_amount: total,
-                        // In a real app, we'd update other fields too
-                    };
-                }
-                return inv;
-            }));
-        } else {
-            // Create new invoice
-            const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
-            const total = subtotal + formData.tax;
-            const newInvoice = {
-                id: `INV-2024-${String(invoices.length + 1).padStart(3, '0')}`,
-                orderId: formData.orderId,
-                customer: formData.customer,
-                date: formData.date,
-                dueDate: formData.dueDate,
-                total_amount: total,
-                paid_amount: 0,
-                status: 'pending',
-                last_payment: null,
-                month: formData.date.slice(0, 7),
-            };
-            setInvoices([newInvoice, ...invoices]);
+    const handleModalSubmit = async (formData) => {
+        try {
+            if (selectedInvoice) {
+                await updateInvoice(selectedInvoice.invoice_id, formData);
+            } else {
+                await createInvoice(formData);
+            }
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error('Failed to save invoice:', error);
+            alert('Gagal menyimpan invoice');
         }
-        setIsModalOpen(false);
     };
 
     return (
@@ -596,11 +527,12 @@ export default function InvoiceContent() {
                 </div>
             </section>
             <InvoiceTable
-                invoices={filteredInvoices}
+                invoices={formattedInvoices}
                 onEdit={handleEdit}
                 onCancel={handleCancel}
                 onRecordPayment={handleRecordPayment}
                 onViewDetail={handleViewDetail}
+                loading={loading}
             />
             <PaymentTracking />
 

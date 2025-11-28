@@ -511,7 +511,7 @@ function DriverRow({ driver, onEdit, onDelete }) {
                 <div className='flex flex-col gap-1 text-xs text-slate-500'>
                     <span className='inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-600'>
                         <MapPinIcon />
-                        {driver.lastLocation}
+                        {driver.last_location_city || driver.lastLocation || '-'}
                     </span>
                 </div>
             </td>

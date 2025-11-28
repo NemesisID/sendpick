@@ -29,6 +29,7 @@ class Drivers extends Authenticatable
         'shift',
         'last_lat',
         'last_lng',
+        'last_location_city',
         'delivery_count'
     ];
 

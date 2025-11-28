@@ -12,19 +12,48 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
         return 0;
     };
 
+    // Helper for date formatting
+    const formatDate = (dateString) => {
+        if (!dateString) return '-';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    };
+
     const invoiceAmount = invoice.amount || invoice.total_amount || 0;
-    const invoiceTax = invoice.tax || 0;
+    const invoiceTax = invoice.tax_amount || invoice.tax || 0;
 
     // Mock items if not present (since initial mock data doesn't have items)
     const items = invoice.items || [
         {
             description: 'Jasa Pengiriman (Default)',
             qty: 1,
-            price: parseCurrencyValue(invoiceAmount)
+            price: parseCurrencyValue(invoiceAmount) - parseCurrencyValue(invoiceTax) // Adjust price to exclude tax for display if needed, or assume amount includes tax depending on logic. 
+            // Better logic: if items are missing, assume total amount is the item price + tax. 
+            // But usually 'total_amount' = subtotal + tax.
+            // If we only have total_amount and tax, subtotal = total - tax.
         }
     ];
 
-    const subtotal = items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+    // Recalculate based on available data
+    // If items exist, use them. If not, construct a default item from total and tax.
+    let displayItems = items;
+    if (!invoice.items || invoice.items.length === 0) {
+        const totalVal = parseCurrencyValue(invoiceAmount);
+        const taxVal = parseCurrencyValue(invoiceTax);
+        const subtotalVal = totalVal - taxVal;
+
+        displayItems = [{
+            description: 'Jasa Pengiriman (Default)',
+            qty: 1,
+            price: subtotalVal
+        }];
+    }
+
+    const subtotal = displayItems.reduce((sum, item) => sum + (item.qty * item.price), 0);
     const tax = parseCurrencyValue(invoiceTax);
     const total = subtotal + tax;
 
@@ -57,11 +86,11 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                         <div className="space-y-4 md:text-right">
                             <div>
                                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Tanggal Invoice</label>
-                                <p className="mt-1 text-base font-medium text-slate-900">{invoice.date}</p>
+                                <p className="mt-1 text-base font-medium text-slate-900">{formatDate(invoice.date)}</p>
                             </div>
                             <div>
                                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Jatuh Tempo</label>
-                                <p className="mt-1 text-base font-medium text-rose-600">{invoice.dueDate}</p>
+                                <p className="mt-1 text-base font-medium text-rose-600">{formatDate(invoice.dueDate)}</p>
                             </div>
                         </div>
                     </div>
@@ -78,7 +107,7 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
-                                {items.map((item, index) => (
+                                {displayItems.map((item, index) => (
                                     <tr key={index}>
                                         <td className="px-6 py-4 font-medium text-slate-900">{item.description}</td>
                                         <td className="px-6 py-4 text-center text-slate-600">{item.qty}</td>
@@ -106,6 +135,14 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                         </table>
                     </div>
 
+                    {/* Notes Section */}
+                    {invoice.notes && (
+                        <div className="mb-8 rounded-2xl border border-slate-200 bg-amber-50 p-6">
+                            <h4 className="mb-2 text-sm font-bold text-slate-900">Catatan</h4>
+                            <p className="text-sm text-slate-600 whitespace-pre-wrap">{invoice.notes}</p>
+                        </div>
+                    )}
+
                     {/* Payment History */}
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
                         <h4 className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-900">
@@ -129,10 +166,10 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                                     </div>
                                     <div className="text-right">
                                         <p className="font-bold text-emerald-600">
-                                            Rp {total.toLocaleString('id-ID')}
+                                            Rp {parseCurrencyValue(invoice.paid_amount || invoice.last_payment?.amount || 0).toLocaleString('id-ID')}
                                         </p>
                                         <p className="text-xs text-slate-400">
-                                            {invoice.last_payment?.payment_date || invoice.paymentDate}
+                                            {formatDate(invoice.last_payment?.payment_date || invoice.paymentDate)}
                                         </p>
                                     </div>
                                 </div>

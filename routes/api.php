@@ -198,9 +198,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Additional Invoice routes:
     // 1. Mendapatkan sumber invoice yang tersedia untuk membuat invoice baru
-    Route::get('/invoices/available-sources', [InvoiceController::class, 'getAvailableSources'])->name('api.invoices.available-sources'); // ada
+    Route::get('/invoices/available-sources', [InvoiceController::class, 'getAvailableSources'])->name('api.invoices.available-sources')->withoutMiddleware('auth:sanctum'); // ada
     // 2. Menandai invoice sebagai sudah dibayar
-    Route::post('/invoices/{invoiceId}/record-payment', [InvoiceController::class, 'recordPayment'])->name('api.invoices.record-payment'); // ada
+    Route::post('/invoices/{invoiceId}/record-payment', [InvoiceController::class, 'recordPayment'])->name('api.invoices.record-payment')->withoutMiddleware('auth:sanctum'); // ada
     // 3. Mendapatkan statistik invoice
     // Route::get('/invoices/stats', [InvoiceController::class, 'getStats'])->name('api.invoices.stats'); // ada
 
@@ -213,7 +213,7 @@ Route::middleware('auth:sanctum')->group(function () {
             'show' => 'api.invoices.show', // --> GET /api/invoices/{invoiceId}
             'update' => 'api.invoices.update', // --> PUT /api/invoices/{invoiceId}
             'destroy' => 'api.invoices.destroy', // --> DELETE /api/invoices/{invoiceId}
-        ]);
+        ])->withoutMiddleware('auth:sanctum');
 
     // GPS Tracking (Read-Only untuk Admin Panel):
     // 1. Mendapatkan lokasi terkini semua driver (Real Time Tracking Page)

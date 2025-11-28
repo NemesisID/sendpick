@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { HiOutlinePlus, HiOutlineTrash } from 'react-icons/hi';
 import EditModal from '../../../components/common/EditModal';
-
-// Mock data for order references (Completed JO/DO)
-const MOCK_ORDER_REFERENCES = [
-    { id: 'JO-2024-005', customer: 'PT Sinar Jaya', type: 'Job Order' },
-    { id: 'DO-2024-006', customer: 'CV Makmur Abadi', type: 'Delivery Order' },
-    { id: 'JO-2024-007', customer: 'UD Sentosa', type: 'Job Order' },
-];
+import { fetchAvailableSources } from '../services/invoiceService';
 
 export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialData }) {
     const isEditMode = !!initialData;
+    const [availableSources, setAvailableSources] = useState([]);
+    const [loadingSources, setLoadingSources] = useState(false);
 
     const [formData, setFormData] = useState({
-        orderId: '',
-        customer: '',
+        source_type: '',
+        source_id: '',
+        customer_id: '',
+        customer_name: '', // Display only
         date: '',
         dueDate: '',
         items: [{ description: '', qty: 1, price: 0 }],
@@ -23,23 +21,45 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
     });
 
     useEffect(() => {
+        if (isOpen && !isEditMode) {
+            fetchSources();
+        }
+    }, [isOpen, isEditMode]);
+
+    const fetchSources = async () => {
+        setLoadingSources(true);
+        try {
+            const sources = await fetchAvailableSources();
+            setAvailableSources(sources);
+        } catch (error) {
+            console.error('Failed to fetch available sources:', error);
+        } finally {
+            setLoadingSources(false);
+        }
+    };
+
+    useEffect(() => {
         if (isOpen) {
             if (initialData) {
                 // Parse items from initialData if available, otherwise default
                 setFormData({
-                    orderId: initialData.orderId || '',
-                    customer: initialData.customer || '',
+                    source_type: initialData.source_type || '',
+                    source_id: initialData.source_id || '',
+                    customer_id: initialData.customer_id || '',
+                    customer_name: initialData.customer || '',
                     date: initialData.date || '',
                     dueDate: initialData.dueDate || '',
-                    items: initialData.items || [{ description: 'Jasa Pengiriman', qty: 1, price: parseInt(initialData.amount?.replace(/[^0-9]/g, '') || 0) }],
-                    tax: parseInt(initialData.tax?.replace(/[^0-9]/g, '') || 0),
+                    items: initialData.items || [{ description: 'Jasa Pengiriman', qty: 1, price: parseInt(initialData.total_amount) || 0 }],
+                    tax: parseInt(initialData.tax_amount) || 0,
                     notes: initialData.notes || '',
                 });
             } else {
                 // Reset for Create mode
                 setFormData({
-                    orderId: '',
-                    customer: '',
+                    source_type: '',
+                    source_id: '',
+                    customer_id: '',
+                    customer_name: '',
                     date: new Date().toISOString().split('T')[0],
                     dueDate: '',
                     items: [{ description: '', qty: 1, price: 0 }],
@@ -52,18 +72,29 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
 
     const handleOrderSelect = (e) => {
         const selectedId = e.target.value;
-        const order = MOCK_ORDER_REFERENCES.find(o => o.id === selectedId);
-        if (order) {
+        const source = availableSources.find(s => s.id === selectedId);
+
+        if (source) {
             setFormData(prev => ({
                 ...prev,
-                orderId: selectedId,
-                customer: order.customer
+                source_type: source.type,
+                source_id: source.id,
+                customer_id: source.customer_id,
+                customer_name: source.customer?.customer_name || 'Unknown Customer',
+                items: [{
+                    description: source.title,
+                    qty: 1,
+                    price: parseFloat(source.amount) || 0
+                }]
             }));
         } else {
             setFormData(prev => ({
                 ...prev,
-                orderId: '',
-                customer: ''
+                source_type: '',
+                source_id: '',
+                customer_id: '',
+                customer_name: '',
+                items: [{ description: '', qty: 1, price: 0 }]
             }));
         }
     };
@@ -97,7 +128,20 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSubmit(formData);
+
+        const payload = {
+            source_type: formData.source_type,
+            source_id: formData.source_id,
+            customer_id: formData.customer_id,
+            invoice_date: formData.date,
+            due_date: formData.dueDate,
+            subtotal: calculateSubtotal(),
+            tax_amount: formData.tax,
+            total_amount: calculateTotal(),
+            notes: formData.notes
+        };
+
+        onSubmit(payload);
     };
 
     return (
@@ -117,21 +161,22 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                         {isEditMode ? (
                             <input
                                 type="text"
-                                value={formData.orderId}
+                                value={formData.source_id}
                                 disabled
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-500"
                             />
                         ) : (
                             <select
-                                value={formData.orderId}
+                                value={formData.source_id}
                                 onChange={handleOrderSelect}
                                 required
+                                disabled={loadingSources}
                                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             >
-                                <option value="">Pilih Order...</option>
-                                {MOCK_ORDER_REFERENCES.map(order => (
-                                    <option key={order.id} value={order.id}>
-                                        {order.id} - {order.type}
+                                <option value="">{loadingSources ? 'Memuat...' : 'Pilih Order...'}</option>
+                                {availableSources.map(source => (
+                                    <option key={source.id} value={source.id}>
+                                        {source.title}
                                     </option>
                                 ))}
                             </select>
@@ -143,7 +188,7 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                         </label>
                         <input
                             type="text"
-                            value={formData.customer}
+                            value={formData.customer_name}
                             readOnly
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-500"
                             placeholder="Otomatis terisi..."
