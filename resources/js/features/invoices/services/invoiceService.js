@@ -3,6 +3,7 @@ import api from '../../../utils/api';
 const INVOICES_ENDPOINT = '/invoices';
 const AVAILABLE_SOURCES_ENDPOINT = '/invoices/available-sources';
 const RECORD_PAYMENT_ENDPOINT = (invoiceId) => `/invoices/${invoiceId}/record-payment`;
+const CANCEL_INVOICE_ENDPOINT = (invoiceId) => `/invoices/${invoiceId}/cancel`;
 
 const normalizePagination = (payload = {}) => ({
     total: payload.total ?? payload.meta?.total ?? 0,
@@ -117,5 +118,18 @@ export async function recordPayment(invoiceId, payload) {
         };
     } catch (error) {
         throw normalizeError(error, 'Gagal mencatat pembayaran');
+    }
+}
+
+export async function cancelInvoice(invoiceId, reason) {
+    try {
+        const response = await api.post(CANCEL_INVOICE_ENDPOINT(invoiceId), { reason });
+        return {
+            success: true,
+            data: response?.data?.data ?? null,
+            message: response?.data?.message ?? 'Invoice berhasil dibatalkan',
+        };
+    } catch (error) {
+        throw normalizeError(error, 'Gagal membatalkan invoice');
     }
 }

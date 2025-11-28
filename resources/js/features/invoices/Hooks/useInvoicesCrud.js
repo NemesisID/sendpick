@@ -3,7 +3,8 @@ import {
     createInvoice as createInvoiceService,
     updateInvoice as updateInvoiceService,
     deleteInvoice as deleteInvoiceService,
-    recordPayment as recordPaymentService
+    recordPayment as recordPaymentService,
+    cancelInvoice as cancelInvoiceService
 } from '../services/invoiceService';
 
 export const useInvoicesCrud = (onSuccess) => {
@@ -64,6 +65,24 @@ export const useInvoicesCrud = (onSuccess) => {
         }
     };
 
+    const cancelInvoice = async (id, reason) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await cancelInvoiceService(id, reason);
+            if (response.success) {
+                if (onSuccess) onSuccess();
+                return true;
+            }
+        } catch (err) {
+            const message = err.message || 'Failed to cancel invoice';
+            setError(message);
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const recordPayment = async (id, data) => {
         setLoading(true);
         setError(null);
@@ -88,6 +107,7 @@ export const useInvoicesCrud = (onSuccess) => {
         createInvoice,
         updateInvoice,
         deleteInvoice,
+        cancelInvoice,
         recordPayment
     };
 };
