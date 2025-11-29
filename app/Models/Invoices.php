@@ -20,6 +20,7 @@ class Invoices extends Model
         'invoice_date',
         'due_date',
         'subtotal',
+        'tax_rate',
         'tax_amount',
         'total_amount',
         'paid_amount',
@@ -27,6 +28,7 @@ class Invoices extends Model
         'payment_notes',
         'status',
         'notes',
+        'cancellation_note',
         'created_by'
     ];
 
@@ -35,6 +37,7 @@ class Invoices extends Model
         'due_date' => 'date',
         'payment_date' => 'date',
         'subtotal' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
         'tax_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'paid_amount' => 'decimal:2'

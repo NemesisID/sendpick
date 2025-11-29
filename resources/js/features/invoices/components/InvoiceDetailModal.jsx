@@ -8,7 +8,7 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
     // Helper to parse currency value safely
     const parseCurrencyValue = (value) => {
         if (typeof value === 'number') return value;
-        if (typeof value === 'string') return parseInt(value.replace(/[^0-9]/g, '')) || 0;
+        if (typeof value === 'string') return parseFloat(value) || 0;
         return 0;
     };
 
@@ -42,9 +42,15 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
     // If items exist, use them. If not, construct a default item from total and tax.
     let displayItems = items;
     if (!invoice.items || invoice.items.length === 0) {
-        const totalVal = parseCurrencyValue(invoiceAmount);
-        const taxVal = parseCurrencyValue(invoiceTax);
-        const subtotalVal = totalVal - taxVal;
+        // Fix: Ensure we are using the correct values from the invoice object
+        // The issue described was: Subtotal negative, Tax positive, Total positive but math wrong.
+        // This likely happened because we were doing: price = total - tax.
+        // If total < tax (which is weird), price becomes negative.
+
+        // Let's trust the invoice.subtotal if it exists, otherwise calculate it.
+        const totalVal = parseCurrencyValue(invoice.total_amount || invoice.amount || 0);
+        const taxVal = parseCurrencyValue(invoice.tax_amount || invoice.tax || 0);
+        const subtotalVal = invoice.subtotal ? parseCurrencyValue(invoice.subtotal) : (totalVal - taxVal);
 
         displayItems = [{
             description: 'Jasa Pengiriman (Default)',
@@ -54,7 +60,9 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
     }
 
     const subtotal = displayItems.reduce((sum, item) => sum + (item.qty * item.price), 0);
-    const tax = parseCurrencyValue(invoiceTax);
+    // Use the stored tax amount if available, otherwise calculate from rate if available, otherwise 0
+    const taxRate = invoice.tax_rate ? parseFloat(invoice.tax_rate) : 11;
+    const tax = invoice.tax_amount ? parseCurrencyValue(invoice.tax_amount) : (subtotal * (taxRate / 100));
     const total = subtotal + tax;
 
     return (
@@ -124,7 +132,9 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                                     <td className="px-6 py-3 text-right font-semibold text-slate-900">Rp {subtotal.toLocaleString('id-ID')}</td>
                                 </tr>
                                 <tr>
-                                    <td colSpan="3" className="px-6 py-3 text-right font-semibold text-slate-600">Pajak (PPN)</td>
+                                    <td colSpan="3" className="px-6 py-3 text-right font-semibold text-slate-600">
+                                        Pajak (PPN {invoice.tax_rate ? parseFloat(invoice.tax_rate) : 11}%)
+                                    </td>
                                     <td className="px-6 py-3 text-right font-semibold text-slate-900">Rp {tax.toLocaleString('id-ID')}</td>
                                 </tr>
                                 <tr>
@@ -137,9 +147,17 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
 
                     {/* Notes Section */}
                     {invoice.notes && (
-                        <div className="mb-8 rounded-2xl border border-slate-200 bg-amber-50 p-6">
+                        <div className="mb-4 rounded-2xl border border-slate-200 bg-amber-50 p-6">
                             <h4 className="mb-2 text-sm font-bold text-slate-900">Catatan</h4>
                             <p className="text-sm text-slate-600 whitespace-pre-wrap">{invoice.notes}</p>
+                        </div>
+                    )}
+
+                    {/* Cancellation Note Section */}
+                    {invoice.status === 'Cancelled' && invoice.cancellation_note && (
+                        <div className="mb-8 rounded-2xl border border-rose-200 bg-rose-50 p-6">
+                            <h4 className="mb-2 text-sm font-bold text-rose-900">Alasan Pembatalan</h4>
+                            <p className="text-sm text-rose-600 whitespace-pre-wrap">{invoice.cancellation_note}</p>
                         </div>
                     )}
 

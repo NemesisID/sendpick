@@ -124,8 +124,7 @@ class InvoiceController extends Controller
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after:invoice_date',
             'subtotal' => 'required|numeric|min:0',
-            'tax_amount' => 'numeric|min:0',
-            'total_amount' => 'required|numeric|min:0',
+            'tax_rate' => 'nullable|numeric|min:0|max:100',
             'notes' => 'nullable|string'
         ]);
 
@@ -164,6 +163,12 @@ class InvoiceController extends Controller
             $invoiceId = 'INV-' . date('Ymd') . '-' . strtoupper(Str::random(6));
         }
 
+        // Calculate tax and total
+        $subtotal = $request->subtotal;
+        $taxRate = $request->tax_rate ?? 11.00; // Default 11%
+        $taxAmount = $subtotal * ($taxRate / 100);
+        $totalAmount = $subtotal + $taxAmount;
+
         $invoice = Invoices::create([
             'invoice_id' => $invoiceId,
             'source_type' => $request->source_type,
@@ -171,9 +176,10 @@ class InvoiceController extends Controller
             'customer_id' => $request->customer_id,
             'invoice_date' => $request->invoice_date,
             'due_date' => $request->due_date,
-            'subtotal' => $request->subtotal,
-            'tax_amount' => $request->tax_amount ?? 0,
-            'total_amount' => $request->total_amount,
+            'subtotal' => $subtotal,
+            'tax_rate' => $taxRate,
+            'tax_amount' => $taxAmount,
+            'total_amount' => $totalAmount,
             'status' => 'Pending',
             'notes' => $request->notes,
             'created_by' => Auth::id()
@@ -248,22 +254,28 @@ class InvoiceController extends Controller
             'invoice_date' => 'required|date',
             'due_date' => 'required|date|after:invoice_date',
             'subtotal' => 'required|numeric|min:0',
-            'tax_amount' => 'numeric|min:0',
-            'total_amount' => 'required|numeric|min:0',
+            'tax_rate' => 'nullable|numeric|min:0|max:100',
             'status' => 'in:Pending,Paid,Overdue',
             'notes' => 'nullable|string'
         ]);
 
-        $invoice->update($request->only([
-            'customer_id',
-            'invoice_date',
-            'due_date',
-            'subtotal',
-            'tax_amount',
-            'total_amount',
-            'status',
-            'notes'
-        ]));
+        // Calculate tax and total
+        $subtotal = $request->subtotal;
+        $taxRate = $request->tax_rate ?? ($invoice->tax_rate ?? 11.00);
+        $taxAmount = $subtotal * ($taxRate / 100);
+        $totalAmount = $subtotal + $taxAmount;
+
+        $invoice->update([
+            'customer_id' => $request->customer_id,
+            'invoice_date' => $request->invoice_date,
+            'due_date' => $request->due_date,
+            'subtotal' => $subtotal,
+            'tax_rate' => $taxRate,
+            'tax_amount' => $taxAmount,
+            'total_amount' => $totalAmount,
+            'status' => $request->status ?? $invoice->status,
+            'notes' => $request->notes
+        ]);
 
         return response()->json([
             'success' => true,
@@ -308,12 +320,6 @@ class InvoiceController extends Controller
     /**
      * Cancel the specified invoice
      * 
-     * @param string $invoiceId
-     * @return JsonResponse
-     */
-    /**
-     * Cancel the specified invoice
-     * 
      * @param Request $request
      * @param string $invoiceId
      * @return JsonResponse
@@ -341,8 +347,7 @@ class InvoiceController extends Controller
         $updateData = ['status' => 'Cancelled'];
         
         if ($reason) {
-            $currentNotes = $invoice->notes ? $invoice->notes . "\n" : "";
-            $updateData['notes'] = $currentNotes . "Cancelled Reason: " . $reason;
+            $updateData['cancellation_note'] = $reason;
         }
 
         $invoice->update($updateData);

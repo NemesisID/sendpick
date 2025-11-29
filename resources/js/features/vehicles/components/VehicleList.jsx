@@ -237,8 +237,8 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>Last: {vehicle.last_maintenance_date || 'Belum ada'}</p>
-                    <p>Next: {vehicle.next_maintenance_date || 'Belum dijadwalkan'}</p>
+                    <p>Last: {vehicle.last_maintenance_date ? new Date(vehicle.last_maintenance_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Belum ada'}</p>
+                    <p>Next: {vehicle.next_maintenance_date ? new Date(vehicle.next_maintenance_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Belum dijadwalkan'}</p>
                 </div>
             </td>
             <td className='px-6 py-4'>
