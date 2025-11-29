@@ -237,7 +237,6 @@ function ActiveVehicleRow({ item }) {
             <td className='px-6 py-4 text-sm text-slate-600'>{item.route}</td>
             <td className='px-6 py-4 text-sm font-semibold text-slate-800'>{item.eta}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>{item.load}</td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{item.temperature}</td>
             <td className='px-6 py-4'>
                 <StatusBadge status={item.status} />
             </td>
@@ -256,7 +255,6 @@ function ActiveVehicleTable({ items }) {
                         <th className='px-6 py-3'>Rute</th>
                         <th className='px-6 py-3'>ETA</th>
                         <th className='px-6 py-3'>Load</th>
-                        <th className='px-6 py-3'>Temperatur</th>
                         <th className='px-6 py-3'>Status</th>
                         <th className='px-6 py-3'>Update Terakhir</th>
                     </tr>
@@ -266,7 +264,7 @@ function ActiveVehicleTable({ items }) {
                         items.map((item) => <ActiveVehicleRow key={item.id} item={item} />)
                     ) : (
                         <tr>
-                            <td colSpan={7} className='px-6 py-12 text-center text-sm text-slate-400'>
+                            <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
                                 Tidak ada kendaraan dengan filter yang dipilih.
                             </td>
                         </tr>
@@ -353,7 +351,7 @@ export default function ActiveVehiclesContent() {
                 <ActiveVehicleTable items={filteredVehicles} />
             </section>
 
-            <section className='grid grid-cols-1 gap-6 xl:grid-cols-2'>
+            <section className='grid grid-cols-1 gap-6 xl:grid-cols-1'>
                 <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
                     <div className='flex items-center justify-between'>
                         <div>
@@ -364,26 +362,6 @@ export default function ActiveVehiclesContent() {
                     </div>
                     <div className='mt-4 flex h-64 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400'>
                         Map preview placeholder
-                    </div>
-                </article>
-
-                <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <h3 className='text-sm font-semibold text-slate-800'>Quick Utilization</h3>
-                            <p className='text-xs text-slate-400'>Ringkasan performa pemakaian armada hari ini.</p>
-                        </div>
-                        <button
-                            type='button'
-                            className='text-xs font-semibold text-indigo-600 transition hover:text-indigo-500'
-                        >
-                            Unduh laporan
-                        </button>
-                    </div>
-                    <div className='mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3'>
-                        {utilizationSnapshots.map((snapshot) => (
-                            <UtilizationCard key={snapshot.id} snapshot={snapshot} />
-                        ))}
                     </div>
                 </article>
             </section>

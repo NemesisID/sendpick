@@ -16,7 +16,7 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
         date: '',
         dueDate: '',
         items: [{ description: '', qty: 1, price: 0 }],
-        tax: 0,
+        taxRate: 11, // Default 11%
         notes: '',
     });
 
@@ -42,15 +42,21 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
         if (isOpen) {
             if (initialData) {
                 // Parse items from initialData if available, otherwise default
+                // Ensure date is in YYYY-MM-DD format for input[type="date"]
+                const formatDateForInput = (dateString) => {
+                    if (!dateString) return '';
+                    return new Date(dateString).toISOString().split('T')[0];
+                };
+
                 setFormData({
                     source_type: initialData.source_type || '',
                     source_id: initialData.source_id || '',
                     customer_id: initialData.customer_id || '',
                     customer_name: initialData.customer || '',
-                    date: initialData.date || '',
-                    dueDate: initialData.dueDate || '',
-                    items: initialData.items || [{ description: 'Jasa Pengiriman', qty: 1, price: parseInt(initialData.total_amount) || 0 }],
-                    tax: parseInt(initialData.tax_amount) || 0,
+                    date: formatDateForInput(initialData.invoice_date || initialData.date),
+                    dueDate: formatDateForInput(initialData.due_date || initialData.dueDate),
+                    items: initialData.items || [{ description: 'Jasa Pengiriman', qty: 1, price: parseFloat(initialData.subtotal) || 0 }],
+                    taxRate: parseFloat(initialData.tax_rate) || 11,
                     notes: initialData.notes || '',
                 });
             } else {
@@ -63,7 +69,7 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                     date: new Date().toISOString().split('T')[0],
                     dueDate: '',
                     items: [{ description: '', qty: 1, price: 0 }],
-                    tax: 0,
+                    taxRate: 11,
                     notes: '',
                 });
             }
@@ -121,9 +127,15 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
         return formData.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
     };
 
+    const calculateTaxAmount = () => {
+        const subtotal = calculateSubtotal();
+        return subtotal * (formData.taxRate / 100);
+    };
+
     const calculateTotal = () => {
         const subtotal = calculateSubtotal();
-        return subtotal + Number(formData.tax);
+        const taxAmount = calculateTaxAmount();
+        return subtotal + taxAmount;
     };
 
     const handleSubmit = (e) => {
@@ -136,7 +148,8 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
             invoice_date: formData.date,
             due_date: formData.dueDate,
             subtotal: calculateSubtotal(),
-            tax_amount: formData.tax,
+            tax_rate: formData.taxRate,
+            tax_amount: calculateTaxAmount(),
             total_amount: calculateTotal(),
             notes: formData.notes
         };
@@ -301,7 +314,7 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                                 rows="3"
                                 className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                placeholder="Catatan tambahan untuk invoice ini..."
+                                placeholder="Catatan tambahan untuk customer..."
                             ></textarea>
                         </div>
                         <div className="w-full space-y-3 sm:w-72">
@@ -310,19 +323,25 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                 <span className="font-medium">Rp {calculateSubtotal().toLocaleString('id-ID')}</span>
                             </div>
                             <div className="flex items-center justify-between gap-4">
-                                <span className="text-sm text-slate-600">Pajak (Rp)</span>
+                                <span className="text-sm text-slate-600">Tax Rate (%)</span>
                                 <input
                                     type="number"
                                     min="0"
-                                    value={formData.tax}
-                                    onChange={(e) => setFormData({ ...formData, tax: parseInt(e.target.value) || 0 })}
-                                    className="w-32 rounded-lg border border-slate-200 px-3 py-1.5 text-right text-sm text-slate-700 focus:border-indigo-500 focus:outline-none"
+                                    max="100"
+                                    step="0.01"
+                                    value={formData.taxRate}
+                                    onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })}
+                                    className="w-20 rounded-lg border border-slate-200 px-3 py-1.5 text-right text-sm text-slate-700 focus:border-indigo-500 focus:outline-none"
                                 />
+                            </div>
+                            <div className="flex justify-between text-sm text-slate-600">
+                                <span>Tax Amount</span>
+                                <span className="font-medium">Rp {calculateTaxAmount().toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                             </div>
                             <div className="border-t border-slate-200 pt-3">
                                 <div className="flex justify-between text-base font-bold text-slate-800">
                                     <span>Total</span>
-                                    <span>Rp {calculateTotal().toLocaleString('id-ID')}</span>
+                                    <span>Rp {calculateTotal().toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                                 </div>
                             </div>
                         </div>
