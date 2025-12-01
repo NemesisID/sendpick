@@ -3,7 +3,7 @@ import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import JobOrderDetail from './JobOrderDetail';
-import { fetchJobOrders } from '../services/jobOrderService';
+import { fetchJobOrders, createJobOrder, updateJobOrder } from '../services/jobOrderService';
 import { fetchCustomers } from '../../customers/services/customerService';
 
 const summaryCards = [
@@ -70,6 +70,16 @@ const orderTypeStyles = {
         bg: 'bg-indigo-50',
         text: 'text-indigo-600',
     },
+    LTL: {
+        label: 'LTL',
+        bg: 'bg-blue-50',
+        text: 'text-blue-600',
+    },
+    FTL: {
+        label: 'FTL',
+        bg: 'bg-purple-50',
+        text: 'text-purple-600',
+    },
     manifest: {
         label: 'Manifest',
         bg: 'bg-sky-50',
@@ -132,7 +142,8 @@ const statusFilterOptions = [
     { value: 'pending', label: 'Pending' },
     { value: 'in_progress', label: 'In Progress' },
     { value: 'delivered', label: 'Delivered' },
-    { value: 'completed', label: 'Completed' }
+    { value: 'completed', label: 'Completed' },
+    { value: 'cancelled', label: 'Cancelled' }
 ];
 
 const fallbackOrderRecords = [
@@ -199,6 +210,29 @@ const fallbackCustomers = [
     { id: '3', nama: 'UD Berkah', kode: 'UDB' },
     { id: '4', nama: 'PT Global Logistik', kode: 'PGL' },
     { id: '5', nama: 'CV Sentosa Transport', kode: 'CST' },
+];
+
+const INDONESIA_CITIES = [
+    { value: 'Jakarta', label: 'Jakarta' },
+    { value: 'Surabaya', label: 'Surabaya' },
+    { value: 'Bandung', label: 'Bandung' },
+    { value: 'Semarang', label: 'Semarang' },
+    { value: 'Medan', label: 'Medan' },
+    { value: 'Makassar', label: 'Makassar' },
+    { value: 'Denpasar', label: 'Denpasar' },
+    { value: 'Yogyakarta', label: 'Yogyakarta' },
+    { value: 'Balikpapan', label: 'Balikpapan' },
+    { value: 'Palembang', label: 'Palembang' },
+    { value: 'Tangerang', label: 'Tangerang' },
+    { value: 'Bekasi', label: 'Bekasi' },
+    { value: 'Depok', label: 'Depok' },
+    { value: 'Bogor', label: 'Bogor' },
+    { value: 'Malang', label: 'Malang' },
+    { value: 'Solo', label: 'Solo' },
+    { value: 'Batam', label: 'Batam' },
+    { value: 'Pekanbaru', label: 'Pekanbaru' },
+    { value: 'Bandar Lampung', label: 'Bandar Lampung' },
+    { value: 'Padang', label: 'Padang' },
 ];
 
 const SearchIcon = ({ className = 'h-5 w-5' }) => (
@@ -271,37 +305,41 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
                 <div className='text-sm font-semibold text-slate-800'>{order.id}</div>
-                <p className='text-xs text-slate-400'>{orderTypeStyles[order.type]?.label ?? order.type}</p>
             </td>
             <td className='px-6 py-4'>
-                <OrderTypeBadge type={order.type} />
+                <OrderTypeBadge type={order.jobOrderType} />
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{order.customer}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='flex flex-col gap-1'>
-                    <span>
-                        <span className='inline-flex items-center gap-1 text-xs font-medium text-slate-500'>
-                            <span className='h-2 w-2 rounded-full bg-emerald-500' />
-                            {order.origin}
-                        </span>
-                    </span>
-                    <span>
-                        <span className='inline-flex items-center gap-1 text-xs font-medium text-slate-500'>
-                            <span className='h-2 w-2 rounded-full bg-sky-500' />
-                            {order.destination}
-                        </span>
-                    </span>
+                <div className='flex flex-col gap-3'>
+                    {/* Pickup */}
+                    <div className='relative pl-4 border-l-2 border-emerald-100'>
+                        <div className='absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-white' />
+                        <p className='font-bold text-slate-800 text-xs uppercase tracking-wide'>{order.pickup_city || 'Kota Asal'}</p>
+                        <p className='text-xs text-slate-500' title={order.origin}>{order.origin}</p>
+                    </div>
+
+                    {/* Delivery */}
+                    <div className='relative pl-4 border-l-2 border-slate-100'>
+                        <div className='absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-sky-500 ring-4 ring-white' />
+                        <p className='font-bold text-slate-800 text-xs uppercase tracking-wide'>{order.delivery_city || 'Kota Tujuan'}</p>
+                        <p className='text-xs text-slate-500' title={order.destination}>{order.destination}</p>
+                    </div>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>{order.commodity}</p>
-                    <p className='text-xs text-slate-400'>{order.weight} kg</p>
+                    <p className='font-medium text-slate-900 line-clamp-2 max-w-[200px]' title={order.commodity}>{order.commodity}</p>
+                    <div className='flex items-center gap-2 text-xs text-slate-500'>
+                        <span className='bg-slate-100 px-2 py-0.5 rounded font-medium text-slate-600'>{order.weight} kg</span>
+                        <span>•</span>
+                        <span className='bg-slate-100 px-2 py-0.5 rounded font-medium text-slate-600'>{order.volume ? `${order.volume} m³` : '-'}</span>
+                    </div>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>{order.driver}</p>
+                    <p className='font-medium text-slate-900'>{order.driver}</p>
                     <p className='text-xs text-slate-400'>{order.vehicle}</p>
                 </div>
             </td>
@@ -310,8 +348,8 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>{order.startDate}</p>
-                    <p>{order.endDate}</p>
+                    <p>{order.startDate ? new Date(order.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
+                    <p>{order.endDate ? new Date(order.endDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm font-semibold text-slate-700'>
@@ -391,9 +429,9 @@ function OrdersTable({ orders, isLoading, error, onViewDetail, onEdit, onCancel 
                         </tr>
                     ) : orders.length > 0 ? (
                         orders.map((order) => (
-                            <OrderRow 
-                                key={order.id} 
-                                order={order} 
+                            <OrderRow
+                                key={order.id}
+                                order={order}
                                 onViewDetail={onViewDetail}
                                 onEdit={onEdit}
                                 onCancel={onCancel}
@@ -439,6 +477,16 @@ export default function JobOrderContent() {
         []
     );
 
+    // State for dynamic form fields
+    const [formJobOrderType, setFormJobOrderType] = useState('LTL');
+
+    const handleFieldChange = (name, value, setFormData) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (name === 'jobOrderType') {
+            setFormJobOrderType(value);
+        }
+    };
+
     const normalizeStatus = (status) => {
         if (!status) {
             return 'pending';
@@ -479,9 +527,12 @@ export default function JobOrderContent() {
             customer: order.customer?.customer_name ?? order.customer_name ?? order.customer?.name ?? '-',
             customer_id: order.customer_id ?? '',
             origin: order.pickup_address ?? order.origin ?? '-',
+            pickup_city: order.pickup_city ?? '',
             destination: order.delivery_address ?? order.destination ?? '-',
+            delivery_city: order.delivery_city ?? '',
             commodity: order.goods_desc ?? order.commodity ?? '-',
             weight: order.goods_weight != null ? `${order.goods_weight}` : order.weight ?? '',
+            volume: order.goods_volume != null ? `${order.goods_volume}` : order.volume ?? '',
             items: order.goods_desc ?? order.items ?? '-',
             driver: driverName,
             vehicle: vehicleName,
@@ -493,46 +544,32 @@ export default function JobOrderContent() {
         };
     };
 
-    useEffect(() => {
-        let isMounted = true;
+    const loadJobOrders = async () => {
+        console.log('JobOrderContent: loading job orders');
+        setOrdersLoading(true);
+        setOrdersError(null);
 
-        const loadJobOrders = async () => {
-            console.log('JobOrderContent useEffect: loading job orders');
-            setOrdersLoading(true);
-            setOrdersError(null);
+        try {
+            const { items } = await fetchJobOrders({ per_page: 50 });
 
-            try {
-                const { items } = await fetchJobOrders({ per_page: 50 });
-                if (!isMounted) {
-                    return;
-                }
-
-                if (Array.isArray(items)) {
-                    const mappedOrders = items.map(mapJobOrderToRecord).filter(Boolean);
-                    setOrders(mappedOrders);
-                } else {
-                    setOrders(fallbackOrderRecords);
-                    setOrdersError('Format data job order tidak valid. Menampilkan data contoh.');
-                }
-            } catch (error) {
-                console.error('JobOrderContent useEffect: failed to load job orders', error);
-                if (isMounted) {
-                    setOrders(fallbackOrderRecords);
-                    setOrdersError('Gagal memuat data job order. Menampilkan data contoh.');
-                }
-            } finally {
-                if (isMounted) {
-                    setOrdersLoading(false);
-                }
+            if (Array.isArray(items)) {
+                const mappedOrders = items.map(mapJobOrderToRecord).filter(Boolean);
+                setOrders(mappedOrders);
+            } else {
+                setOrders(fallbackOrderRecords);
+                setOrdersError('Format data job order tidak valid. Menampilkan data contoh.');
             }
-        };
+        } catch (error) {
+            console.error('JobOrderContent: failed to load job orders', error);
+            setOrders(fallbackOrderRecords);
+            setOrdersError('Gagal memuat data job order. Menampilkan data contoh.');
+        } finally {
+            setOrdersLoading(false);
+        }
+    };
 
+    useEffect(() => {
         loadJobOrders();
-
-        return () => {
-            isMounted = false;
-            console.log('JobOrderContent useEffect: Component will unmount');
-        };
     }, []);
 
     useEffect(() => {
@@ -584,22 +621,32 @@ export default function JobOrderContent() {
     // Edit modal handlers
     const handleEdit = (order) => {
         console.log('Edit button clicked for order:', order);
-        
+
         // Prepare data for edit form - ensure all required fields are present
         const editData = {
             ...order,
             // Ensure we have the correct field mapping
             customer_id: order.customer_id || '',
             jobOrderType: order.jobOrderType || 'LTL',
-            origin: order.origin || '',
-            destination: order.destination || '',
+            pickup_address: order.origin || '', // Map origin back to pickup_address for edit
+            pickup_city: order.pickup_city || '',
+            delivery_address: order.destination || '', // Map destination back to delivery_address for edit
+            delivery_city: order.delivery_city || '',
             items: order.items || order.commodity || '',
+            goods_desc: order.items || order.commodity || '', // Ensure goods_desc is set
             weight: order.weight || '',
+            goods_weight: order.weight || '', // Ensure goods_weight is set
+            volume: order.volume || '',
+            goods_volume: order.volume || '', // Ensure goods_volume is set
             ship_date: order.ship_date || order.startDate || '',
             value: order.value || '',
+            order_value: order.value || '', // Ensure order_value is set
             status: order.status || 'pending'
         };
-        
+
+        // Set initial form state for dynamic fields
+        setFormJobOrderType(editData.jobOrderType);
+
         console.log('Prepared edit data:', editData);
         setEditModal({ isOpen: true, order: editData });
     };
@@ -611,9 +658,10 @@ export default function JobOrderContent() {
     const handleCancelConfirm = async () => {
         setIsLoading(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log('Canceling order:', deleteModal.order.id);
+            await updateJobOrder(deleteModal.order.id, { status: 'Cancelled' });
+            console.log('Order cancelled successfully:', deleteModal.order.id);
             setDeleteModal({ isOpen: false, order: null });
+            loadJobOrders();
         } catch (error) {
             console.error('Error canceling order:', error);
         } finally {
@@ -628,16 +676,20 @@ export default function JobOrderContent() {
     const handleEditSubmit = async (formData) => {
         setIsLoading(true);
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Update order data (in real app, this would be an API call)
-            console.log('Updating job order:', editModal.order.id, 'with data:', formData);
-            
-            // Close modal
+            const payload = {
+                ...formData,
+                order_type: formData.jobOrderType, // Map frontend field to backend expected field
+            };
+
+            await updateJobOrder(editModal.order.id, payload);
+            console.log('Job order updated successfully');
+
+            // Close modal and reload
             setEditModal({ isOpen: false, order: null });
+            loadJobOrders();
         } catch (error) {
             console.error('Error updating job order:', error);
+            // You might want to show an error notification here
         } finally {
             setIsLoading(false);
         }
@@ -650,22 +702,27 @@ export default function JobOrderContent() {
     // Create modal handlers
     const handleCreate = () => {
         console.log('Create new job order button clicked');
+        setFormJobOrderType('LTL'); // Reset to default
         setCreateModal({ isOpen: true });
     };
 
     const handleCreateSubmit = async (formData) => {
         setIsLoading(true);
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Create new order data (in real app, this would be an API call)
-            console.log('Creating new job order with data:', formData);
-            
-            // Close modal
+            const payload = {
+                ...formData,
+                order_type: formData.jobOrderType, // Map frontend field to backend expected field
+            };
+
+            await createJobOrder(payload);
+            console.log('Job order created successfully');
+
+            // Close modal and reload
             setCreateModal({ isOpen: false });
+            loadJobOrders();
         } catch (error) {
             console.error('Error creating job order:', error);
+            // You might want to show an error notification here
         } finally {
             setIsLoading(false);
         }
@@ -728,7 +785,7 @@ export default function JobOrderContent() {
     }, [orders]);
 
     // Job order form fields configuration
-    const jobOrderFields = [
+    const jobOrderFields = useMemo(() => [
         {
             name: 'customer_id',
             label: 'Customer',
@@ -750,21 +807,39 @@ export default function JobOrderContent() {
             ]
         },
         {
-            name: 'origin',
-            label: 'Lokasi Pickup',
-            type: 'text',
+            name: 'pickup_address',
+            label: 'Alamat Lengkap Pickup',
+            type: 'textarea',
             required: true,
-            placeholder: 'Alamat pickup'
+            placeholder: 'Alamat lengkap pickup',
+            rows: 2
         },
         {
-            name: 'destination', 
-            label: 'Lokasi Tujuan',
-            type: 'text',
+            name: 'pickup_city',
+            label: 'Kota Pickup',
+            type: 'select',
             required: true,
-            placeholder: 'Alamat tujuan'
+            options: INDONESIA_CITIES,
+            placeholder: 'Pilih Kota Pickup'
         },
         {
-            name: 'items',
+            name: 'delivery_address',
+            label: 'Alamat Lengkap Tujuan',
+            type: 'textarea',
+            required: true,
+            placeholder: 'Alamat lengkap tujuan',
+            rows: 2
+        },
+        {
+            name: 'delivery_city',
+            label: 'Kota Tujuan',
+            type: 'select',
+            required: true,
+            options: INDONESIA_CITIES,
+            placeholder: 'Pilih Kota Tujuan'
+        },
+        {
+            name: 'goods_desc',
             label: 'Deskripsi Barang',
             type: 'textarea',
             required: true,
@@ -772,13 +847,24 @@ export default function JobOrderContent() {
             rows: 2
         },
         {
-            name: 'weight',
+            name: 'goods_weight',
             label: 'Berat (kg)',
             type: 'number',
             required: true,
             placeholder: 'Berat dalam kilogram',
             min: 0,
-            step: 0.1
+            step: 0.1,
+            help: formJobOrderType === 'LTL' ? 'Untuk LTL, pastikan berat akurat agar muat di truk gabungan.' : null
+        },
+        {
+            name: 'goods_volume',
+            label: 'Volume (m3)',
+            type: 'number',
+            required: false,
+            placeholder: 'Estimasi volume dalam m3',
+            min: 0,
+            step: 0.01,
+            description: 'Opsional: Isi jika barang ringan tapi memakan tempat (CBM)'
         },
         {
             name: 'ship_date',
@@ -787,95 +873,23 @@ export default function JobOrderContent() {
             required: true
         },
         {
-            name: 'value',
+            name: 'order_value',
             label: 'Nilai Order',
             type: 'number',
             required: true,
             placeholder: 'Nilai dalam Rupiah'
         }
-    ];
+    ], [customers, formJobOrderType]);
 
     // Job order form fields configuration for editing (includes status)
-    const jobOrderEditFields = [
-        {
-            name: 'customer_id',
-            label: 'Customer',
-            type: 'select',
-            required: true,
-            options: customers.map(customer => ({
-                value: customer.id,
-                label: `${customer.nama} (${customer.kode})`
-            }))
-        },
-        {
-            name: 'jobOrderType',
-            label: 'Tipe Order',
-            type: 'select',
-            required: true,
-            options: [
-                { value: 'LTL', label: 'LTL (Less Than Truckload)' },
-                { value: 'FTL', label: 'FTL (Full Truckload)' }
-            ]
-        },
-        {
-            name: 'origin',
-            label: 'Lokasi Pickup',
-            type: 'text',
-            required: true,
-            placeholder: 'Alamat pickup'
-        },
-        {
-            name: 'destination', 
-            label: 'Lokasi Tujuan',
-            type: 'text',
-            required: true,
-            placeholder: 'Alamat tujuan'
-        },
-        {
-            name: 'items',
-            label: 'Deskripsi Barang',
-            type: 'textarea',
-            required: true,
-            placeholder: 'Deskripsi barang yang dikirim',
-            rows: 2
-        },
-        {
-            name: 'weight',
-            label: 'Berat (kg)',
-            type: 'number',
-            required: true,
-            placeholder: 'Berat dalam kilogram',
-            min: 0,
-            step: 0.1
-        },
-        {
-            name: 'ship_date',
-            label: 'Tanggal Kirim',
-            type: 'date',
-            required: true
-        },
-        {
-            name: 'value',
-            label: 'Nilai Order',
-            type: 'number',
-            required: true,
-            placeholder: 'Nilai dalam Rupiah'
-        },
-        {
-            name: 'status',
-            label: 'Status',
-            type: 'select',
-            required: true,
-            options: [
-                { value: 'created', label: 'Created' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'confirmed', label: 'Confirmed' },
-                { value: 'in_progress', label: 'In Progress' },
-                { value: 'delivered', label: 'Delivered' },
-                { value: 'cancelled', label: 'Cancelled' }
-            ]
-        }
-    ];
+    const jobOrderEditFields = useMemo(() => {
+        return jobOrderFields.map(field => {
+            if (field.name === 'customer_id' || field.name === 'jobOrderType') {
+                return { ...field, disabled: true };
+            }
+            return field;
+        });
+    }, [jobOrderFields]);
 
     const filteredOrders = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -907,9 +921,9 @@ export default function JobOrderContent() {
     if (currentView === 'detail' && selectedOrderId) {
         console.log('Rendering JobOrderDetail for order:', selectedOrderId);
         return (
-            <JobOrderDetail 
-                jobOrderId={selectedOrderId} 
-                onBack={handleBackToList} 
+            <JobOrderDetail
+                jobOrderId={selectedOrderId}
+                onBack={handleBackToList}
             />
         );
     }
@@ -917,7 +931,7 @@ export default function JobOrderContent() {
     console.log('Rendering main JobOrder content');
     console.log('Current view state:', currentView);
     console.log('Selected order ID:', selectedOrderId);
-    
+
     return (
         <div className='flex flex-col gap-8'>
             {/* Page Header
@@ -973,29 +987,8 @@ export default function JobOrderContent() {
                         </button>
                     </div>
                 </div>
-                <div className='mt-6 overflow-x-auto'>
-                    <div className='inline-flex min-w-full rounded-2xl border border-slate-200 bg-slate-50 p-1 text-sm font-medium text-slate-500'>
-                        {orderTabsData.map((tab) => {
-                            const isActive = activeTab === tab.key;
-                            return (
-                                <button
-                                    key={tab.key}
-                                    type='button'
-                                    onClick={() => setActiveTab(tab.key)}
-                                    className={`flex-1 rounded-xl px-4 py-2 transition ${
-                                        isActive
-                                            ? 'bg-white text-indigo-600 shadow-sm'
-                                            : 'hover:text-indigo-600'
-                                    }`}
-                                >
-                                    {tab.label}
-                                    <span className='ml-1 text-xs text-slate-400'>({tab.count})</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-                <OrdersTable 
+
+                <OrdersTable
                     orders={filteredOrders}
                     isLoading={ordersLoading}
                     error={ordersError}
@@ -1014,6 +1007,7 @@ export default function JobOrderContent() {
                 data={{}} // Empty data for new creation
                 fields={jobOrderFields}
                 isLoading={isLoading}
+                onFieldChange={handleFieldChange}
             />
 
             {/* Edit Modal */}
@@ -1025,6 +1019,7 @@ export default function JobOrderContent() {
                 data={editModal.order}
                 fields={jobOrderEditFields}
                 isLoading={isLoading}
+                onFieldChange={handleFieldChange}
             />
 
             {deleteModal.isOpen && (

@@ -4,12 +4,14 @@ import {
     updateManifest as updateManifestRequest,
     deleteManifest as deleteManifestRequest,
     getManifest as getManifestRequest,
+    cancelManifest as cancelManifestRequest,
 } from '../services/manifestService';
 
 const INITIAL_STATE = {
     creating: false,
     updating: false,
     deleting: false,
+    cancelling: false,
     loadingDetail: false,
     successMessage: null,
     actionError: null,
@@ -92,6 +94,26 @@ export function useManifestCrud(options = {}) {
         [onDeleteSuccess, onMutationsComplete, setMutationState],
     );
 
+    const handleCancel = useCallback(
+        async (manifestId) => {
+            setMutationState({ cancelling: true, actionError: null, successMessage: null });
+            try {
+                const response = await cancelManifestRequest(manifestId);
+                // We can treat cancel as an update since the record still exists but status changed
+                onUpdateSuccess?.(response?.data, response);
+                setMutationState({ successMessage: response?.message ?? 'Manifest berhasil dibatalkan' });
+                return true;
+            } catch (error) {
+                setMutationState({ actionError: getErrorMessage(error, 'Gagal membatalkan manifest') });
+                throw error;
+            } finally {
+                setMutationState({ cancelling: false });
+                onMutationsComplete?.();
+            }
+        },
+        [onUpdateSuccess, onMutationsComplete, setMutationState],
+    );
+
     const getManifestDetail = useCallback(
         async (manifestId) => {
             setMutationState({ loadingDetail: true });
@@ -111,6 +133,7 @@ export function useManifestCrud(options = {}) {
         createManifest: handleCreate,
         updateManifest: handleUpdate,
         deleteManifest: handleDelete,
+        cancelManifest: handleCancel,
         getManifest: getManifestDetail,
         mutationState: state,
         resetMutationStatus,

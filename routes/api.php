@@ -167,6 +167,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/manifests/{manifestId}/add-job-orders', [ManifestController::class, 'addJobOrders'])->name('api.manifests.add-job-orders')->withoutMiddleware('auth:sanctum');
     // 3. Menghapus job order dari manifest
     Route::post('/manifests/{manifestId}/remove-job-orders', [ManifestController::class, 'removeJobOrders'])->name('api.manifests.remove-job-orders')->withoutMiddleware('auth:sanctum');
+    // 4. Membatalkan manifest
+    Route::post('/manifests/{manifestId}/cancel', [ManifestController::class, 'cancel'])->name('api.manifests.cancel')->withoutMiddleware('auth:sanctum');
 
     // Manifests (apiResource)
     Route::apiResource('manifests', ManifestController::class)

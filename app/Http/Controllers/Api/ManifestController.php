@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Manifests;
 use App\Models\JobOrder;
+use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -41,7 +42,7 @@ class ManifestController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Manifests::with(['createdBy', 'jobOrders.customer']);
+        $query = Manifests::with(['createdBy', 'jobOrders.customer', 'jobOrders.assignments.driver', 'jobOrders.assignments.vehicle', 'drivers', 'vehicles']);
 
         // Search functionality
         if ($request->filled('search')) {
@@ -106,7 +107,9 @@ class ManifestController extends Controller
             'planned_departure' => 'nullable|date',
             'planned_arrival' => 'nullable|date|after:planned_departure',
             'job_order_ids' => 'nullable|array',
-            'job_order_ids.*' => 'exists:job_orders,job_order_id'
+            'job_order_ids.*' => 'exists:job_orders,job_order_id',
+            'driver_id' => 'nullable|exists:drivers,driver_id',
+            'vehicle_id' => 'nullable|exists:vehicles,vehicle_id',
         ]);
 
         // Generate unique manifest_id
@@ -123,19 +126,28 @@ class ManifestController extends Controller
             'cargo_weight' => $request->cargo_weight,
             'planned_departure' => $request->planned_departure,
             'planned_arrival' => $request->planned_arrival,
+            'driver_id' => $request->driver_id,
+            'vehicle_id' => $request->vehicle_id,
             'status' => 'Pending',
-            'created_by' => Auth::id()
+            'created_by' => Auth::id() ?? Admin::first()->user_id ?? '1'
         ]);
 
         // Attach job orders if provided
         if ($request->filled('job_order_ids')) {
             $manifest->jobOrders()->attach($request->job_order_ids);
+            
+            // Update status of attached job orders
+            JobOrder::whereIn('job_order_id', $request->job_order_ids)
+                ->update(['status' => 'In Manifest']);
+                
+            // Update cargo summary based on attached job orders
+            $this->updateManifestCargo($manifest);
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Manifest created successfully',
-            'data' => $manifest->load(['createdBy', 'jobOrders.customer'])
+            'data' => $manifest->refresh()->load(['createdBy', 'jobOrders.customer', 'drivers', 'vehicles'])
         ], 201);
     }
 
@@ -151,7 +163,9 @@ class ManifestController extends Controller
             'createdBy', 
             'jobOrders.customer',
             'jobOrders.assignments.driver',
-            'jobOrders.assignments.vehicle'
+            'jobOrders.assignments.vehicle',
+            'drivers',
+            'vehicles'
         ])->where('manifest_id', $manifestId)->first();
 
         if (!$manifest) {
@@ -192,7 +206,11 @@ class ManifestController extends Controller
             'cargo_weight' => 'nullable|numeric|min:0',
             'planned_departure' => 'nullable|date',
             'planned_arrival' => 'nullable|date|after:planned_departure',
-            'status' => 'in:Pending,In Transit,Arrived,Completed'
+            'status' => 'in:Pending,In Transit,Arrived,Completed',
+            'job_order_ids' => 'nullable|array',
+            'job_order_ids.*' => 'exists:job_orders,job_order_id',
+            'driver_id' => 'nullable|exists:drivers,driver_id',
+            'vehicle_id' => 'nullable|exists:vehicles,vehicle_id',
         ]);
 
         $manifest->update($request->only([
@@ -202,13 +220,36 @@ class ManifestController extends Controller
             'cargo_weight',
             'planned_departure',
             'planned_arrival',
-            'status'
+            'status',
+            'driver_id',
+            'vehicle_id'
         ]));
+
+        // Sync Job Orders if provided
+        if ($request->has('job_order_ids')) {
+            // Sync returns array of attached, detached, updated IDs
+            $syncResult = $manifest->jobOrders()->sync($request->job_order_ids);
+            
+            // Update status for newly attached job orders
+            if (!empty($syncResult['attached'])) {
+                JobOrder::whereIn('job_order_id', $syncResult['attached'])
+                    ->update(['status' => 'In Manifest']);
+            }
+            
+            // Update status for detached job orders (revert to Assigned)
+            if (!empty($syncResult['detached'])) {
+                JobOrder::whereIn('job_order_id', $syncResult['detached'])
+                    ->update(['status' => 'Assigned']);
+            }
+            
+            // Update cargo summary based on current job orders
+            $this->updateManifestCargo($manifest);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Manifest updated successfully',
-            'data' => $manifest->load(['createdBy', 'jobOrders.customer'])
+            'data' => $manifest->refresh()->load(['createdBy', 'jobOrders.customer', 'drivers', 'vehicles'])
         ], 200);
     }
 
@@ -420,14 +461,17 @@ class ManifestController extends Controller
     public function getAvailableJobOrders(string $manifest_id): JsonResponse
     {
         try {
-            // ✅ Cek apakah manifest ada
-            $manifest = Manifests::where('manifest_id', $manifest_id)->first();
+            // ✅ Cek apakah manifest ada (skip jika 'new' atau 'create')
+            $manifest = null;
+            if ($manifest_id !== 'new' && $manifest_id !== 'create') {
+                $manifest = Manifests::where('manifest_id', $manifest_id)->first();
 
-            if (!$manifest) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Manifest tidak ditemukan'
-                ], 404);
+                if (!$manifest) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Manifest tidak ditemukan'
+                    ], 404);
+                }
             }
 
             // ✅ Get job orders yang:
@@ -467,7 +511,7 @@ class ManifestController extends Controller
                 'message' => 'Job Orders yang tersedia berhasil diambil',
                 'data' => [
                     'manifest_id' => $manifest_id,
-                    'manifest_route' => $manifest->origin_city . ' - ' . $manifest->dest_city,
+                    'manifest_route' => $manifest ? ($manifest->origin_city . ' - ' . $manifest->dest_city) : 'New Manifest',
                     'available_job_orders' => $availableJobOrders,
                     'total_available' => $availableJobOrders->count(),
                 ]
@@ -477,6 +521,64 @@ class ManifestController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'gagal mengambil job orders yang tersedia',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Cancel the specified manifest
+     * 
+     * @param string $manifestId
+     * @return JsonResponse
+     */
+    public function cancel(string $manifestId): JsonResponse
+    {
+        try {
+            $manifest = Manifests::where('manifest_id', $manifestId)->first();
+
+            if (!$manifest) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Manifest not found'
+                ], 404);
+            }
+
+            if ($manifest->status === 'Cancelled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Manifest is already cancelled'
+                ], 422);
+            }
+
+            // Get all job order IDs currently in this manifest
+            $jobOrderIds = $manifest->jobOrders()->pluck('job_orders.job_order_id')->toArray();
+
+            // Detach all job orders
+            $manifest->jobOrders()->detach();
+
+            // Revert status of detached job orders to 'Assigned' (or 'Created' if no other assignments? Assuming 'Assigned' is safe)
+            if (!empty($jobOrderIds)) {
+                JobOrder::whereIn('job_order_id', $jobOrderIds)
+                    ->update(['status' => 'Assigned']);
+            }
+
+            // Update manifest status to Cancelled
+            // Keep cargo_weight and cargo_summary as snapshot
+            $manifest->update([
+                'status' => 'Cancelled',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Manifest cancelled successfully. Job orders have been released.',
+                'data' => $manifest
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to cancel manifest',
                 'error' => $e->getMessage()
             ], 500);
         }

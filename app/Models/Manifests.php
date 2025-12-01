@@ -22,7 +22,9 @@ class Manifests extends Model
         'planned_departure',
         'planned_arrival',
         'status',
-        'created_by'
+        'created_by',
+        'driver_id',
+        'vehicle_id'
     ];
 
     protected $casts = [
@@ -46,4 +48,21 @@ class Manifests extends Model
     {
         return $this->belongsToMany(JobOrder::class, 'manifest_jobs', 'manifest_id', 'job_order_id', 'manifest_id', 'job_order_id');
     }
+
+    /**
+     * Relationship: Manifest belongs to Driver
+     */
+    public function drivers(): BelongsTo
+    {
+        return $this->belongsTo(Drivers::class, 'driver_id', 'driver_id');
+    }
+
+    /**
+     * Relationship: Manifest belongs to Vehicle
+     */
+    public function vehicles(): BelongsTo
+    {
+        return $this->belongsTo(Vehicles::class, 'vehicle_id', 'vehicle_id');
+    }
+
 }
