@@ -301,6 +301,8 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
     const numericValue = Number(order.value ?? 0);
     const formattedValue = Number.isFinite(numericValue) ? numericValue.toLocaleString('id-ID') : '0';
 
+    const isReadOnly = order.status === 'cancelled';
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
@@ -365,6 +367,7 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
                         }}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Detail order ${order.id}`}
+                        title="Lihat Detail"
                     >
                         <EyeIcon />
                     </button>
@@ -372,10 +375,12 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
                         type='button'
                         onClick={(e) => {
                             e.preventDefault();
-                            onEdit(order);
+                            !isReadOnly && onEdit(order);
                         }}
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
+                        disabled={isReadOnly}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition ${isReadOnly ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:border-indigo-200 hover:text-indigo-600'}`}
                         aria-label={`Edit order ${order.id}`}
+                        title={isReadOnly ? "Tidak dapat diedit" : "Edit Order"}
                     >
                         <EditIcon />
                     </button>
@@ -383,10 +388,12 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
                         type='button'
                         onClick={(e) => {
                             e.preventDefault();
-                            onCancel(order);
+                            !isReadOnly && onCancel(order);
                         }}
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
+                        disabled={isReadOnly}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition ${isReadOnly ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:border-rose-200 hover:text-rose-600'}`}
                         aria-label={`Cancel order ${order.id}`}
+                        title={isReadOnly ? "Tidak dapat dibatalkan" : "Batalkan Order"}
                     >
                         <CancelIcon />
                     </button>
