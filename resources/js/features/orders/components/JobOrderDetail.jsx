@@ -232,7 +232,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                     )}
 
                     {activeTab === 'assignment' && (
-                        <JobOrderAssignment jobOrderId={jobOrder.id} />
+                        <JobOrderAssignment jobOrderId={jobOrder.id} status={jobOrder.status} />
                     )}
                 </div>
             </div>

@@ -296,7 +296,7 @@ function AssignmentFilter({ activeFilter, onFilterChange }) {
     );
 }
 
-export default function JobOrderAssignment({ jobOrderId }) {
+export default function JobOrderAssignment({ jobOrderId, status }) {
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -306,6 +306,8 @@ export default function JobOrderAssignment({ jobOrderId }) {
     const [drivers, setDrivers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const isReadOnly = status === 'cancelled';
 
     useEffect(() => {
         // Simulate API call
@@ -334,6 +336,7 @@ export default function JobOrderAssignment({ jobOrderId }) {
     };
 
     const handleAddAssignment = () => {
+        if (isReadOnly) return;
         fetchOptions();
         setIsModalOpen(true);
     };
@@ -411,7 +414,9 @@ export default function JobOrderAssignment({ jobOrderId }) {
                     <button
                         type='button'
                         onClick={handleAddAssignment}
-                        className='inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                        disabled={isReadOnly}
+                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${isReadOnly ? 'bg-slate-400 cursor-not-allowed opacity-75' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                        title={isReadOnly ? "Tidak dapat menambah assignment pada order yang dibatalkan" : "Add Assignment"}
                     >
                         <PlusIcon className='h-3 w-3' />
                         Add Assignment
