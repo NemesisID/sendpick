@@ -194,6 +194,8 @@ function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }
     const paidAmount = parseFloat(invoice.paid_amount) || 0;
     const dueAmount = totalAmount - paidAmount;
 
+    const isReadOnly = ['Paid', 'Cancelled'].includes(invoice.status);
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4'>
@@ -234,31 +236,38 @@ function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }
                         onClick={() => onViewDetail(invoice)}
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Detail invoice ${invoice.id}`}
+                        title="Lihat Detail"
                     >
                         <HiOutlineEye className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
-                        onClick={() => onEdit(invoice)}
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-emerald-200 hover:text-emerald-600'
+                        onClick={() => !isReadOnly && onEdit(invoice)}
+                        disabled={isReadOnly}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition ${isReadOnly ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:border-emerald-200 hover:text-emerald-600'}`}
                         aria-label={`Edit invoice ${invoice.id}`}
+                        title={isReadOnly ? "Tidak dapat diedit" : "Edit Invoice"}
                     >
                         <HiOutlinePencilAlt className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
-                        onClick={() => onRecordPayment(invoice)}
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-purple-200 hover:text-purple-600'
+                        onClick={() => !isReadOnly && onRecordPayment(invoice)}
+                        disabled={isReadOnly}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition ${isReadOnly ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:border-purple-200 hover:text-purple-600'}`}
                         aria-label={`Record payment ${invoice.id}`}
+                        title={isReadOnly ? "Tidak dapat mencatat pembayaran" : "Catat Pembayaran"}
                     >
                         <HiOutlineCash className='h-4 w-4' />
                     </button>
 
                     <button
                         type='button'
-                        onClick={() => onCancel(invoice)}
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
+                        onClick={() => !isReadOnly && onCancel(invoice)}
+                        disabled={isReadOnly}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition ${isReadOnly ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:border-rose-200 hover:text-rose-600'}`}
                         aria-label={`Cancel invoice ${invoice.id}`}
+                        title={isReadOnly ? "Tidak dapat dibatalkan" : "Batalkan Invoice"}
                     >
                         <HiOutlineXCircle className='h-4 w-4' />
                     </button>
