@@ -20,9 +20,12 @@ class JobOrder extends Model
         'order_type',
         'status',
         'pickup_address',
+        'pickup_city',
         'delivery_address',
+        'delivery_city',
         'goods_desc',
         'goods_weight',
+        'goods_volume',
         'ship_date',
         'order_value',
         'created_by',
@@ -31,6 +34,7 @@ class JobOrder extends Model
 
     protected $casts = [
         'goods_weight' => 'decimal:2',
+        'goods_volume' => 'decimal:2',
         'order_value' => 'decimal:2',
         'ship_date' => 'date',
         'completed_at' => 'datetime'

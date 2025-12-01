@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import EditModal from '../../../components/common/EditModal';
+import { getAvailableDrivers } from '../../drivers/services/driverService';
+import { fetchAvailableVehicles } from '../../vehicles/services/vehicleService';
+import { assignDriver } from '../services/jobOrderService';
 
 const assignmentData = [
     {
@@ -183,8 +187,8 @@ function AssignmentItem({ assignment }) {
         const date = new Date(timestamp);
         return {
             time: date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-            date: date.toLocaleDateString('id-ID', { 
-                day: '2-digit', 
+            date: date.toLocaleDateString('id-ID', {
+                day: '2-digit',
                 month: 'short',
             }),
         };
@@ -230,7 +234,7 @@ function AssignmentItem({ assignment }) {
                     <span>{time} • {date}</span>
                 </div>
             </div>
-            
+
             {(assignment.vehicle || assignment.route || assignment.estimatedDuration) && (
                 <div className='mt-3 grid grid-cols-1 gap-2 text-xs text-slate-600 sm:grid-cols-3'>
                     {assignment.vehicle && (
@@ -250,13 +254,13 @@ function AssignmentItem({ assignment }) {
                     )}
                 </div>
             )}
-            
+
             {assignment.notes && (
                 <div className='mt-3'>
                     <p className='text-xs text-slate-600'>{assignment.notes}</p>
                 </div>
             )}
-            
+
             {assignment.completedAt && (
                 <div className='mt-3 text-xs text-emerald-600'>
                     <span className='font-medium'>Completed:</span> {formatTime(assignment.completedAt).time} • {formatTime(assignment.completedAt).date}
@@ -280,11 +284,10 @@ function AssignmentFilter({ activeFilter, onFilterChange }) {
                 <button
                     key={filter.value}
                     onClick={() => onFilterChange(filter.value)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                        activeFilter === filter.value
-                            ? 'bg-indigo-100 text-indigo-700'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${activeFilter === filter.value
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
                 >
                     {filter.label}
                 </button>
@@ -298,6 +301,12 @@ export default function JobOrderAssignment({ jobOrderId }) {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
 
+    // Modal states
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [drivers, setDrivers] = useState([]);
+    const [vehicles, setVehicles] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     useEffect(() => {
         // Simulate API call
         setTimeout(() => {
@@ -310,6 +319,74 @@ export default function JobOrderAssignment({ jobOrderId }) {
         if (filter === 'all') return true;
         return assignment.status === filter;
     });
+
+    const fetchOptions = async () => {
+        try {
+            const [driversData, vehiclesData] = await Promise.all([
+                getAvailableDrivers(),
+                fetchAvailableVehicles()
+            ]);
+            setDrivers(driversData);
+            setVehicles(vehiclesData);
+        } catch (error) {
+            console.error('Error fetching options:', error);
+        }
+    };
+
+    const handleAddAssignment = () => {
+        fetchOptions();
+        setIsModalOpen(true);
+    };
+
+    const handleSubmitAssignment = async (formData) => {
+        setIsSubmitting(true);
+        try {
+            const payload = {
+                ...formData,
+                status: 'Active' // Default status
+            };
+            await assignDriver(jobOrderId, payload);
+            // Refresh assignments or add to list (mock for now as we don't have real fetch yet)
+            console.log('Assignment created successfully');
+            setIsModalOpen(false);
+            // Optionally refresh list here if we had a real fetch
+        } catch (error) {
+            console.error('Error creating assignment:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const assignmentFields = useMemo(() => [
+        {
+            name: 'driver_id',
+            label: 'Driver',
+            type: 'select',
+            required: true,
+            options: drivers.map(d => ({
+                value: d.driver_id,
+                label: d.driver_name
+            }))
+        },
+        {
+            name: 'vehicle_id',
+            label: 'Kendaraan',
+            type: 'select',
+            required: true,
+            options: vehicles.map(v => ({
+                value: v.vehicle_id,
+                label: `${v.license_plate} ${v.vehicle_type ? `(${v.vehicle_type})` : ''}`
+            }))
+        },
+        {
+            name: 'notes',
+            label: 'Catatan',
+            type: 'textarea',
+            required: false,
+            placeholder: 'Catatan tambahan untuk assignment',
+            rows: 3
+        }
+    ], [drivers, vehicles]);
 
     if (loading) {
         return (
@@ -333,6 +410,7 @@ export default function JobOrderAssignment({ jobOrderId }) {
                     <AssignmentFilter activeFilter={filter} onFilterChange={setFilter} />
                     <button
                         type='button'
+                        onClick={handleAddAssignment}
                         className='inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
                     >
                         <PlusIcon className='h-3 w-3' />
@@ -340,7 +418,7 @@ export default function JobOrderAssignment({ jobOrderId }) {
                     </button>
                 </div>
             </div>
-            
+
             <div className='mt-6'>
                 {filteredAssignments.length > 0 ? (
                     <div className='space-y-3'>
@@ -360,6 +438,16 @@ export default function JobOrderAssignment({ jobOrderId }) {
                     </div>
                 )}
             </div>
-        </section>
+
+            <EditModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleSubmitAssignment}
+                title={`Assign Driver - ${jobOrderId}`}
+                data={{}}
+                fields={assignmentFields}
+                isLoading={isSubmitting}
+            />
+        </section >
     );
 }

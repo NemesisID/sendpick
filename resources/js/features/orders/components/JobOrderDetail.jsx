@@ -1,38 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import JobOrderStatusHistory from './JobOrderStatusHistory';
 import JobOrderAssignment from './JobOrderAssignment';
+import { getJobOrder } from '../services/jobOrderService';
 
 const JobOrderDetail = ({ jobOrderId, onBack }) => {
     const [activeTab, setActiveTab] = useState('overview');
+    const [jobOrder, setJobOrder] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    // Sample job order data - in real app, fetch from API based on jobOrderId
-    const jobOrder = {
-        id: jobOrderId || 'JO-2024-874',
-        customer: 'PT Maju Jaya Logistics',
-        status: 'in_progress',
-        priority: 'high',
-        type: 'job_order',
-        origin: 'Jakarta Selatan',
-        destination: 'Bandung',
-        createdAt: '2024-01-15 08:30:00',
-        estimatedDelivery: '2024-01-16 14:00:00',
-        packages: 48,
-        totalWeight: '1,250 kg',
-        totalValue: 'Rp 2,500,000',
-        driver: 'Ahmad Subandi',
-        vehicle: 'B 1234 AB',
-        currentLocation: 'Tol Cipularang KM 23',
-        progress: 65,
-        commodity: 'Elektronik - 50 pcs',
-        notes: 'Barang elektronik fragile, handle with care'
-    };
+    useEffect(() => {
+        const loadJobOrder = async () => {
+            setLoading(true);
+            try {
+                const data = await getJobOrder(jobOrderId);
+                if (data) {
+                    // Map API response to component state
+                    const activeAssignment = data.assignments?.find(a => a.status === 'Active') || data.assignments?.[0];
+
+                    setJobOrder({
+                        id: data.job_order_id,
+                        customer: data.customer?.customer_name || '-',
+                        status: data.status?.toLowerCase() || 'pending',
+                        priority: 'medium', // Default as not in API response yet
+                        type: data.order_type || 'job_order',
+                        origin: data.pickup_city || data.pickup_address || '-',
+                        originAddress: data.pickup_address || '-',
+                        destination: data.delivery_city || data.delivery_address || '-',
+                        destinationAddress: data.delivery_address || '-',
+                        createdAt: new Date(data.created_at).toLocaleString('id-ID'),
+                        estimatedDelivery: data.ship_date ? new Date(data.ship_date).toLocaleDateString('id-ID') : '-',
+                        packages: '-', // Not in API
+                        totalWeight: `${data.goods_weight} kg`,
+                        totalValue: data.order_value ? `Rp ${Number(data.order_value).toLocaleString('id-ID')}` : '-',
+                        driver: activeAssignment?.driver?.driver_name || '-',
+                        vehicle: activeAssignment?.vehicle?.license_plate || '-',
+                        volume: data.goods_volume ? `${data.goods_volume} m³` : '-',
+                        notes: data.goods_desc || '-'
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading job order detail:', err);
+                setError('Gagal memuat detail job order.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (jobOrderId) {
+            loadJobOrder();
+        }
+    }, [jobOrderId]);
 
     const getStatusStyle = (status) => {
         const styles = {
             pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
             in_progress: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'In Progress' },
             completed: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Completed' },
-            cancelled: { bg: 'bg-red-50', text: 'text-red-600', label: 'Cancelled' }
+            cancelled: { bg: 'bg-red-50', text: 'text-red-600', label: 'Cancelled' },
+            delivered: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Delivered' },
+            created: { bg: 'bg-slate-50', text: 'text-slate-600', label: 'Created' }
         };
         return styles[status] || styles.pending;
     };
@@ -45,6 +72,19 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
         };
         return styles[priority] || styles.medium;
     };
+
+    if (loading) {
+        return <div className="p-6 text-center text-slate-500">Memuat detail job order...</div>;
+    }
+
+    if (error || !jobOrder) {
+        return (
+            <div className="p-6 text-center">
+                <p className="text-red-500 mb-4">{error || 'Data tidak ditemukan'}</p>
+                <button onClick={onBack} className="text-indigo-600 hover:underline">Kembali</button>
+            </div>
+        );
+    }
 
     const statusStyle = getStatusStyle(jobOrder.status);
     const priorityStyle = getPriorityStyle(jobOrder.priority);
@@ -60,7 +100,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
             {/* Header */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
-                    <button 
+                    <button
                         onClick={onBack}
                         className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition"
                     >
@@ -70,7 +110,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                         Back to Job Orders
                     </button>
                 </div>
-                
+
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">{jobOrder.id}</h1>
@@ -95,11 +135,10 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition ${
-                                    activeTab === tab.id
-                                        ? 'border-indigo-500 text-indigo-600'
-                                        : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
-                                }`}
+                                className={`flex items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition ${activeTab === tab.id
+                                    ? 'border-indigo-500 text-indigo-600'
+                                    : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                                    }`}
                             >
                                 <span>{tab.icon}</span>
                                 {tab.label}
@@ -118,16 +157,26 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                     <h3 className="text-lg font-semibold text-slate-900 mb-4">Job Order Details</h3>
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         <div>
+                                            <p className="text-sm text-slate-500">Type</p>
+                                            <p className="font-medium text-slate-900">{jobOrder.type}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-slate-500">Customer</p>
+                                            <p className="font-medium text-slate-900">{jobOrder.customer}</p>
+                                        </div>
+                                        <div>
                                             <p className="text-sm text-slate-500">Origin</p>
                                             <p className="font-medium text-slate-900">{jobOrder.origin}</p>
+                                            <p className="text-xs text-slate-500 mt-1">{jobOrder.originAddress}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-slate-500">Destination</p>
                                             <p className="font-medium text-slate-900">{jobOrder.destination}</p>
+                                            <p className="text-xs text-slate-500 mt-1">{jobOrder.destinationAddress}</p>
                                         </div>
                                         <div>
-                                            <p className="text-sm text-slate-500">Commodity</p>
-                                            <p className="font-medium text-slate-900">{jobOrder.commodity}</p>
+                                            <p className="text-sm text-slate-500">Volume</p>
+                                            <p className="font-medium text-slate-900">{jobOrder.volume}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-slate-500">Total Weight</p>
@@ -148,27 +197,6 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                             <p className="font-medium text-slate-900">{jobOrder.notes}</p>
                                         </div>
                                     )}
-                                </div>
-
-                                {/* Progress */}
-                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-                                    <h3 className="text-lg font-semibold text-slate-900 mb-4">Delivery Progress</h3>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm text-slate-600">Current Location</span>
-                                            <span className="text-sm font-medium text-slate-900">{jobOrder.currentLocation}</span>
-                                        </div>
-                                        <div className="w-full bg-slate-200 rounded-full h-2">
-                                            <div 
-                                                className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                                                style={{ width: `${jobOrder.progress}%` }}
-                                            ></div>
-                                        </div>
-                                        <div className="flex items-center justify-between text-sm">
-                                            <span className="text-slate-500">{jobOrder.progress}% Complete</span>
-                                            <span className="text-slate-500">ETA: {jobOrder.estimatedDelivery}</span>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 
@@ -191,7 +219,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                         </div>
                                         <div>
                                             <p className="text-sm text-slate-500">Packages</p>
-                                            <p className="font-medium text-slate-900">{jobOrder.packages} packages</p>
+                                            <p className="font-medium text-slate-900">{jobOrder.packages}</p>
                                         </div>
                                     </div>
                                 </div>

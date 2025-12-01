@@ -4,8 +4,8 @@ export async function fetchJobOrders(params = {}) {
     try {
         const response = await api.get('/job-orders', { params });
         return {
-            items: response.data?.data?.data || [],
-            pagination: response.data?.data?.pagination || {}
+            items: response.data?.data || [],
+            pagination: response.data?.pagination || {}
         };
     } catch (error) {
         console.error('Gagal mengambil job order', error);
@@ -66,12 +66,10 @@ export async function deleteJobOrder(jobOrderId) {
 
 // ========== ADDITIONAL ROUTES (Khusus Job Order) ==========
 
-export async function assignDriver(jobOrderId, driverId) {
+export async function assignDriver(jobOrderId, payload) {
     try {
-        // ✅ Mengikuti route: POST /job-orders/{id}/assign
-        const response = await api.post(`/job-orders/${jobOrderId}/assignments`, {
-            driver_id: driverId
-        });
+        // ✅ Mengikuti route: POST /job-orders/{id}/assignments
+        const response = await api.post(`/job-orders/${jobOrderId}/assignments`, payload);
         return {
             success: true,
             data: response.data?.data,

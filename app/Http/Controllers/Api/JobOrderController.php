@@ -9,6 +9,7 @@ use App\Models\Assignment;
 use App\Models\Customers;
 use App\Models\Drivers;
 use App\Models\Vehicles;
+use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -112,9 +113,12 @@ class JobOrderController extends Controller
             'customer_id' => 'required|exists:customers,customer_id',
             'order_type' => 'required|in:LTL,FTL',
             'pickup_address' => 'required|string',
+            'pickup_city' => 'nullable|string',
             'delivery_address' => 'required|string',
+            'delivery_city' => 'nullable|string',
             'goods_desc' => 'required|string',
             'goods_weight' => 'required|numeric|min:0',
+            'goods_volume' => 'nullable|numeric|min:0',
             'ship_date' => 'required|date',
             'order_value' => 'nullable|numeric|min:0'
         ]);
@@ -131,12 +135,15 @@ class JobOrderController extends Controller
             'order_type' => $request->order_type,
             'status' => 'Created',
             'pickup_address' => $request->pickup_address,
+            'pickup_city' => $request->pickup_city,
             'delivery_address' => $request->delivery_address,
+            'delivery_city' => $request->delivery_city,
             'goods_desc' => $request->goods_desc,
             'goods_weight' => $request->goods_weight,
+            'goods_volume' => $request->goods_volume,
             'ship_date' => $request->ship_date,
             'order_value' => $request->order_value,
-            'created_by' => Auth::id()
+            'created_by' => Auth::id() ?? Admin::first()->user_id ?? 'SYSTEM'
         ]);
 
         // Create status history
@@ -150,7 +157,7 @@ class JobOrderController extends Controller
     }
 
     /**
-     * Display the specified job order
+     * Menampilkan ID Job Order yg dipilih
      * 
      * @param string $jobOrderId
      * @return JsonResponse
@@ -202,11 +209,15 @@ class JobOrderController extends Controller
             'customer_id' => 'sometimes|exists:customers,customer_id',
             'order_type' => 'sometimes|in:LTL,FTL',
             'pickup_address' => 'sometimes|string|max:500',
+            'pickup_city' => 'nullable|string',
             'delivery_address' => 'sometimes|string|max:500',
+            'delivery_city' => 'nullable|string',
             'goods_desc' => 'sometimes|string',
             'goods_weight' => 'sometimes|numeric|min:0',
+            'goods_volume' => 'nullable|numeric|min:0',
             'ship_date' => 'sometimes|date|after_or_equal:today',
-            'order_value' => 'sometimes|nullable|numeric|min:0'
+            'order_value' => 'sometimes|nullable|numeric|min:0',
+            'status' => 'sometimes|string'
         ]);
 
         $oldStatus = $jobOrder->status;
@@ -250,7 +261,7 @@ class JobOrderController extends Controller
     }
 
     /**
-     * Remove the specified job order
+     * Menghapus job order yg dipilih
      * 
      * @param string $jobOrderId
      * @return JsonResponse

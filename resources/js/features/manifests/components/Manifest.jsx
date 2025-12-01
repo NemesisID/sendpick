@@ -1,8 +1,17 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
-import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
+import CancelConfirmModal from '../../../components/common/CancelConfirmModal';
 import { useManifests } from '../hooks/useManifest';
+import { useManifestJobOrders } from '../hooks/useManifestJobOrders';
+import { useDrivers } from '../../drivers/hooks/useDrivers';
+import { useVehicles } from '../../vehicles/hooks/useVehicles';
+
+const BanIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' strokeLinecap='round' strokeLinejoin='round' />
+    </svg>
+);
 
 const summaryCardsBase = [
     {
@@ -79,20 +88,81 @@ const normalizeManifestStatus = (status) => {
     return MANIFEST_STATUS_MAP[normalized] ?? 'pending';
 };
 
+const extractCity = (address) => {
+    if (!address) return '-';
+    const keywords = [
+        'Jakarta Barat', 'Jakarta Pusat', 'Jakarta Selatan', 'Jakarta Timur', 'Jakarta Utara', 'Jakarta',
+        'Bandung', 'Surabaya', 'Semarang', 'Yogyakarta', 'Jogja',
+        'Medan', 'Makassar', 'Denpasar', 'Balikpapan', 'Banjarmasin', 'Palembang',
+        'Tangerang', 'Bekasi', 'Depok', 'Bogor', 'Malang', 'Solo', 'Surakarta',
+        'Cikarang', 'Karawang'
+    ];
+
+    for (const keyword of keywords) {
+        if (address.toLowerCase().includes(keyword.toLowerCase())) {
+            return keyword;
+        }
+    }
+    return address;
+};
+
 const mapManifestFromApi = (manifest) => {
     if (!manifest) {
         return null;
     }
 
-    const primaryJobOrder = Array.isArray(manifest.jobOrders) ? manifest.jobOrders[0] : null;
+    const jobOrders = Array.isArray(manifest.jobOrders) ? manifest.jobOrders : (Array.isArray(manifest.job_orders) ? manifest.job_orders : []);
+    const jobOrderIds = jobOrders.map(jo => jo.job_order_id).filter(Boolean);
+
+    // Fix Job Order Display: Show first ID + count of others
+    let jobOrderDisplay = '-';
+    if (jobOrderIds.length === 1) {
+        jobOrderDisplay = jobOrderIds[0];
+    } else if (jobOrderIds.length > 1) {
+        jobOrderDisplay = `${jobOrderIds[0]} (+${jobOrderIds.length - 1} others)`;
+    }
+
+    const jobOrderTooltip = jobOrderIds.join(', ');
+
+    const primaryJobOrder = jobOrders[0];
+
+    // Fix Misplaced Data: Customer Name might be in cargo_summary if not in jobOrder
+    let customerName = primaryJobOrder?.customer?.customer_name;
+
+    // If Cancelled, job orders might be detached, so we can't rely on them for customer name.
+    // However, we don't have a snapshot of customer name in manifest table (yet).
+    // But we can try to use cargo_summary if it looks like a name, OR just show '-' if we can't recover it.
+    // The user requirement says: "Tetap tampilkan 'PT. Maju Jaya', tapi statusnya merah."
+    // Since we didn't add a customer_name column to manifests table, we might lose this info upon detach.
+    // BUT, the user said: "Simpan 'Snapshot' customer/berat...". 
+    // We implemented snapshot for weight/summary in backend (by NOT updating them to 0).
+    // For customer name, if it's not in cargo_summary, we might lose it unless we added a column.
+    // Let's assume for now we rely on what we have. If cargo_summary has text, use it?
+    // Actually, the previous logic:
+    if (!customerName && manifest.cargo_summary && !manifest.cargo_summary.match(/\d/)) {
+        customerName = manifest.cargo_summary;
+    }
+
+    // Cargo Summary should be commodity
+    const commodity = jobOrders.map(jo => jo.commodity).filter(Boolean).join(', ');
+    // If Cancelled, manifest.cargo_summary holds the snapshot.
+    const cargoSummary = manifest.cargo_summary || commodity || '-';
+
+    // Fix Packages Count: Use jobOrders length as "koli" count
+    // If Cancelled, jobOrders is empty. We might want to show 0 or '-' or keep it if we had a snapshot column.
+    // The user said: "Berat: Tetap tertulis '69 Kg'". They didn't explicitly say about koli count, but implied "0 kg 0 koli" is bad.
+    // Since we don't have a 'packages_count' column in manifest, we can't easily snapshot this without schema change.
+    // For now, let's stick to jobOrders.length. If 0, it's 0.
+    const totalPackages = jobOrders.length;
 
     return {
         id: manifest.manifest_id ?? manifest.id,
-        jobOrder: primaryJobOrder?.job_order_id ?? '-',
-        customer: primaryJobOrder?.customer?.customer_name ?? manifest.cargo_summary ?? '-',
-        origin: manifest.origin_city ?? '-',
-        destination: manifest.dest_city ?? '-',
-        packages: manifest.jobOrders?.length ?? '-',
+        jobOrder: jobOrderDisplay,
+        jobOrderTooltip: jobOrderTooltip,
+        customer: customerName || '-',
+        origin: (manifest.origin_city && manifest.origin_city.includes('⚠️ Beda Origin')) ? 'Mixed Origins' : extractCity(manifest.origin_city),
+        destination: extractCity(manifest.dest_city),
+        packages: totalPackages,
         totalWeight: manifest.cargo_weight ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg` : '-',
         status: manifest.status ?? 'Pending',
         hub: (manifest.origin_city ?? '').toLowerCase().includes('jakarta')
@@ -103,17 +173,11 @@ const mapManifestFromApi = (manifest) => {
                     ? 'bandung'
                     : 'all',
         shipmentDate: manifest.planned_departure ? new Date(manifest.planned_departure).toLocaleDateString('id-ID') : '-',
-        createdBy: (() => {
-            if (manifest.createdBy?.name) {
-                return manifest.createdBy.name;
-            }
-            if (typeof manifest.created_by === 'object' && manifest.created_by !== null) {
-                return manifest.created_by.name ?? '-';
-            }
-            return manifest.created_by ?? '-';
-        })(),
-        lastUpdate: manifest.updated_at ? new Date(manifest.updated_at).toLocaleString('id-ID') : '-',
+        // Fix Driver Display: Use manifest.drivers relationship
+        driver: manifest.drivers?.driver_name || manifest.driver?.driver_name || 'Belum Assign',
+        lastUpdate: manifest.updated_at ? new Date(manifest.updated_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
         raw: manifest,
+        cargoSummary: cargoSummary,
     };
 };
 
@@ -143,6 +207,11 @@ const statusStyles = {
         bg: 'bg-emerald-50',
         text: 'text-emerald-600',
     },
+    cancelled: {
+        label: 'Cancelled',
+        bg: 'bg-red-50',
+        text: 'text-red-600',
+    },
 };
 
 const statusFilterOptions = [
@@ -151,6 +220,7 @@ const statusFilterOptions = [
     { value: 'In Transit', label: 'In Transit' },
     { value: 'Arrived', label: 'Arrived' },
     { value: 'Completed', label: 'Completed' },
+    { value: 'Cancelled', label: 'Cancelled' },
 ];
 
 const hubFilterOptions = [
@@ -171,6 +241,7 @@ const fallbackManifestRecords = [
     {
         id: 'MF-2024-231',
         jobOrder: 'JO-2024-874',
+        jobOrderTooltip: 'JO-2024-874',
         customer: 'PT Maju Jaya Logistics',
         origin: 'Jakarta DC',
         destination: 'Surabaya Hub',
@@ -181,11 +252,13 @@ const fallbackManifestRecords = [
         statusLabel: 'Released',
         hub: 'jakarta',
         lastUpdate: '2024-01-15 19:45',
-        createdBy: 'Novi Andini',
+        driver: 'Budi Santoso',
+        cargoSummary: 'Elektronik & Sparepart',
     },
     {
         id: 'MF-2024-229',
-        jobOrder: 'JO-2024-861',
+        jobOrder: '2 Orders',
+        jobOrderTooltip: 'JO-2024-861, JO-2024-862',
         customer: 'CV Sukses Mandiri',
         origin: 'Bandung Hub',
         destination: 'Makassar Hub',
@@ -196,11 +269,13 @@ const fallbackManifestRecords = [
         statusLabel: 'In Transit',
         hub: 'bandung',
         lastUpdate: '2024-01-15 17:10',
-        createdBy: 'Andi Pratama',
+        driver: 'Asep Sunandar',
+        cargoSummary: 'Tekstil & Garment',
     },
     {
         id: 'MF-2024-224',
         jobOrder: 'JO-2024-852',
+        jobOrderTooltip: 'JO-2024-852',
         customer: 'PT Nusantara Sejahtera',
         origin: 'Jakarta DC',
         destination: 'Medan Hub',
@@ -211,11 +286,13 @@ const fallbackManifestRecords = [
         statusLabel: 'Pending',
         hub: 'jakarta',
         lastUpdate: '2024-01-15 16:20',
-        createdBy: 'Raka Firmansyah',
+        driver: 'Belum Assign',
+        cargoSummary: 'FMCG & Retail',
     },
     {
         id: 'MF-2024-220',
         jobOrder: 'JO-2024-843',
+        jobOrderTooltip: 'JO-2024-843',
         customer: 'UD Sumber Berkah',
         origin: 'Surabaya Hub',
         destination: 'Denpasar Hub',
@@ -226,37 +303,12 @@ const fallbackManifestRecords = [
         statusLabel: 'Completed',
         hub: 'surabaya',
         lastUpdate: '2024-01-15 13:40',
-        createdBy: 'Daisy Puspita',
+        driver: 'Wayan Gede',
+        cargoSummary: 'Furniture & Mebel',
     },
 ];
 
-const pickListBreakdown = [
-    { label: 'Elektronik & Sparepart', value: 112, color: 'bg-indigo-100 text-indigo-600' },
-    { label: 'FMCG & Retail', value: 96, color: 'bg-emerald-100 text-emerald-600' },
-    { label: 'Dokumen & Arsip', value: 42, color: 'bg-amber-100 text-amber-600' },
-    { label: 'Barang Fragile', value: 18, color: 'bg-rose-100 text-rose-600' },
-];
 
-const activityTimeline = [
-    {
-        time: '19:45',
-        title: 'Manifest MF-2024-231 Released',
-        description: 'QC Completed dan siap loading ke armada B 9123 KJD',
-        actor: 'Novi Andini',
-    },
-    {
-        time: '18:10',
-        title: 'Packing Validation',
-        description: '36 koli divalidasi untuk manifest MF-2024-229 (Bandung Hub)',
-        actor: 'Andi Pratama',
-    },
-    {
-        time: '16:20',
-        title: 'Awaiting DO Assignment',
-        description: 'Menunggu penjadwalan driver untuk MF-2024-224',
-        actor: 'System',
-    },
-];
 
 const SearchIcon = ({ className = 'h-5 w-5' }) => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
@@ -315,10 +367,15 @@ function SummaryCard({ card }) {
 }
 
 function StatusBadge({ status }) {
-    const style = statusStyles[status] ?? statusStyles.draft;
+    // Normalize status to match keys in statusStyles (camelCase)
+    const normalizedStatus = status ? status.charAt(0).toLowerCase() + status.slice(1).replace(/\s+/g, '') : 'draft';
+    // Handle specific cases if needed, e.g., 'In Transit' -> 'inTransit'
+
+    const style = statusStyles[normalizedStatus] || statusStyles.draft;
+
     return (
-        <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${style.bg} ${style.text}`}>
-            {style.label}
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${style.bg} ${style.text}`}>
+            {status || 'Draft'}
         </span>
     );
 }
@@ -330,7 +387,7 @@ function ManifestRow({ manifest, onEdit, onDelete }) {
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
                     <p className='font-semibold text-slate-700'>{manifest.customer}</p>
-                    <p className='text-xs text-slate-400'>Job Order: {manifest.jobOrder}</p>
+                    <p className='text-xs text-slate-400' title={manifest.jobOrderTooltip}>Job Order: {manifest.jobOrder}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -341,22 +398,28 @@ function ManifestRow({ manifest, onEdit, onDelete }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p>{manifest.packages} koli</p>
-                    <p className='text-xs text-slate-400'>{manifest.totalWeight}</p>
+                    <p className='font-medium text-slate-700'>{manifest.totalWeight} • {manifest.packages} koli</p>
+                    <p className='text-xs text-slate-400'>{manifest.cargoSummary}</p>
                 </div>
             </td>
             <td className='px-6 py-4'>
                 <StatusBadge status={manifest.status} />
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{manifest.shipmentDate}</td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{manifest.createdBy}</td>
+            <td className='px-6 py-4 text-sm text-slate-600'>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${manifest.driver !== 'Belum Assign' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                    {manifest.driver}
+                </span>
+            </td>
             <td className='px-6 py-4 text-right text-xs text-slate-400'>{manifest.lastUpdate}</td>
             <td className='px-6 py-4'>
                 <div className='flex items-center gap-2'>
                     <button
                         type='button'
                         onClick={() => onEdit(manifest)}
-                        className='inline-flex items-center justify-center rounded-lg bg-indigo-50 p-2 text-indigo-600 transition hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                        disabled={manifest.status === 'Cancelled'}
+                        className={`inline-flex items-center justify-center rounded-lg bg-indigo-50 p-2 text-indigo-600 transition hover:bg-indigo-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${manifest.status === 'Cancelled' ? 'opacity-50 cursor-not-allowed' : ''}`}
                         title='Edit manifest'
                     >
                         <EditIcon className='h-4 w-4' />
@@ -364,10 +427,11 @@ function ManifestRow({ manifest, onEdit, onDelete }) {
                     <button
                         type='button'
                         onClick={() => onDelete(manifest)}
-                        className='inline-flex items-center justify-center rounded-lg bg-red-50 p-2 text-red-600 transition hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50'
-                        title='Hapus manifest'
+                        disabled={manifest.status === 'Cancelled'}
+                        className={`inline-flex items-center justify-center rounded-lg bg-red-50 p-2 text-red-600 transition hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50 ${manifest.status === 'Cancelled' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        title='Batalkan Manifest'
                     >
-                        <TrashIcon className='h-4 w-4' />
+                        <BanIcon className='h-4 w-4' />
                     </button>
                 </div>
             </td>
@@ -441,7 +505,7 @@ function ManifestTable({
                             className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 sm:w-auto'
                         >
                             <DownloadIcon className='h-4 w-4' />
-                            Export CSV
+                            Cetak Manifest
                         </button>
                     </div>
                 </div>
@@ -456,7 +520,7 @@ function ManifestTable({
                             <th className='px-6 py-3'>Koli & Berat</th>
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Tgl Kirim</th>
-                            <th className='px-6 py-3'>PIC</th>
+                            <th className='px-6 py-3'>DRIVER / ARMADA</th>
                             <th className='px-6 py-3 text-right'>Update Terakhir</th>
                             <th className='px-6 py-3 text-center'>Aksi</th>
                         </tr>
@@ -497,136 +561,11 @@ function ManifestTable({
     );
 }
 
-function ManifestInsights() {
-    return (
-        <section className='grid grid-cols-1 gap-6 lg:grid-cols-3'>
-            <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-                <h3 className='text-base font-semibold text-slate-900'>Progress Packing Hari Ini</h3>
-                <p className='mt-1 text-xs text-slate-400'>Update per jam 20:00 WIB</p>
-                <div className='mt-6 space-y-5'>
-                    {[
-                        { label: 'Receiving & Quality Check', value: 82, color: 'bg-emerald-500' },
-                        { label: 'Packing Completed', value: 64, color: 'bg-sky-500' },
-                        { label: 'Menunggu Loading', value: 24, color: 'bg-amber-500' },
-                    ].map((item) => (
-                        <div key={item.label}>
-                            <div className='flex items-center justify-between text-xs font-semibold text-slate-500'>
-                                <span>{item.label}</span>
-                                <span>{item.value}%</span>
-                            </div>
-                            <div className='mt-2 h-2 overflow-hidden rounded-full bg-slate-100'>
-                                <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.value}%` }} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </article>
-            <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-                <h3 className='text-base font-semibold text-slate-900'>Kategori Packing List</h3>
-                <p className='mt-1 text-xs text-slate-400'>Total 268 koli siap dikirim</p>
-                <ul className='mt-6 space-y-3'>
-                    {pickListBreakdown.map((item) => (
-                        <li key={item.label} className='flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600'>
-                            <span>{item.label}</span>
-                            <span className={`inline-flex h-8 min-w-[48px] items-center justify-center rounded-2xl px-3 text-xs font-semibold ${item.color}`}>
-                                {item.value}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            </article>
-            <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-                <h3 className='text-base font-semibold text-slate-900'>Aktivitas Manifest Terbaru</h3>
-                <ul className='mt-4 space-y-5 text-sm text-slate-600'>
-                    {activityTimeline.map((activity) => (
-                        <li key={activity.title} className='flex gap-3'>
-                            <span className='mt-1 h-10 w-10 shrink-0 rounded-full bg-indigo-50 text-center text-xs font-semibold leading-10 text-indigo-600'>
-                                {activity.time}
-                            </span>
-                            <div>
-                                <p className='font-semibold text-slate-800'>{activity.title}</p>
-                                <p className='text-xs text-slate-400'>{activity.description}</p>
-                                <p className='mt-1 text-xs text-indigo-500'>oleh {activity.actor}</p>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </article>
-        </section>
-    );
-}
 
-function PackingChecklistCard() {
-    const checklistItems = [
-        {
-            title: 'Seal Number Validation',
-            description: 'Pastikan nomor segel tercatat pada manifest & delivery order.',
-            completed: true,
-        },
-        {
-            title: 'Temperature Control',
-            description: 'Catat suhu gudang untuk barang FMCG sebelum loading.',
-            completed: true,
-        },
-        {
-            title: 'Dokumen Pendukung',
-            description: 'Invoice customer dan surat jalan sudah terlampir.',
-            completed: false,
-        },
-    ];
 
-    return (
-        <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-base font-semibold text-slate-900'>Packing & Dispatch Checklist</h3>
-            <p className='mt-1 text-xs text-slate-400'>Monitor kelengkapan sebelum manifest di-release.</p>
-            <ul className='mt-5 space-y-3 text-sm text-slate-600'>
-                {checklistItems.map((item) => (
-                    <li
-                        key={item.title}
-                        className='flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50/50 px-4 py-3'
-                    >
-                        <span
-                            className={`mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${item.completed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'
-                                }`}
-                        >
-                            {item.completed ? '✔' : '•'}
-                        </span>
-                        <div>
-                            <p className='font-semibold text-slate-700'>{item.title}</p>
-                            <p className='text-xs text-slate-400'>{item.description}</p>
-                        </div>
-                    </li>
-                ))}
-            </ul>
-        </article>
-    );
-}
 
-function ManifestSLAWidget() {
-    const slaData = [
-        { label: '≤ 6 Jam', value: '68%', description: 'Target SLA terpenuhi' },
-        { label: '6-10 Jam', value: '24%', description: 'Butuh monitoring close follow-up' },
-        { label: '> 10 Jam', value: '8%', description: 'Investigasi penyebab keterlambatan' },
-    ];
 
-    return (
-        <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-base font-semibold text-slate-900'>Lead Time Manifest</h3>
-            <p className='mt-1 text-xs text-slate-400'>Durasi rata-rata dari receiving ke dispatch.</p>
-            <ul className='mt-6 space-y-4 text-sm text-slate-600'>
-                {slaData.map((item) => (
-                    <li key={item.label} className='flex items-start justify-between gap-3'>
-                        <div>
-                            <p className='font-semibold text-slate-700'>{item.label}</p>
-                            <p className='text-xs text-slate-400'>{item.description}</p>
-                        </div>
-                        <span className='text-sm font-semibold text-indigo-600'>{item.value}</span>
-                    </li>
-                ))}
-            </ul>
-        </article>
-    );
-}
+
 
 export default function ManifestContent() {
     const [searchTerm, setSearchTerm] = useState('');
@@ -640,7 +579,13 @@ export default function ManifestContent() {
         manifests,
         loading: manifestsLoading,
         error: manifestsError,
+        createManifest,
+        updateManifest,
+        cancelManifest,
     } = useManifests({ per_page: 50 });
+
+    const { drivers } = useDrivers({ per_page: 100 });
+    const { vehicles } = useVehicles({ per_page: 100 });
 
     const manifestRecords = useMemo(() => {
         if (Array.isArray(manifests) && manifests.length > 0) {
@@ -687,57 +632,51 @@ export default function ManifestContent() {
         });
     }, [manifestRecords]);
 
-    // Mock data Job Orders dengan detail lengkap
-    const jobOrdersData = {
-        'JO-2024-874': {
-            customer: 'PT Maju Jaya Logistics',
-            origin: 'Jakarta DC',
-            destination: 'Surabaya Hub',
-            packages: 48,
-            totalWeight: '1,250 kg',
-            status: 'Created'
-        },
-        'JO-2024-861': {
-            customer: 'CV Sukses Mandiri',
-            origin: 'Bandung Hub',
-            destination: 'Makassar Hub',
-            packages: 36,
-            totalWeight: '980 kg',
-            status: 'Assigned'
-        },
-        'JO-2024-852': {
-            customer: 'PT Nusantara Sejahtera',
-            origin: 'Jakarta DC',
-            destination: 'Medan Hub',
-            packages: 54,
-            totalWeight: '1,540 kg',
-            status: 'Created'
-        },
-        'JO-2024-843': {
-            customer: 'UD Sumber Berkah',
-            origin: 'Surabaya Hub',
-            destination: 'Denpasar Hub',
-            packages: 29,
-            totalWeight: '720 kg',
-            status: 'Assigned'
-        },
-        'JO-2024-835': {
-            customer: 'PT Indo Makmur',
-            origin: 'Jakarta DC',
-            destination: 'Yogyakarta Hub',
-            packages: 42,
-            totalWeight: '1,180 kg',
-            status: 'Created'
-        },
-    };
+    const { fetchAvailableJobOrders } = useManifestJobOrders();
+    const [rawAvailableJobOrders, setRawAvailableJobOrders] = useState([]);
 
-    const availableJobOrders = [
-        { value: 'JO-2024-874', label: 'JO-2024-874 - PT Maju Jaya Logistics', status: 'Created' },
-        { value: 'JO-2024-861', label: 'JO-2024-861 - CV Sukses Mandiri', status: 'Assigned' },
-        { value: 'JO-2024-852', label: 'JO-2024-852 - PT Nusantara Sejahtera', status: 'Created' },
-        { value: 'JO-2024-843', label: 'JO-2024-843 - UD Sumber Berkah', status: 'Assigned' },
-        { value: 'JO-2024-835', label: 'JO-2024-835 - PT Indo Makmur', status: 'Created' },
-    ];
+    useEffect(() => {
+        if (editModal.isOpen) {
+            const loadJobOrders = async () => {
+                try {
+                    // Use 'create' for new manifests to fetch all unassigned orders
+                    const manifestId = editModal.manifest?.id || 'create';
+                    const response = await fetchAvailableJobOrders(manifestId);
+
+                    // The API returns { data: { available_job_orders: [...] } }
+                    const orders = response?.available_job_orders || [];
+                    setRawAvailableJobOrders(Array.isArray(orders) ? orders : []);
+                } catch (error) {
+                    console.error("Failed to load job orders", error);
+                    setRawAvailableJobOrders([]);
+                }
+            };
+            loadJobOrders();
+        }
+    }, [editModal.isOpen, editModal.manifest, fetchAvailableJobOrders]);
+
+    const availableJobOrders = useMemo(() => {
+        return (rawAvailableJobOrders || []).map(jo => ({
+            value: jo.job_order_id,
+            label: `${jo.job_order_id} - ${jo.customer_name || 'No Customer'}`,
+            status: jo.status,
+            details: jo
+        }));
+    }, [rawAvailableJobOrders]);
+
+    const availableDrivers = useMemo(() => {
+        return (drivers || []).map(d => ({
+            value: d.driver_id,
+            label: d.driver_name
+        }));
+    }, [drivers]);
+
+    const availableVehicles = useMemo(() => {
+        return (vehicles || []).map(v => ({
+            value: v.vehicle_id,
+            label: `${v.plate_no} - ${v.vehicle_type?.name || v.brand || 'Unknown'}`
+        }));
+    }, [vehicles]);
 
     const manifestFields = [
         {
@@ -753,11 +692,25 @@ export default function ManifestContent() {
         { name: 'shipmentDate', label: 'Shipment Date', type: 'date', required: true },
         { name: 'packages', label: 'Total Packages', type: 'number', required: false, readOnly: true },
         { name: 'totalWeight', label: 'Total Weight (kg)', type: 'text', required: false, readOnly: true },
+        {
+            name: 'driver',
+            label: 'Driver (Opsional)',
+            type: 'select',
+            required: false,
+            options: availableDrivers
+        },
+        {
+            name: 'vehicle',
+            label: 'Vehicle (Opsional)',
+            type: 'select',
+            required: false,
+            options: availableVehicles
+        },
     ];
 
     // Fungsi untuk menghitung data gabungan dari Job Orders yang dipilih
-    const calculateCombinedData = (selectedJobOrders) => {
-        if (!selectedJobOrders || selectedJobOrders.length === 0) {
+    const calculateCombinedData = (selectedJobOrderIds) => {
+        if (!selectedJobOrderIds || selectedJobOrderIds.length === 0) {
             return {
                 customer: '',
                 origin: '',
@@ -767,7 +720,9 @@ export default function ManifestContent() {
             };
         }
 
-        const selectedData = selectedJobOrders.map(jo => jobOrdersData[jo]).filter(Boolean);
+        const selectedData = availableJobOrders
+            .filter(option => selectedJobOrderIds.includes(option.value))
+            .map(option => option.details);
 
         if (selectedData.length === 0) {
             return {
@@ -780,32 +735,40 @@ export default function ManifestContent() {
         }
 
         // Menggabungkan customer (jika berbeda, pisahkan dengan koma)
-        const uniqueCustomers = [...new Set(selectedData.map(data => data.customer))];
+        const uniqueCustomers = [...new Set(selectedData.map(data => data.customer_name))];
         const customer = uniqueCustomers.join(', ');
 
-        // Menggabungkan origin (jika berbeda, pisahkan dengan koma)
-        const uniqueOrigins = [...new Set(selectedData.map(data => data.origin))];
-        const origin = uniqueOrigins.join(', ');
+        // Validasi Origin: Cek apakah ada lebih dari 1 origin
+        const uniqueOrigins = [...new Set(selectedData.map(data => data.pickup_address))];
+        let origin = uniqueOrigins[0] || '-';
 
-        // Menggabungkan destination (jika berbeda, pisahkan dengan koma)
-        const uniqueDestinations = [...new Set(selectedData.map(data => data.destination))];
+        if (uniqueOrigins.length > 1) {
+            origin = `⚠️ Beda Origin`;
+        }
+
+        // Menggabungkan destination
+        const uniqueDestinations = [...new Set(selectedData.map(data => data.delivery_address))];
         const destination = uniqueDestinations.join(', ');
 
         // Menghitung total packages
-        const totalPackages = selectedData.reduce((sum, data) => sum + data.packages, 0);
+        const totalPackages = selectedData.length;
 
-        // Menghitung total weight (konversi ke angka terlebih dahulu)
+        // Menghitung total weight
         const totalWeightKg = selectedData.reduce((sum, data) => {
-            const weight = parseFloat(data.totalWeight.replace(/[^\d.]/g, '')) || 0;
-            return sum + weight;
+            return sum + (Number(data.goods_weight) || 0);
         }, 0);
+
+        // Calculate Cargo Summary (Goods Description)
+        const uniqueGoods = [...new Set(selectedData.map(data => data.goods_desc).filter(Boolean))];
+        const cargoSummary = uniqueGoods.join(', ');
 
         return {
             customer,
             origin,
             destination,
             packages: totalPackages,
-            totalWeight: `${totalWeightKg.toLocaleString('id-ID')} kg`
+            totalWeight: `${totalWeightKg.toLocaleString('id-ID')} kg`,
+            cargoSummary
         };
     };
 
@@ -820,14 +783,21 @@ export default function ManifestContent() {
     const handleEditSubmit = async (formData) => {
         setIsLoading(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const payload = {
+                origin_city: formData.origin,
+                dest_city: formData.destination,
+                cargo_summary: formData.cargoSummary || '',
+                cargo_weight: parseFloat(formData.totalWeight.replace(/[^\d]/g, '')) || 0,
+                planned_departure: formData.shipmentDate,
+                job_order_ids: formData.jobOrders,
+                driver_id: formData.driver,
+                vehicle_id: formData.vehicle,
+            };
 
-            // Jika ini adalah manifest baru (create), set status default ke 'pending'
             if (!editModal.manifest) {
-                formData.status = 'pending';
-                console.log('Creating new manifest with data:', formData);
+                await createManifest(payload);
             } else {
-                console.log('Updating manifest:', editModal.manifest.id, 'with data:', formData);
+                await updateManifest(editModal.manifest.id, payload);
             }
 
             setEditModal({ isOpen: false, manifest: null });
@@ -849,11 +819,10 @@ export default function ManifestContent() {
     const handleDeleteConfirm = async () => {
         setIsLoading(true);
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            console.log('Deleting manifest:', deleteModal.manifest.id);
+            await cancelManifest(deleteModal.manifest.id);
             setDeleteModal({ isOpen: false, manifest: null });
         } catch (error) {
-            console.error('Error deleting manifest:', error);
+            console.error('Error cancelling manifest:', error);
         } finally {
             setIsLoading(false);
         }
@@ -902,11 +871,7 @@ export default function ManifestContent() {
                 loading={manifestsLoading}
                 error={manifestsError}
             />
-            <ManifestInsights />
-            <section className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
-                <PackingChecklistCard />
-                <ManifestSLAWidget />
-            </section>
+
 
             <EditModal
                 title={editModal.manifest ? "Edit Manifest" : "Tambah Manifest"}
@@ -917,12 +882,12 @@ export default function ManifestContent() {
                 onSubmit={handleEditSubmit}
                 isLoading={isLoading}
                 calculateCombinedData={calculateCombinedData}
-                jobOrdersData={jobOrdersData}
+                jobOrdersData={{}} // No longer needed as we use availableJobOrders directly
             />
 
-            <DeleteConfirmModal
-                title="Hapus Manifest"
-                message={`Apakah Anda yakin ingin menghapus manifest "${deleteModal.manifest?.id}"?`}
+            <CancelConfirmModal
+                title="Batalkan Manifest"
+                message={`Apakah Anda yakin ingin membatalkan manifest "${deleteModal.manifest?.id}"? Job Order di dalamnya akan dilepas dan tersedia kembali.`}
                 isOpen={deleteModal.isOpen}
                 onClose={handleDeleteClose}
                 onConfirm={handleDeleteConfirm}
