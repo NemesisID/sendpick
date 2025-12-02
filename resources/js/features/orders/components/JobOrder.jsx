@@ -93,10 +93,15 @@ const orderTypeStyles = {
 };
 
 const statusStyles = {
-    in_progress: {
-        label: 'In Progress',
+    assigned: {
+        label: 'Assigned',
         bg: 'bg-indigo-50',
         text: 'text-indigo-600',
+    },
+    in_progress: {
+        label: 'In Progress',
+        bg: 'bg-blue-50',
+        text: 'text-blue-600',
     },
     pending: {
         label: 'Pending',
@@ -140,6 +145,7 @@ const typeFilterOptions = [
 const statusFilterOptions = [
     { value: 'all', label: 'Semua Status' },
     { value: 'pending', label: 'Pending' },
+    { value: 'assigned', label: 'Assigned' },
     { value: 'in_progress', label: 'In Progress' },
     { value: 'delivered', label: 'Delivered' },
     { value: 'completed', label: 'Completed' },
@@ -509,18 +515,21 @@ export default function JobOrderContent() {
         }
 
         const assignments = Array.isArray(order.assignments) ? order.assignments : [];
-        const firstAssignment = assignments[0] ?? {};
+        // ✅ Find the active assignment (or fallback to first if none active)
+        const activeAssignment = assignments.find(a => a.status === 'Active') || assignments[0] || {};
 
         const driverName =
-            firstAssignment?.driver?.driver_name ??
-            firstAssignment?.driver?.name ??
-            firstAssignment?.driver_name ??
+            activeAssignment?.driver?.driver_name ??
+            activeAssignment?.driver?.name ??
+            activeAssignment?.driver_name ??
             '-';
 
         const vehicleName =
-            firstAssignment?.vehicle?.plate_number ??
-            firstAssignment?.vehicle?.vehicle_name ??
-            firstAssignment?.vehicle?.registration_number ??
+            activeAssignment?.vehicle?.plate_number ??
+            activeAssignment?.vehicle?.vehicle_name ??
+            activeAssignment?.vehicle?.registration_number ??
+            activeAssignment?.vehicle?.license_plate ??
+            activeAssignment?.vehicle?.plate_no ?? // Add plate_no check
             '-';
 
         const shipDate = order.ship_date ?? order.startDate ?? order.created_at ?? '';
@@ -623,6 +632,8 @@ export default function JobOrderContent() {
     const handleBackToList = () => {
         setCurrentView('list');
         setSelectedOrderId(null);
+        // ✅ Refresh list when returning from detail
+        loadJobOrders();
     };
 
     // Edit modal handlers

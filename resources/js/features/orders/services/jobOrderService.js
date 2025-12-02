@@ -80,3 +80,14 @@ export async function assignDriver(jobOrderId, payload) {
         throw error;
     }
 }
+
+export async function getAssignments(jobOrderId) {
+    try {
+        // ✅ Mengikuti route: GET /job-orders/{id}/assignments
+        const response = await api.get(`/job-orders/${jobOrderId}/assignments`);
+        return response.data?.data || [];
+    } catch (error) {
+        console.error(`❌ Get assignments for ${jobOrderId} failed:`, error);
+        throw error;
+    }
+}

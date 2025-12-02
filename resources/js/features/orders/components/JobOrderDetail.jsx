@@ -34,7 +34,9 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                         totalWeight: `${data.goods_weight} kg`,
                         totalValue: data.order_value ? `Rp ${Number(data.order_value).toLocaleString('id-ID')}` : '-',
                         driver: activeAssignment?.driver?.driver_name || '-',
-                        vehicle: activeAssignment?.vehicle?.license_plate || '-',
+                        vehicle: activeAssignment?.vehicle ?
+                            `${activeAssignment.vehicle.license_plate || activeAssignment.vehicle.plate_no || 'Unknown'} - ${activeAssignment.vehicle.vehicle_type?.name || 'Unknown Type'}`
+                            : '-',
                         volume: data.goods_volume ? `${data.goods_volume} m³` : '-',
                         notes: data.goods_desc || '-'
                     });
@@ -55,6 +57,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
     const getStatusStyle = (status) => {
         const styles = {
             pending: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'Pending' },
+            assigned: { bg: 'bg-indigo-50', text: 'text-indigo-600', label: 'Assigned' },
             in_progress: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'In Progress' },
             completed: { bg: 'bg-emerald-50', text: 'text-emerald-600', label: 'Completed' },
             cancelled: { bg: 'bg-red-50', text: 'text-red-600', label: 'Cancelled' },
