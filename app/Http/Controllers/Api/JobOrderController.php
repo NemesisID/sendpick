@@ -129,6 +129,29 @@ class JobOrderController extends Controller
             $jobOrderId = 'JO-' . date('Ymd') . '-' . strtoupper(Str::random(6));
         }
 
+        // Determine created_by
+        $creatorId = Auth::id();
+        if (!$creatorId) {
+            $admin = Admin::first();
+            if ($admin) {
+                $creatorId = $admin->user_id;
+            } else {
+                // Create a default system admin if none exists
+                try {
+                    $admin = Admin::create([
+                        'user_id' => 'ADMIN-SYSTEM',
+                        'name' => 'System Administrator',
+                        'email' => 'system@sendpick.com',
+                        'password' => bcrypt('system123'),
+                        'status' => 'active'
+                    ]);
+                    $creatorId = $admin->user_id;
+                } catch (\Exception $e) {
+                    $creatorId = 'ADMIN-SYSTEM';
+                }
+            }
+        }
+
         $jobOrder = JobOrder::create([
             'job_order_id' => $jobOrderId,
             'customer_id' => $request->customer_id,
@@ -143,7 +166,7 @@ class JobOrderController extends Controller
             'goods_volume' => $request->goods_volume,
             'ship_date' => $request->ship_date,
             'order_value' => $request->order_value,
-            'created_by' => Auth::id() ?? Admin::first()->user_id ?? 'SYSTEM'
+            'created_by' => $creatorId
         ]);
 
         // Create status history
@@ -355,21 +378,28 @@ class JobOrderController extends Controller
             ], 422);
         }
 
-        // ✅ Create assignment
+        // ✅ 1. Cancel existing active assignments for this job order (History Logic)
+        Assignment::where('job_order_id', $jobOrderId)
+            ->where('status', 'Active')
+            ->update(['status' => 'Cancelled']);
+
+        // ✅ 2. Create new assignment
         $assignment = Assignment::create([
             'job_order_id' => $jobOrderId,
             'driver_id' => $request->driver_id,
             'vehicle_id' => $request->vehicle_id,
-            'status' => $request->status,
+            'status' => 'Active', // Always Active for new assignment
             'notes' => $request->notes,
             'assigned_at' => now(),
-            'assigned_by' => Auth::id() ?? 'SYSTEM'
+            'assigned_by' => Auth::id() ?? 'SYSTEM' // Ideally should be logged in user
         ]);
 
-        // ✅ Update job order status if assignment is active
-        if ($request->status === 'Active') {
-            $jobOrder->update(['status' => 'Assigned']);
-            $this->createStatusHistory($jobOrderId, 'Assigned', 'Admin');
+        // ✅ 3. Update job order status (Side Effect)
+        $jobOrder->update(['status' => 'Assigned']);
+        
+        // Record status history if it wasn't already assigned
+        if ($jobOrder->status !== 'Assigned') {
+             $this->createStatusHistory($jobOrderId, 'Assigned', 'Admin');
         }
 
         // ✅ Load relations
@@ -379,9 +409,9 @@ class JobOrderController extends Controller
             'success' => true,
             'message' => 'Assignment created successfully',
             'data' => [
-                'assignment_id' => $assignment->id,
+                'assignment_id' => $assignment->assignment_id, // Use correct primary key
                 'job_order_id' => $jobOrderId,
-                'status' => $request->status,
+                'status' => 'Active',
                 'driver' => [
                     'driver_id' => $assignment->driver->driver_id,
                     'driver_name' => $assignment->driver->driver_name,
@@ -395,7 +425,7 @@ class JobOrderController extends Controller
                     'capacity' => $assignment->vehicle->capacity ?? null,
                 ],
                 'assigned_at' => $assignment->assigned_at,
-                'assigned_by' => $assignment->assigned_by,
+                'assigned_by' => $assignment->assigned_by ?? 'SYSTEM',
                 'notes' => $assignment->notes,
             ]
         ], 201);

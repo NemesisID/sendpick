@@ -265,7 +265,11 @@ class VehicleController extends Controller
             })
             ->select('vehicle_id', 'plate_no', 'brand', 'model', 'vehicle_type_id', 'capacity_label', 'fuel_level_pct')
             ->orderBy('plate_no')
-            ->get();
+            ->get()
+            ->map(function ($vehicle) {
+                $vehicle->license_plate = $vehicle->plate_no; // Alias for frontend compatibility
+                return $vehicle;
+            });
 
         return response()->json([
             'success' => true,
