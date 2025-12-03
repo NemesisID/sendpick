@@ -257,15 +257,44 @@ class JobOrderController extends Controller
             }
         }
 
+        // Check for changes in other fields (Audit Trail)
+        $changes = [];
+        $fieldsToCheck = [
+            'pickup_address', 'delivery_address', 'goods_desc', 'goods_weight', 
+            'goods_volume', 'ship_date', 'order_value', 'order_type'
+        ];
+
+        foreach ($fieldsToCheck as $field) {
+            if (isset($validated[$field]) && $jobOrder->$field != $validated[$field]) {
+                $fieldName = ucwords(str_replace('_', ' ', $field));
+                $changes[] = "{$fieldName}";
+            }
+        }
+
+        $user = Auth::user();
+        $changedBy = $user ? ($user->name ?? $user->email ?? 'Admin') : 'Admin';
+
         // Create status history if status changed
         if (isset($validated['status']) && $validated['status'] !== $oldStatus) {
-            $user = Auth::user();
-            $changedBy = $user ? ($user->name ?? $user->email ?? 'Admin') : 'Admin';
             $notes = "Status updated from {$oldStatus} to {$validated['status']}";
             
             $this->createStatusHistory(
                 $jobOrder->job_order_id, 
                 $validated['status'], 
+                $changedBy,
+                $notes,
+                'user'
+            );
+        } 
+        // Create history if other details changed but status didn't
+        elseif (!empty($changes)) {
+            $changesStr = implode(', ', $changes);
+            $notes = "Order details updated by {$changedBy}. Changed: {$changesStr}.";
+            
+            // Use 'Order Updated' as a special status label for the history
+            $this->createStatusHistory(
+                $jobOrder->job_order_id, 
+                'Order Updated', 
                 $changedBy,
                 $notes,
                 'user'
