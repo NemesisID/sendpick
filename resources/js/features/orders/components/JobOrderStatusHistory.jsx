@@ -142,17 +142,33 @@ export default function JobOrderStatusHistory({ jobOrderId, historyData = [] }) 
 
     useEffect(() => {
         if (historyData && historyData.length > 0) {
-            const mappedData = historyData.map((item, index) => ({
-                id: item.history_id || index,
-                status: item.status.toLowerCase(),
-                statusLabel: item.status,
-                description: item.notes || `Status updated to ${item.status}`,
-                timestamp: item.changed_at,
-                actor: item.changed_by || 'System',
-                actorRole: item.trigger_type === 'system' ? 'System' : 'User',
-                notes: item.notes,
-                systemGenerated: item.trigger_type === 'system',
-            })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
+            const mappedData = historyData.map((item, index) => {
+                const statusLower = item.status.toLowerCase();
+                let description = item.notes || `Status updated to ${item.status}`;
+                let notes = null;
+
+                // Special handling for Cancelled status
+                if (statusLower === 'cancelled') {
+                    description = `Job Order cancelled by ${item.changed_by || 'System'}`;
+                    notes = item.notes; // Display the reason in the note box
+                } else {
+                    // For other statuses, use the DB note as description
+                    // and do not duplicate it in the notes box
+                    notes = null;
+                }
+
+                return {
+                    id: item.history_id || index,
+                    status: statusLower,
+                    statusLabel: item.status,
+                    description: description,
+                    timestamp: item.changed_at,
+                    actor: item.changed_by || 'System',
+                    actorRole: item.trigger_type === 'system' ? 'System' : 'User',
+                    notes: notes,
+                    systemGenerated: item.trigger_type === 'system',
+                };
+            }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by newest first
 
             setStatusHistory(mappedData);
         } else {

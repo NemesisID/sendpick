@@ -673,10 +673,13 @@ export default function JobOrderContent() {
         setDeleteModal({ isOpen: true, order });
     };
 
-    const handleCancelConfirm = async () => {
+    const handleCancelConfirm = async (formData) => {
         setIsLoading(true);
         try {
-            await updateJobOrder(deleteModal.order.id, { status: 'Cancelled' });
+            await updateJobOrder(deleteModal.order.id, {
+                status: 'Cancelled',
+                cancellation_reason: formData.cancellation_reason
+            });
             console.log('Order cancelled successfully:', deleteModal.order.id);
             setDeleteModal({ isOpen: false, order: null });
             loadJobOrders();
@@ -1040,16 +1043,28 @@ export default function JobOrderContent() {
                 onFieldChange={handleFieldChange}
             />
 
-            {deleteModal.isOpen && (
-                <DeleteConfirmModal
-                    isOpen={deleteModal.isOpen}
-                    onClose={handleCancelClose}
-                    onConfirm={handleCancelConfirm}
-                    title="Batalkan Job Order"
-                    message={`Apakah Anda yakin ingin membatalkan job order "${deleteModal.order?.id}"?`}
-                    isLoading={isLoading}
-                />
-            )}
+            {/* Cancel Modal (using EditModal for reason input) */}
+            <EditModal
+                isOpen={deleteModal.isOpen}
+                onClose={handleCancelClose}
+                onSubmit={handleCancelConfirm}
+                title="Batalkan Job Order"
+                data={{}} // Empty data, we only need the reason
+                fields={[
+                    {
+                        name: 'cancellation_reason',
+                        label: 'Alasan Pembatalan',
+                        type: 'textarea',
+                        required: true,
+                        placeholder: 'Contoh: Stok barang kosong / Customer request cancel',
+                        rows: 3,
+                        description: 'Wajib diisi untuk keperluan audit trail.'
+                    }
+                ]}
+                isLoading={isLoading}
+                submitLabel="Confirm Cancel"
+                submitButtonClass="bg-red-600 hover:bg-red-700 text-white"
+            />
         </div>
     );
 }
