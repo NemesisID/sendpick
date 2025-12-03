@@ -13,6 +13,8 @@ class JobOrderStatusHistory extends Model
     protected $fillable = [
         'job_order_id',
         'status',
+        'notes',
+        'trigger_type',
         'changed_by',
         'changed_at'
     ];

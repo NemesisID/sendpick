@@ -204,7 +204,7 @@ function AssignmentFilter({ activeFilter, onFilterChange }) {
     );
 }
 
-export default function JobOrderAssignment({ jobOrderId, status }) {
+export default function JobOrderAssignment({ jobOrderId, status, onAssignmentUpdate }) {
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -281,11 +281,15 @@ export default function JobOrderAssignment({ jobOrderId, status }) {
             };
             await assignDriver(jobOrderId, payload);
             console.log('Assignment created successfully');
-            setIsModalOpen(false);
+            // setIsModalOpen(false); // EditModal handles closing
             // Refresh list
             fetchAssignments();
+            if (onAssignmentUpdate) {
+                onAssignmentUpdate();
+            }
         } catch (error) {
             console.error('Error creating assignment:', error);
+            throw error;
         } finally {
             setIsSubmitting(false);
         }

@@ -12,11 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('manifests', function (Blueprint $table) {
-            $table->string('driver_id')->nullable()->after('planned_arrival');
-            $table->string('vehicle_id')->nullable()->after('driver_id');
-
-            $table->foreign('driver_id')->references('driver_id')->on('drivers')->onDelete('set null');
-            $table->foreign('vehicle_id')->references('vehicle_id')->on('vehicles')->onDelete('set null');
+            if (!Schema::hasColumn('manifests', 'driver_id')) {
+                $table->string('driver_id')->nullable()->after('planned_arrival');
+                $table->foreign('driver_id')->references('driver_id')->on('drivers')->onDelete('set null');
+            }
+            if (!Schema::hasColumn('manifests', 'vehicle_id')) {
+                $table->string('vehicle_id')->nullable()->after('driver_id');
+                $table->foreign('vehicle_id')->references('vehicle_id')->on('vehicles')->onDelete('set null');
+            }
         });
     }
 

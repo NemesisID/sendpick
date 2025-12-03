@@ -170,7 +170,7 @@ class JobOrderController extends Controller
         ]);
 
         // Create status history
-        $this->createStatusHistory($jobOrder->job_order_id, 'Created', 'Admin');
+        $this->createStatusHistory($jobOrder->job_order_id, 'Created', 'Admin', 'Job Order created', 'user');
 
         return response()->json([
             'success' => true,
@@ -255,6 +255,21 @@ class JobOrderController extends Controller
             if ($activeAssignment && $activeAssignment->driver) {
                 $activeAssignment->driver->increment('delivery_count');
             }
+        }
+
+        // Create status history if status changed
+        if (isset($validated['status']) && $validated['status'] !== $oldStatus) {
+            $user = Auth::user();
+            $changedBy = $user ? ($user->name ?? $user->email ?? 'Admin') : 'Admin';
+            $notes = "Status updated from {$oldStatus} to {$validated['status']}";
+            
+            $this->createStatusHistory(
+                $jobOrder->job_order_id, 
+                $validated['status'], 
+                $changedBy,
+                $notes,
+                'user'
+            );
         }
 
         $jobOrder->load(['customer', 'createdBy']);
@@ -358,6 +373,9 @@ class JobOrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Driver is currently assigned to another active job order',
+                'errors' => [
+                    'driver_id' => ['Driver is currently assigned to another active job order (' . $driverBusy->job_order_id . ')']
+                ],
                 'assigned_to' => $driverBusy->job_order_id
             ], 422);
         }
@@ -374,7 +392,10 @@ class JobOrderController extends Controller
         if ($vehicleBusy) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vehicle is currently assigned to another active job order'
+                'message' => 'Vehicle is currently assigned to another active job order',
+                'errors' => [
+                    'vehicle_id' => ['Vehicle is currently assigned to another active job order']
+                ]
             ], 422);
         }
 
@@ -397,10 +418,12 @@ class JobOrderController extends Controller
         // ✅ 3. Update job order status (Side Effect)
         $jobOrder->update(['status' => 'Assigned']);
         
-        // Record status history if it wasn't already assigned
-        if ($jobOrder->status !== 'Assigned') {
-             $this->createStatusHistory($jobOrderId, 'Assigned', 'Admin');
-        }
+        // Record status history
+        $driverName = $assignment->driver->driver_name ?? 'Driver';
+        $vehiclePlate = $assignment->vehicle->license_plate ?? '-';
+        $notes = "Order assigned to driver {$driverName} - Vehicle {$vehiclePlate}";
+        
+        $this->createStatusHistory($jobOrderId, 'Assigned', 'Admin', $notes, 'user');
 
         // ✅ Load relations
         $assignment->load(['driver', 'vehicle.vehicleType']);
@@ -474,12 +497,14 @@ class JobOrderController extends Controller
      * @param string $changedBy
      * @return void
      */
-    private function createStatusHistory(string $jobOrderId, string $status, string $changedBy): void
+    private function createStatusHistory(string $jobOrderId, string $status, string $changedBy, ?string $notes = null, string $triggerType = 'user'): void
     {
         JobOrderStatusHistory::create([
             'job_order_id' => $jobOrderId,
             'status' => $status,
             'changed_by' => $changedBy,
+            'notes' => $notes,
+            'trigger_type' => $triggerType,
             'changed_at' => now()
         ]);
     }
