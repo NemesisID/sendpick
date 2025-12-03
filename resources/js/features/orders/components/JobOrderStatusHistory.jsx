@@ -9,6 +9,7 @@ const statusColors = {
     delivered: 'bg-emerald-100 text-emerald-600 border-emerald-200',
     completed: 'bg-emerald-100 text-emerald-600 border-emerald-200',
     cancelled: 'bg-red-100 text-red-600 border-red-200',
+    'order updated': 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
 const UserIcon = ({ className = 'h-4 w-4' }) => (
@@ -124,8 +125,8 @@ function StatusHistoryFilter({ activeFilter, onFilterChange }) {
                     key={filter.value}
                     onClick={() => onFilterChange(filter.value)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${activeFilter === filter.value
-                            ? 'bg-indigo-100 text-indigo-700'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        ? 'bg-indigo-100 text-indigo-700'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                         }`}
                 >
                     {filter.label}
