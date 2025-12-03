@@ -9,6 +9,7 @@ use App\Models\Assignment;
 use App\Models\DeliveryOrder;
 use App\Models\ProofOfDelivery;
 use App\Models\Gps;
+use App\Models\JobOrderStatusHistory;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -397,6 +398,9 @@ class DriverAppController extends Controller
             // Update driver status
             $driver->update(['status' => 'On Duty']);
 
+            // Create status history
+            $this->createStatusHistory($jobOrderId, 'Assigned', $driver->driver_name, 'Driver accepted the order', 'user');
+
             DB::commit();
 
             return response()->json([
@@ -490,6 +494,9 @@ class DriverAppController extends Controller
         try {
             // Update job order status
             $jobOrder->update(['status' => $request->status]);
+
+            // Create status history
+            $this->createStatusHistory($jobOrderId, $request->status, $driver->driver_name, $request->notes ?? "Status updated by driver", 'user');
 
             // Update related delivery order
             $deliveryOrder = DeliveryOrder::where('source_type', 'JO')
@@ -625,9 +632,9 @@ class DriverAppController extends Controller
             // Auto-update status to Delivered
             $deliveryOrder->update(['status' => 'Delivered']);
             
-            $jobOrder = JobOrder::where('job_order_id', $jobOrderId)->first();
             if ($jobOrder) {
                 $jobOrder->update(['status' => 'Delivered']);
+                $this->createStatusHistory($jobOrderId, 'Delivered', $driver->driver_name, "POD Uploaded. Recipient: {$request->recipient_name}", 'user');
             }
 
             $assignment->update(['status' => 'Completed']);
@@ -710,6 +717,9 @@ class DriverAppController extends Controller
             };
 
             $jobOrder->update(['status' => $newStatus]);
+            
+            // Create status history
+            $this->createStatusHistory($jobOrder->job_order_id, $newStatus, $driver->driver_name, "Status updated via QR Scan", 'user');
 
             // Update delivery order
             $deliveryOrder = DeliveryOrder::where('source_type', 'JO')
@@ -904,5 +914,26 @@ class DriverAppController extends Controller
             'success' => true,
             'data' => $stats
         ], 200);
+    }
+    /**
+     * Create status history record
+     * 
+     * @param string $jobOrderId
+     * @param string $status
+     * @param string $changedBy
+     * @param string|null $notes
+     * @param string $triggerType
+     * @return void
+     */
+    private function createStatusHistory(string $jobOrderId, string $status, string $changedBy, ?string $notes = null, string $triggerType = 'user'): void
+    {
+        JobOrderStatusHistory::create([
+            'job_order_id' => $jobOrderId,
+            'status' => $status,
+            'changed_by' => $changedBy,
+            'notes' => $notes,
+            'trigger_type' => $triggerType,
+            'changed_at' => now()
+        ]);
     }
 }

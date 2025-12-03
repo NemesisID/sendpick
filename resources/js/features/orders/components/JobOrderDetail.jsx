@@ -9,46 +9,47 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const loadJobOrder = async () => {
-            setLoading(true);
-            try {
-                const data = await getJobOrder(jobOrderId);
-                if (data) {
-                    // Map API response to component state
-                    const activeAssignment = data.assignments?.find(a => a.status === 'Active') || data.assignments?.[0];
+    const loadJobOrder = async () => {
+        setLoading(true);
+        try {
+            const data = await getJobOrder(jobOrderId);
+            if (data) {
+                // Map API response to component state
+                const activeAssignment = data.assignments?.find(a => a.status === 'Active') || data.assignments?.[0];
 
-                    setJobOrder({
-                        id: data.job_order_id,
-                        customer: data.customer?.customer_name || '-',
-                        status: data.status?.toLowerCase() || 'pending',
-                        priority: 'medium', // Default as not in API response yet
-                        type: data.order_type || 'job_order',
-                        origin: data.pickup_city || data.pickup_address || '-',
-                        originAddress: data.pickup_address || '-',
-                        destination: data.delivery_city || data.delivery_address || '-',
-                        destinationAddress: data.delivery_address || '-',
-                        createdAt: new Date(data.created_at).toLocaleString('id-ID'),
-                        estimatedDelivery: data.ship_date ? new Date(data.ship_date).toLocaleDateString('id-ID') : '-',
-                        packages: '-', // Not in API
-                        totalWeight: `${data.goods_weight} kg`,
-                        totalValue: data.order_value ? `Rp ${Number(data.order_value).toLocaleString('id-ID')}` : '-',
-                        driver: activeAssignment?.driver?.driver_name || '-',
-                        vehicle: activeAssignment?.vehicle ?
-                            `${activeAssignment.vehicle.license_plate || activeAssignment.vehicle.plate_no || 'Unknown'} - ${activeAssignment.vehicle.vehicle_type?.name || 'Unknown Type'}`
-                            : '-',
-                        volume: data.goods_volume ? `${data.goods_volume} m³` : '-',
-                        notes: data.goods_desc || '-'
-                    });
-                }
-            } catch (err) {
-                console.error('Error loading job order detail:', err);
-                setError('Gagal memuat detail job order.');
-            } finally {
-                setLoading(false);
+                setJobOrder({
+                    id: data.job_order_id,
+                    customer: data.customer?.customer_name || '-',
+                    status: data.status?.toLowerCase() || 'pending',
+                    priority: 'medium', // Default as not in API response yet
+                    type: data.order_type || 'job_order',
+                    origin: data.pickup_city || data.pickup_address || '-',
+                    originAddress: data.pickup_address || '-',
+                    destination: data.delivery_city || data.delivery_address || '-',
+                    destinationAddress: data.delivery_address || '-',
+                    createdAt: new Date(data.created_at).toLocaleString('id-ID'),
+                    estimatedDelivery: data.ship_date ? new Date(data.ship_date).toLocaleDateString('id-ID') : '-',
+                    packages: '-', // Not in API
+                    totalWeight: `${data.goods_weight} kg`,
+                    totalValue: data.order_value ? `Rp ${Number(data.order_value).toLocaleString('id-ID')}` : '-',
+                    driver: activeAssignment?.driver?.driver_name || '-',
+                    vehicle: activeAssignment?.vehicle ?
+                        `${activeAssignment.vehicle.license_plate || activeAssignment.vehicle.plate_no || 'Unknown'} - ${activeAssignment.vehicle.vehicle_type?.name || 'Unknown Type'}`
+                        : '-',
+                    volume: data.goods_volume ? `${data.goods_volume} m³` : '-',
+                    notes: data.goods_desc || '-',
+                    statusHistories: data.status_histories || []
+                });
             }
-        };
+        } catch (err) {
+            console.error('Error loading job order detail:', err);
+            setError('Gagal memuat detail job order.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         if (jobOrderId) {
             loadJobOrder();
         }
@@ -231,11 +232,18 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                     )}
 
                     {activeTab === 'status' && (
-                        <JobOrderStatusHistory jobOrderId={jobOrder.id} />
+                        <JobOrderStatusHistory
+                            jobOrderId={jobOrder.id}
+                            historyData={jobOrder.statusHistories}
+                        />
                     )}
 
                     {activeTab === 'assignment' && (
-                        <JobOrderAssignment jobOrderId={jobOrder.id} status={jobOrder.status} />
+                        <JobOrderAssignment
+                            jobOrderId={jobOrder.id}
+                            status={jobOrder.status}
+                            onAssignmentUpdate={loadJobOrder}
+                        />
                     )}
                 </div>
             </div>

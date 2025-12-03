@@ -115,7 +115,21 @@ const EditModal = ({
             onClose();
         } catch (error) {
             console.error('Error submitting form:', error);
-            // Handle submission errors if needed
+
+            // Handle server-side validation errors
+            if (error.response?.data?.errors) {
+                const serverErrors = {};
+                Object.keys(error.response.data.errors).forEach(key => {
+                    // Laravel returns array of errors, take the first one
+                    serverErrors[key] = error.response.data.errors[key][0];
+                });
+                setErrors(serverErrors);
+            } else if (error.response?.data?.message) {
+                // If it's a general error message without field specifics, 
+                // you might want to show it in a general error alert.
+                // For now, we'll log it, or you could add a generalError state.
+                console.error('Server Error:', error.response.data.message);
+            }
         }
     };
 

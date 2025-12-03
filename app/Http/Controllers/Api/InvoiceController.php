@@ -509,7 +509,7 @@ class InvoiceController extends Controller
                     ->from('invoices')
                     ->where('source_type', 'JO');
             })
-            ->where('status', 'Completed')
+            ->where('status', '!=', 'Cancelled')
             ->select('job_order_id as id', 'customer_id', 'goods_desc', 'order_value')
             ->get()
             ->map(function($jo) {
