@@ -240,12 +240,16 @@ class JobOrderController extends Controller
             'goods_volume' => 'nullable|numeric|min:0',
             'ship_date' => 'sometimes|date|after_or_equal:today',
             'order_value' => 'sometimes|nullable|numeric|min:0',
-            'status' => 'sometimes|string'
+            'status' => 'sometimes|string',
+            'cancellation_reason' => 'nullable|string'
         ]);
 
         $oldStatus = $jobOrder->status;
 
-        $jobOrder->update($validated);
+        // Remove cancellation_reason from validated data before updating JobOrder model
+        // as it's not a column in job_orders table
+        $updateData = collect($validated)->except(['cancellation_reason'])->toArray();
+        $jobOrder->update($updateData);
 
         // Check if status changed to Completed
         if (isset($validated['status']) && $validated['status'] === 'Completed' && $oldStatus !== 'Completed') {
@@ -277,6 +281,12 @@ class JobOrderController extends Controller
         // Create status history if status changed
         if (isset($validated['status']) && $validated['status'] !== $oldStatus) {
             $notes = "Status updated from {$oldStatus} to {$validated['status']}";
+            
+            // Special handling for Cancelled status
+            if ($validated['status'] === 'Cancelled') {
+                $reason = $request->cancellation_reason ?? 'No reason provided';
+                $notes = "Reason: {$reason}";
+            }
             
             $this->createStatusHistory(
                 $jobOrder->job_order_id, 
