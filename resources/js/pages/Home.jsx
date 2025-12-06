@@ -1,15 +1,15 @@
 import React from 'react';
 import AssignmentWidget from '../features/orders/components/AssignmentWidget';
-import { 
-    HiClipboardDocumentList, 
-    HiUser, 
-    HiTruck, 
-    HiClock, 
-    HiArrowRight 
+import {
+    HiClipboardDocumentList,
+    HiUser,
+    HiTruck,
+    HiClock,
+    HiArrowRight
 } from 'react-icons/hi2';
 import {
-    LineChart,
-    Line as ReLine,
+    AreaChart,
+    Area,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -119,44 +119,53 @@ function HomeStatCard({ card }) {
 }
 
 function MonthlyTrendCard() {
-  const monthlyData = [
-    { month: 'Jan', orders: 120 },
-    { month: 'Feb', orders: 135 },
-    { month: 'Mar', orders: 180 },
-    { month: 'Apr', orders: 220 },
-    { month: 'Mei', orders: 160 },
-    { month: 'Jun', orders: 240 },
-  ];
-  return (
-    <section className='flex-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <p className='text-sm text-slate-500'>Trend Order Bulanan</p>
-          <p className='text-xs text-slate-400'>Jan - Jun 2025</p>
-        </div>
-        <button
-          type='button'
-          className='text-xs font-semibold text-indigo-600 transition hover:text-indigo-500'
-        >
-          Lihat Detail
-        </button>
-      </div>
-      <div className='mt-6 h-64'>
-        <ResponsiveContainer width='100%' height='100%'>
-          <LineChart data={monthlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke='#e2e8f0' strokeDasharray='3 3' />
-            <XAxis dataKey='month' tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={v => v + ' Orders'} />
-            <ReTooltip contentStyle={{ background: 'rgba(15,23,42,0.9)', borderRadius: 8, borderColor: '#3b82f6', color: '#fff' }}
-              labelStyle={{ color: '#fff' }}
-              itemStyle={{ color: '#fff' }}
-            />
-            <ReLine type='monotone' dataKey='orders' stroke='#3b82f6' strokeWidth={3} dot={{ r: 6, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 8 }} fill='rgba(59,130,246,0.1)' />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </section>
-  );
+    const monthlyData = [
+        { month: 'Jan', orders: 120 },
+        { month: 'Feb', orders: 135 },
+        { month: 'Mar', orders: 180 },
+        { month: 'Apr', orders: 220 },
+        { month: 'Mei', orders: 160 },
+        { month: 'Jun', orders: 240 },
+    ];
+    return (
+        <section className='flex-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+            <div className='flex items-center justify-between'>
+                <div>
+                    <p className='text-sm text-slate-500'>Trend Order Bulanan</p>
+                    <p className='text-xs text-slate-400'>Jan - Jun 2025</p>
+                </div>
+            </div>
+            <div className='mt-6 h-64'>
+                <ResponsiveContainer width='100%' height='100%'>
+                    <AreaChart data={monthlyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                            <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke='#e2e8f0' strokeDasharray='3 3' vertical={false} />
+                        <XAxis dataKey='month' tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={v => v + ' Orders'} />
+                        <ReTooltip
+                            contentStyle={{ background: 'rgba(15,23,42,0.9)', borderRadius: 8, borderColor: '#3b82f6', color: '#fff' }}
+                            labelStyle={{ color: '#fff' }}
+                            itemStyle={{ color: '#fff' }}
+                        />
+                        <Area
+                            type='monotone'
+                            dataKey='orders'
+                            stroke='#3b82f6'
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill='url(#colorOrders)'
+                            activeDot={{ r: 8, strokeWidth: 0 }}
+                        />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+        </section>
+    );
 }
 
 function ShipmentStatusCard() {

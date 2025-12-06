@@ -503,8 +503,8 @@ function DriverRow({ driver, onEdit, onDelete }) {
             </td>
             <td className='px-6 py-4'>
                 <div className='space-y-1'>
-                    <p className='text-sm font-semibold text-slate-800'>{getDisplayVehicleName(driver.vehicle)}</p>
-                    <p className='text-xs text-slate-400'>{driver.plate}</p>
+                    <p className='text-sm font-semibold text-slate-800'>{driver.active_vehicle_name || '-'}</p>
+                    <p className='text-xs text-slate-400'>{driver.active_vehicle_plate || '-'}</p>
                 </div>
             </td>
             <td className='px-6 py-4'>

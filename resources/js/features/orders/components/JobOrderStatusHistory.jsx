@@ -145,6 +145,11 @@ export default function JobOrderStatusHistory({ jobOrderId, historyData = [] }) 
             const mappedData = historyData.map((item, index) => {
                 const statusLower = item.status.toLowerCase();
                 let description = item.notes || `Status updated to ${item.status}`;
+
+                // Clean up "Vehicle -" if present (fix for legacy/bugged data)
+                if (description && typeof description === 'string') {
+                    description = description.replace(' - Vehicle -', '');
+                }
                 let notes = null;
 
                 // Special handling for Cancelled status
