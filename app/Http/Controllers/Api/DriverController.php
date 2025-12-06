@@ -63,9 +63,37 @@ class DriverController extends Controller
             $query->where('shift', $request->shift);
         }
 
+        // Eager load active assignments to get vehicle info
+        // Logic: Show vehicle if Job Order is Assigned, Pickup, or Delivery (Not Completed/Cancelled)
+        $query->with(['assignments' => function($q) {
+            $q->where('status', 'Active')
+              ->whereHas('jobOrder', function($jq) {
+                  $jq->whereNotIn('status', ['Completed', 'Cancelled']);
+              })
+              ->with('vehicle');
+        }]);
+
         // Pagination
         $perPage = $request->get('per_page', 15);
         $drivers = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        // Transform data to include active_vehicle info
+        $drivers->getCollection()->transform(function ($driver) {
+            $activeAssignment = $driver->assignments->first();
+            
+            if ($activeAssignment && $activeAssignment->vehicle) {
+                $driver->active_vehicle_plate = $activeAssignment->vehicle->plate_no;
+                $driver->active_vehicle_name = $activeAssignment->vehicle->brand . ' ' . $activeAssignment->vehicle->model;
+            } else {
+                $driver->active_vehicle_plate = '-';
+                $driver->active_vehicle_name = '-';
+            }
+            
+            // Clean up assignments from response to keep it clean
+            unset($driver->assignments);
+            
+            return $driver;
+        });
 
         return response()->json([
             'success' => true,

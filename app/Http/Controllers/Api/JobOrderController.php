@@ -246,6 +246,20 @@ class JobOrderController extends Controller
 
         $oldStatus = $jobOrder->status;
 
+        // Check for changes in other fields (Audit Trail)
+        $changes = [];
+        $fieldsToCheck = [
+            'pickup_address', 'delivery_address', 'goods_desc', 'goods_weight', 
+            'goods_volume', 'ship_date', 'order_value', 'order_type'
+        ];
+
+        foreach ($fieldsToCheck as $field) {
+            if (isset($validated[$field]) && $jobOrder->$field != $validated[$field]) {
+                $fieldName = ucwords(str_replace('_', ' ', $field));
+                $changes[] = "{$fieldName}";
+            }
+        }
+
         // Remove cancellation_reason from validated data before updating JobOrder model
         // as it's not a column in job_orders table
         $updateData = collect($validated)->except(['cancellation_reason'])->toArray();
@@ -258,20 +272,6 @@ class JobOrderController extends Controller
             
             if ($activeAssignment && $activeAssignment->driver) {
                 $activeAssignment->driver->increment('delivery_count');
-            }
-        }
-
-        // Check for changes in other fields (Audit Trail)
-        $changes = [];
-        $fieldsToCheck = [
-            'pickup_address', 'delivery_address', 'goods_desc', 'goods_weight', 
-            'goods_volume', 'ship_date', 'order_value', 'order_type'
-        ];
-
-        foreach ($fieldsToCheck as $field) {
-            if (isset($validated[$field]) && $jobOrder->$field != $validated[$field]) {
-                $fieldName = ucwords(str_replace('_', ' ', $field));
-                $changes[] = "{$fieldName}";
             }
         }
 
@@ -458,9 +458,13 @@ class JobOrderController extends Controller
         $jobOrder->update(['status' => 'Assigned']);
         
         // Record status history
+        // Record status history
         $driverName = $assignment->driver->driver_name ?? 'Driver';
-        $vehiclePlate = $assignment->vehicle->license_plate ?? '-';
-        $notes = "Order assigned to driver {$driverName} - Vehicle {$vehiclePlate}";
+        $vehiclePlate = $assignment->vehicle->plate_no ?? null;
+        
+        // Conditional rendering: Only show vehicle if plate number exists
+        $vehicleText = $vehiclePlate ? " - Vehicle {$vehiclePlate}" : "";
+        $notes = "Order assigned to driver {$driverName}{$vehicleText}";
         
         $this->createStatusHistory($jobOrderId, 'Assigned', 'Admin', $notes, 'user');
 
@@ -482,7 +486,7 @@ class JobOrderController extends Controller
                 ],
                 'vehicle' => [
                     'vehicle_id' => $assignment->vehicle->vehicle_id,
-                    'license_plate' => $assignment->vehicle->license_plate,
+                    'license_plate' => $assignment->vehicle->plate_no,
                     'vehicle_type' => $assignment->vehicle->vehicleType->type_name ?? null,
                     'capacity' => $assignment->vehicle->capacity ?? null,
                 ],
