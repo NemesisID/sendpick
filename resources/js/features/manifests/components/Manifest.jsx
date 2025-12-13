@@ -2,6 +2,7 @@
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import CancelConfirmModal from '../../../components/common/CancelConfirmModal';
+import DispatchConfirmModal from '../../../components/common/DispatchConfirmModal';
 import { useManifests } from '../hooks/useManifest';
 import { useManifestJobOrders } from '../hooks/useManifestJobOrders';
 import { useDrivers } from '../../drivers/hooks/useDrivers';
@@ -10,6 +11,12 @@ import { useVehicles } from '../../vehicles/hooks/useVehicles';
 const BanIcon = ({ className = 'h-4 w-4' }) => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
         <path d='M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' strokeLinecap='round' strokeLinejoin='round' />
+    </svg>
+);
+
+const PlayIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M5 3l14 9-14 9V3z' strokeLinecap='round' strokeLinejoin='round' />
     </svg>
 );
 
@@ -175,6 +182,8 @@ const mapManifestFromApi = (manifest) => {
         shipmentDate: manifest.planned_departure ? new Date(manifest.planned_departure).toLocaleDateString('id-ID') : '-',
         // Fix Driver Display: Use manifest.drivers relationship
         driver: manifest.drivers?.driver_name || manifest.driver?.driver_name || 'Belum Assign',
+        vehiclePlate: manifest.vehicles?.plate_no || manifest.vehicle?.plate_no,
+        vehicleBrand: manifest.vehicles?.brand || manifest.vehicle?.brand,
         lastUpdate: manifest.updated_at ? new Date(manifest.updated_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
         raw: manifest,
         cargoSummary: cargoSummary,
@@ -253,6 +262,8 @@ const fallbackManifestRecords = [
         hub: 'jakarta',
         lastUpdate: '2024-01-15 19:45',
         driver: 'Budi Santoso',
+        vehiclePlate: 'B 9988 XYZ',
+        vehicleBrand: 'Fuso',
         cargoSummary: 'Elektronik & Sparepart',
     },
     {
@@ -270,6 +281,8 @@ const fallbackManifestRecords = [
         hub: 'bandung',
         lastUpdate: '2024-01-15 17:10',
         driver: 'Asep Sunandar',
+        vehiclePlate: 'D 1234 ABC',
+        vehicleBrand: 'Hino',
         cargoSummary: 'Tekstil & Garment',
     },
     {
@@ -287,6 +300,8 @@ const fallbackManifestRecords = [
         hub: 'jakarta',
         lastUpdate: '2024-01-15 16:20',
         driver: 'Belum Assign',
+        vehiclePlate: null,
+        vehicleBrand: null,
         cargoSummary: 'FMCG & Retail',
     },
     {
@@ -304,6 +319,8 @@ const fallbackManifestRecords = [
         hub: 'surabaya',
         lastUpdate: '2024-01-15 13:40',
         driver: 'Wayan Gede',
+        vehiclePlate: 'DK 8877 XX',
+        vehicleBrand: 'Isuzu',
         cargoSummary: 'Furniture & Mebel',
     },
 ];
@@ -380,7 +397,21 @@ function StatusBadge({ status }) {
     );
 }
 
-function ManifestRow({ manifest, onEdit, onDelete }) {
+function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
+    const isPending = normalizeManifestStatus(manifest.status) === 'pending';
+    const hasDriver = manifest.driver !== 'Belum Assign';
+    const hasVehicle = !!manifest.vehiclePlate;
+    const hasItems = manifest.packages > 0;
+
+    // Logic Validasi: Disable jika Driver belum dipilih, Kendaraan belum dipilih, atau Manifest kosong
+    const canDepart = isPending && hasDriver && hasVehicle && hasItems;
+
+    let departTooltip = 'Berangkatkan Armada';
+    if (!isPending) departTooltip = 'Status bukan Pending';
+    else if (!hasDriver) departTooltip = 'Pilih Driver terlebih dahulu';
+    else if (!hasVehicle) departTooltip = 'Pilih Kendaraan terlebih dahulu';
+    else if (!hasItems) departTooltip = 'Manifest kosong (tidak ada Job Order)';
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-800'>{manifest.id}</td>
@@ -407,14 +438,36 @@ function ManifestRow({ manifest, onEdit, onDelete }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{manifest.shipmentDate}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${manifest.driver !== 'Belum Assign' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                    {manifest.driver}
-                </span>
+                {manifest.driver !== 'Belum Assign' ? (
+                    <div className='flex flex-col'>
+                        <span className='font-medium text-slate-900'>{manifest.driver}</span>
+                        {manifest.vehiclePlate && (
+                            <span className='text-xs text-slate-500'>
+                                {manifest.vehiclePlate} {manifest.vehicleBrand ? `(${manifest.vehicleBrand})` : ''}
+                            </span>
+                        )}
+                    </div>
+                ) : (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-500`}>
+                        Belum Assign
+                    </span>
+                )}
             </td>
             <td className='px-6 py-4 text-right text-xs text-slate-400'>{manifest.lastUpdate}</td>
             <td className='px-6 py-4'>
                 <div className='flex items-center gap-2'>
+                    <button
+                        type='button'
+                        onClick={() => onDepart(manifest)}
+                        disabled={!canDepart}
+                        className={`inline-flex items-center justify-center rounded-lg p-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${canDepart
+                            ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                            : 'cursor-not-allowed bg-slate-50 text-slate-300'
+                            }`}
+                        title={departTooltip}
+                    >
+                        <PlayIcon className='h-4 w-4' />
+                    </button>
                     <button
                         type='button'
                         onClick={() => onEdit(manifest)}
@@ -450,6 +503,7 @@ function ManifestTable({
     onAddManifest,
     onEditManifest,
     onDeleteManifest,
+    onDepartManifest,
     loading,
     error,
 }) {
@@ -545,6 +599,7 @@ function ManifestTable({
                                     manifest={manifest}
                                     onEdit={onEditManifest}
                                     onDelete={onDeleteManifest}
+                                    onDepart={onDepartManifest}
                                 />
                             ))
                         ) : (
@@ -573,6 +628,7 @@ export default function ManifestContent() {
     const [hubFilter, setHubFilter] = useState('all');
     const [editModal, setEditModal] = useState({ isOpen: false, manifest: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, manifest: null });
+    const [departModal, setDepartModal] = useState({ isOpen: false, manifest: null });
     const [isLoading, setIsLoading] = useState(false);
 
     const {
@@ -832,6 +888,25 @@ export default function ManifestContent() {
         setDeleteModal({ isOpen: false, manifest: null });
     };
 
+    const handleDepartManifest = (manifest) => {
+        setDepartModal({ isOpen: true, manifest });
+    };
+
+    const handleConfirmDepart = async () => {
+        if (departModal.manifest) {
+            setIsLoading(true);
+            try {
+                // Update status to 'In Transit'
+                await updateManifest(departModal.manifest.id, { status: 'In Transit' });
+                setDepartModal({ isOpen: false, manifest: null });
+            } catch (error) {
+                console.error('Error departing manifest:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+    };
+
     const filteredRecords = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -868,6 +943,7 @@ export default function ManifestContent() {
                 onAddManifest={handleAddManifest}
                 onEditManifest={handleEditManifest}
                 onDeleteManifest={handleDeleteManifest}
+                onDepartManifest={handleDepartManifest}
                 loading={manifestsLoading}
                 error={manifestsError}
             />
@@ -891,6 +967,17 @@ export default function ManifestContent() {
                 isOpen={deleteModal.isOpen}
                 onClose={handleDeleteClose}
                 onConfirm={handleDeleteConfirm}
+                isLoading={isLoading}
+            />
+
+            {/* Depart Confirmation Modal */}
+            <DispatchConfirmModal
+                isOpen={departModal.isOpen}
+                onClose={() => setDepartModal({ isOpen: false, manifest: null })}
+                onConfirm={handleConfirmDepart}
+                title='Konfirmasi Keberangkatan'
+                message={`Apakah armada untuk Manifest ini sudah siap berangkat?`}
+                manifestId={departModal.manifest?.id}
                 isLoading={isLoading}
             />
         </>

@@ -64,8 +64,8 @@ const summaryCards = [
 
 const tabs = [
     { key: 'vehicles', label: 'Daftar Kendaraan' },
-    { key: 'history', label: 'Rekapitulasi/Histori' },
-    { key: 'active', label: 'Kendaraan Beroperasi' },
+    // { key: 'history', label: 'Rekapitulasi/Histori' },
+    // { key: 'active', label: 'Kendaraan Beroperasi' },
 ];
 
 const vehicleStatusStyles = {

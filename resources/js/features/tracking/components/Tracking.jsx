@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
+import LiveTrackingMap from './LiveTrackingMap';
 
 const trackingKpis = [
     {
@@ -172,6 +173,63 @@ function DeliveryCard({ delivery }) {
     );
 }
 
+const liveEvents = [
+    { id: 1, time: '09:30', message: 'Budi Santoso memulai perjalanan ke Bandung.', type: 'info' },
+    { id: 2, time: '09:45', message: 'Siti Kurnia telah sampai di lokasi Pickup.', type: 'success' },
+    { id: 3, time: '10:00', message: 'Ahmad Subandi terjebak macet (Speed: 0 km/h selama 15 menit).', type: 'warning' },
+];
+
+const timelineEvents = [
+    { time: '08:00', title: 'Berangkat', description: 'Driver memulai perjalanan dari Pool Jakarta.' },
+    { time: '10:00', title: 'Sampai Rest Area', description: 'Istirahat di Rest Area KM 57.' },
+    { time: '12:00', title: 'Melanjutkan perjalanan', description: 'Kembali ke rute utama menuju tujuan.' },
+];
+
+function LiveEventsTicker() {
+    return (
+        <div className='rounded-2xl border border-slate-200 bg-slate-50 p-4'>
+            <h4 className='mb-3 text-sm font-semibold text-slate-800'>Live Updates</h4>
+            <div className='space-y-3'>
+                {liveEvents.map((event) => (
+                    <div key={event.id} className='flex gap-3 text-xs'>
+                        <span className='font-mono font-medium text-slate-500'>{event.time}</span>
+                        <span className={`font-medium ${event.type === 'warning' ? 'text-amber-600' :
+                            event.type === 'success' ? 'text-emerald-600' : 'text-slate-700'
+                            }`}>
+                            {event.message}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function ActivityTimeline() {
+    return (
+        <div className='rounded-2xl border border-slate-200 bg-white p-4'>
+            <h4 className='mb-4 text-sm font-semibold text-slate-800'>Riwayat Perjalanan (Timeline)</h4>
+            <div className='relative space-y-0 pl-2'>
+                {/* Vertical Line */}
+                <div className='absolute left-[11px] top-2 h-[calc(100%-16px)] w-0.5 bg-slate-200' />
+
+                {timelineEvents.map((event, index) => (
+                    <div key={index} className='relative flex gap-4 pb-6 last:pb-0'>
+                        {/* Dot */}
+                        <div className='relative z-10 mt-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-indigo-500 shadow-sm' />
+
+                        <div>
+                            <span className='text-xs font-semibold text-indigo-600'>{event.time}</span>
+                            <h5 className='text-sm font-medium text-slate-900'>{event.title}</h5>
+                            <p className='text-xs text-slate-500'>{event.description}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function TrackingContent() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -241,13 +299,18 @@ export default function TrackingContent() {
                         ))}
                     </div>
                 </div>
-                <section className='flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+                <section className='flex flex-col rounded-3xl border border-slate-200 bg-white p-11 shadow-sm'>
                     <header className='flex items-center justify-between'>
                         <h3 className='text-sm font-semibold text-slate-700'>Live Map</h3>
-                        <span className='text-xs text-slate-400'>Integrate Google Maps / Mapbox for live tracking</span>
+                        <span className='text-xs text-slate-400'>Real-time vehicle tracking</span>
                     </header>
-                    <div className='mt-6 flex min-h-[200px] lg:h-[260px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400'>
-                        Interactive map preview appears here
+                    <div className='mt-6 flex min-h-[200px] lg:h-[260px] overflow-hidden rounded-2xl border border-slate-200'>
+                        <LiveTrackingMap />
+                    </div>
+
+                    <div className='mt-22 grid grid-cols-1 gap-6 lg:grid-cols-2'>
+                        <LiveEventsTicker />
+                        <ActivityTimeline />
                     </div>
                 </section>
             </section>

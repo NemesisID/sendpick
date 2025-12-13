@@ -119,3 +119,15 @@ export async function updateVehicleMaintenance(vehicleId, payload) {
         throw normalizeError(error, 'Gagal memperbarui info maintenance');
     }
 }
+
+export async function fetchActiveVehicles() {
+    try {
+        const response = await api.get('/vehicles/active');
+        return {
+            success: true,
+            data: response?.data?.data ?? [],
+        };
+    } catch (error) {
+        throw normalizeError(error, 'Gagal memuat data kendaraan aktif');
+    }
+}

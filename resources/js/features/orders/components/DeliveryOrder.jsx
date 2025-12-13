@@ -3,6 +3,7 @@ import FilterDropdown from '../../../components/common/FilterDropdown';
 import DeliveryOrderModal from '../../../components/common/DeliveryOrderModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import EditModal from '../../../components/common/EditModal';
+import DeliveryOrderDetailModal from './DeliveryOrderDetailModal';
 import { useDeliveryOrders } from '../hooks/useDeliveryOrders';
 
 const summaryCardsBase = [
@@ -120,6 +121,12 @@ const priorityFilterOptions = [
     { value: 'normal', label: 'Normal' },
 ];
 
+const alertFilterOptions = [
+    { value: 'all', label: 'Semua Alert' },
+    { value: 'pending_pod', label: 'Pending POD' },
+    { value: 'late', label: 'Keterlambatan' },
+];
+
 const normalizeStatus = (status) => {
     if (!status) return 'scheduled';
     const key = status.toString().toLowerCase();
@@ -131,68 +138,58 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
 
     const sourceInfo = deliveryOrder.source_info ?? {};
     const customerName = deliveryOrder.customer?.customer_name ?? sourceInfo.customer_name ?? '-';
-    const origin = sourceInfo.origin_city ?? sourceInfo.origin ?? '-';
-    const destination = sourceInfo.dest_city ?? sourceInfo.destination ?? '-';
-    const route = origin && destination ? `${origin} → ${destination}` : '-';
+
+    // Fix Route: Handle both Manifest (origin_city) and JobOrder (pickup_city) fields
+    const origin = sourceInfo.origin_city ?? sourceInfo.pickup_city ?? sourceInfo.origin ?? '-';
+    const destination = sourceInfo.dest_city ?? sourceInfo.delivery_city ?? sourceInfo.destination ?? '-';
+    const route = origin && destination && origin !== '-' && destination !== '-' ? `${origin} → ${destination}` : '-';
+
+    // Fix Source Label
+    const isJobOrder = deliveryOrder.source_type === 'JO';
+    const sourceLabel = isJobOrder ? `Job Order: ${deliveryOrder.source_id}` : `Manifest: ${deliveryOrder.source_id}`;
+
+    // Fix Date Format: Remove time
+    const departureDate = deliveryOrder.departure ?? deliveryOrder.do_date;
+    const formattedDeparture = departureDate ? new Date(departureDate).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-';
+
+    // Fix Koli & Goods Info
+    // extracting weight, qty, and description separately as requested
+    const weight = sourceInfo.goods_weight ?? sourceInfo.weight ?? deliveryOrder.weight ?? '-';
+    const qty = sourceInfo.quantity ?? sourceInfo.koli ?? deliveryOrder.quantity ?? sourceInfo.goods_quantity ?? '-';
+    // Use goods_summary first, then sourceInfo.goods_desc
+    const goodsDesc = deliveryOrder.goods_summary || sourceInfo.goods_desc || '-';
+
+    // Fix ETA: Real-time from Tracking
+    const status = normalizeStatus(deliveryOrder.status);
+    let eta = '-';
+
+    if (status === 'inTransit') {
+        eta = deliveryOrder.eta || 'Estimating...';
+    }
 
     return {
         id: deliveryOrder.do_id ?? deliveryOrder.id,
         manifestId: deliveryOrder.source_type === 'MF' ? deliveryOrder.source_id : '-',
         jobOrder: deliveryOrder.source_type === 'JO' ? deliveryOrder.source_id : '-',
+        sourceLabel: sourceLabel,
         customer: customerName,
         driver: deliveryOrder.driver_name ?? deliveryOrder.assigned_driver ?? 'Belum ditugaskan',
         vehicle: deliveryOrder.vehicle_plate ?? deliveryOrder.assigned_vehicle ?? 'Belum ditugaskan',
         route,
-        eta: deliveryOrder.eta ?? deliveryOrder.planned_arrival ?? '-',
-        departure: deliveryOrder.departure ?? deliveryOrder.do_date ?? '-',
-        status: normalizeStatus(deliveryOrder.status),
+        eta: eta,
+        departure: formattedDeparture,
+        status: status,
         backendStatus: deliveryOrder.status ?? 'Pending',
-        packages: deliveryOrder.goods_quantity ?? deliveryOrder.packages ?? '-',
+        weight: weight,
+        qty: qty,
+        goods_desc: goodsDesc,
         lastUpdate: deliveryOrder.updated_at ? new Date(deliveryOrder.updated_at).toLocaleString('id-ID') : '-',
-        temperature: deliveryOrder.temperature ?? '-',
+
         priority: (deliveryOrder.priority ?? 'normal').toLowerCase(),
         raw: deliveryOrder,
     };
 };
 
-const deliveryTimeline = [
-    {
-        label: 'Average Transit Time',
-        value: '18 jam 24 menit',
-        detail: 'Perbandingan minggu lalu: -6%',
-    },
-    {
-        label: 'On-Time Delivery',
-        value: '94.2%',
-        detail: 'Target SLA: 95%',
-    },
-    {
-        label: 'Proof of Delivery',
-        value: '128/132',
-        detail: 'POD lengkap diterima 97% dalam 6 jam',
-    },
-];
-
-const issueHighlights = [
-    {
-        title: 'Pending POD',
-        description: '4 delivery menunggu upload bukti serah terima',
-        action: 'Hubungi driver',
-        color: 'bg-amber-100 text-amber-600',
-    },
-    {
-        title: 'Temperature Alert',
-        description: '2 DO cold-chain butuh pengecekan real-time',
-        action: 'Monitor IoT sensor',
-        color: 'bg-sky-100 text-sky-600',
-    },
-    {
-        title: 'Fuel Allowance',
-        description: '3 driver belum submit klaim perjalanan',
-        action: 'Reminder otomatis',
-        color: 'bg-purple-100 text-purple-600',
-    },
-];
 
 const SearchIcon = ({ className = 'h-5 w-5' }) => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
@@ -242,6 +239,13 @@ const UserAssignIcon = ({ className = 'h-4 w-4' }) => (
         <circle cx='9' cy='7' r='4' />
         <path d='M22 21v-2a4 4 0 0 0-3-3.87' strokeLinecap='round' strokeLinejoin='round' />
         <path d='M16 3.13a4 4 0 0 1 0 7.75' strokeLinecap='round' strokeLinejoin='round' />
+    </svg>
+);
+
+const ViewDetailIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' strokeLinecap='round' strokeLinejoin='round' />
+        <circle cx='12' cy='12' r='3' strokeLinecap='round' strokeLinejoin='round' />
     </svg>
 );
 
@@ -299,14 +303,16 @@ function PriorityPill({ priority }) {
     );
 }
 
-function DeliveryOrderRow({ delivery, onEdit, onAssignDriver, onCancel }) {
+function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
+    const isReadOnly = delivery.status === 'exception';
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-800'>{delivery.id}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
                     <p className='font-semibold text-slate-700'>{delivery.customer}</p>
-                    <p className='text-xs text-slate-400'>Manifest: {delivery.manifestId}</p>
+                    <p className='text-xs text-slate-400'>{delivery.sourceLabel}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -331,15 +337,19 @@ function DeliveryOrderRow({ delivery, onEdit, onAssignDriver, onCancel }) {
                 <StatusBadge status={delivery.status} />
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='space-y-1'>
-                    <p className='font-semibold text-slate-700'>{delivery.packages} koli</p>
+                <div className='space-y-0.5'>
+                    <p className='font-semibold text-slate-700'>
+                        {delivery.weight} Kg • {delivery.qty} Koli
+                    </p>
+                    <p className='text-xs text-slate-500 truncate max-w-[180px]' title={delivery.goods_desc}>
+                        {delivery.goods_desc}
+                    </p>
                     <p className='text-xs text-slate-400'>ETA {delivery.eta}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='space-y-1'>
+                <div className='flex items-center'>
                     <PriorityPill priority={delivery.priority} />
-                    <p className='text-xs text-slate-400'>{delivery.temperature}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-right text-xs text-slate-400'>{delivery.lastUpdate}</td>
@@ -347,34 +357,44 @@ function DeliveryOrderRow({ delivery, onEdit, onAssignDriver, onCancel }) {
                 <div className='flex items-center justify-center gap-2'>
                     <button
                         type='button'
-                        title='Edit'
+                        title={isReadOnly ? 'Read-only' : 'Edit'}
+                        disabled={isReadOnly}
                         onClick={(e) => {
+                            if (isReadOnly) return;
                             e.preventDefault();
                             onEdit(delivery);
                         }}
-                        className='inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600'
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition ${isReadOnly
+                            ? 'cursor-not-allowed text-slate-300'
+                            : 'text-slate-400 hover:bg-slate-100 hover:text-indigo-600'
+                            }`}
                     >
                         <EditIcon className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
-                        title='Assign Driver'
+                        title='Lihat Detail'
                         onClick={(e) => {
                             e.preventDefault();
-                            onAssignDriver(delivery);
+                            onViewDetail(delivery);
                         }}
                         className='inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-blue-600'
                     >
-                        <UserAssignIcon className='h-4 w-4' />
+                        <ViewDetailIcon className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
-                        title='Cancel'
+                        title={isReadOnly ? 'Read-only' : 'Cancel'}
+                        disabled={isReadOnly}
                         onClick={(e) => {
+                            if (isReadOnly) return;
                             e.preventDefault();
                             onCancel(delivery);
                         }}
-                        className='inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-rose-600'
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition ${isReadOnly
+                            ? 'cursor-not-allowed text-slate-300'
+                            : 'text-slate-400 hover:bg-slate-100 hover:text-rose-600'
+                            }`}
                     >
                         <CancelIcon className='h-4 w-4' />
                     </button>
@@ -392,8 +412,10 @@ function DeliveryOrderTable({
     onStatusChange,
     priorityFilter,
     onPriorityChange,
+    alertFilter,
+    onAlertChange,
     onEdit,
-    onAssignDriver,
+    onViewDetail,
     onCancel,
     onAddNew,
     loading,
@@ -438,6 +460,12 @@ function DeliveryOrderTable({
                                 value={priorityFilter}
                                 onChange={onPriorityChange}
                                 options={priorityFilterOptions}
+                                widthClass='w-full sm:w-auto sm:min-w-[140px]'
+                            />
+                            <FilterDropdown
+                                value={alertFilter}
+                                onChange={onAlertChange}
+                                options={alertFilterOptions}
                                 widthClass='w-full sm:w-auto sm:min-w-[140px]'
                             />
                         </div>
@@ -493,7 +521,7 @@ function DeliveryOrderTable({
                                         key={delivery.id}
                                         delivery={delivery}
                                         onEdit={onEdit}
-                                        onAssignDriver={onAssignDriver}
+                                        onViewDetail={onViewDetail}
                                         onCancel={onCancel}
                                     />
                                 ))
@@ -512,138 +540,18 @@ function DeliveryOrderTable({
     );
 }
 
-function DeliveryPerformanceCard() {
-    return (
-        <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-base font-semibold text-slate-900'>Kinerja Pengiriman</h3>
-            <p className='mt-1 text-xs text-slate-400'>Update berdasarkan data 7 hari terakhir.</p>
-            <div className='mt-6 space-y-5 text-sm text-slate-600'>
-                {deliveryTimeline.map((item) => (
-                    <div key={item.label} className='rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3'>
-                        <p className='text-xs text-slate-400'>{item.label}</p>
-                        <p className='mt-1 text-lg font-semibold text-slate-900'>{item.value}</p>
-                        <p className='text-xs text-indigo-500'>{item.detail}</p>
-                    </div>
-                ))}
-            </div>
-        </article>
-    );
-}
 
-function IssueHighlightCard() {
-    return (
-        <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-base font-semibold text-slate-900'>Action Items Hari Ini</h3>
-            <p className='mt-1 text-xs text-slate-400'>Prioritaskan tindak lanjut untuk menjaga SLA.</p>
-            <ul className='mt-6 space-y-3 text-sm text-slate-600'>
-                {issueHighlights.map((issue) => (
-                    <li key={issue.title} className='flex items-start justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3'>
-                        <div>
-                            <p className='font-semibold text-slate-800'>{issue.title}</p>
-                            <p className='text-xs text-slate-400'>{issue.description}</p>
-                        </div>
-                        <span className={`whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold ${issue.color}`}>
-                            {issue.action}
-                        </span>
-                    </li>
-                ))}
-            </ul>
-        </article>
-    );
-}
-
-function RouteMonitoringCard() {
-    const checkpoints = [
-        {
-            route: 'JKT → SBY',
-            progress: 68,
-            status: 'Tiba di checkpoint Cirebon - 21:05',
-        },
-        {
-            route: 'BDG → MAK',
-            progress: 24,
-            status: 'Loading & seal validation',
-        },
-        {
-            route: 'SBY → DPS',
-            progress: 100,
-            status: 'POD diterima - 22:42',
-        },
-    ];
-
-    return (
-        <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-base font-semibold text-slate-900'>Tracking Checkpoints</h3>
-            <p className='mt-1 text-xs text-slate-400'>Overview rute utama & persentase progress.</p>
-            <ul className='mt-6 space-y-4 text-sm text-slate-600'>
-                {checkpoints.map((item) => (
-                    <li key={item.route} className='space-y-2 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3'>
-                        <div className='flex items-center justify-between'>
-                            <span className='font-semibold text-slate-800'>{item.route}</span>
-                            <span className='text-xs font-semibold text-indigo-500'>{item.progress}%</span>
-                        </div>
-                        <div className='h-2 overflow-hidden rounded-full bg-slate-200'>
-                            <div className='h-full rounded-full bg-indigo-500' style={{ width: `${item.progress}%` }} />
-                        </div>
-                        <p className='text-xs text-slate-400'>{item.status}</p>
-                    </li>
-                ))}
-            </ul>
-        </article>
-    );
-}
-
-function DeliveryChecklistCard() {
-    const checklist = [
-        {
-            title: 'Proof of Delivery',
-            description: 'Pastikan tanda tangan penerima & foto barang lengkap sebelum closing DO.',
-            completed: true,
-        },
-        {
-            title: 'Fuel & Toll Log',
-            description: 'Driver wajib unggah struk untuk pencocokan biaya perjalanan.',
-            completed: false,
-        },
-        {
-            title: 'Temperature Report',
-            description: 'Catatan suhu setiap 2 jam untuk barang cold-chain.',
-            completed: true,
-        },
-    ];
-
-    return (
-        <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-            <h3 className='text-base font-semibold text-slate-900'>Delivery Completion Checklist</h3>
-            <p className='mt-1 text-xs text-slate-400'>Checklist otomatis sebelum DO ditutup.</p>
-            <ul className='mt-5 space-y-3 text-sm text-slate-600'>
-                {checklist.map((item) => (
-                    <li key={item.title} className='flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3'>
-                        <span
-                            className={`mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${item.completed ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'
-                                }`}
-                        >
-                            {item.completed ? '✔' : '•'}
-                        </span>
-                        <div>
-                            <p className='font-semibold text-slate-700'>{item.title}</p>
-                            <p className='text-xs text-slate-400'>{item.description}</p>
-                        </div>
-                    </li>
-                ))}
-            </ul>
-        </article>
-    );
-}
 
 export default function DeliveryOrderContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [priorityFilter, setPriorityFilter] = useState('all');
+    const [alertFilter, setAlertFilter] = useState('all');
 
     // Modal states
     const [editModal, setEditModal] = useState({ isOpen: false, delivery: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, delivery: null });
+    const [detailModal, setDetailModal] = useState({ isOpen: false, delivery: null });
     const [assignDriverModal, setAssignDriverModal] = useState({ isOpen: false, delivery: null });
     const [isLoading, setIsLoading] = useState(false);
 
@@ -654,6 +562,7 @@ export default function DeliveryOrderContent() {
         createDeliveryOrder,
         updateDeliveryOrder,
         deleteDeliveryOrder,
+        cancelDeliveryOrder,
         assignDriver,
         mutationState,
         resetMutationStatus,
@@ -718,6 +627,14 @@ export default function DeliveryOrderContent() {
         setEditModal({ isOpen: false, delivery: null });
     };
 
+    const handleViewDetail = (delivery) => {
+        setDetailModal({ isOpen: true, delivery });
+    };
+
+    const handleViewDetailClose = () => {
+        setDetailModal({ isOpen: false, delivery: null });
+    };
+
     const handleAssignDriver = (delivery) => {
         resetMutationStatus();
         setAssignDriverModal({ isOpen: true, delivery });
@@ -743,11 +660,12 @@ export default function DeliveryOrderContent() {
         setDeleteModal({ isOpen: true, delivery });
     };
 
-    const handleDeleteConfirm = async () => {
+    const handleCancelConfirm = async () => {
         if (!deleteModal.delivery) return;
         setIsLoading(true);
         try {
-            await deleteDeliveryOrder(deleteModal.delivery.id);
+            // Use cancelDeliveryOrder instead of deleteDeliveryOrder
+            await cancelDeliveryOrder(deleteModal.delivery.id);
             setDeleteModal({ isOpen: false, delivery: null });
         } finally {
             setIsLoading(false);
@@ -842,7 +760,11 @@ export default function DeliveryOrderContent() {
             label: 'Tanggal Keberangkatan',
             type: 'datetime-local',
             required: true,
-            defaultValue: delivery?.departure ? convertDateTimeForInput(delivery.departure) : '',
+            defaultValue: delivery?.raw?.departure
+                ? convertDateTimeForInput(delivery.raw.departure)
+                : delivery?.raw?.do_date
+                    ? convertDateTimeForInput(delivery.raw.do_date)
+                    : '',
             description: 'Tanggal dan waktu keberangkatan dapat diubah'
         },
         {
@@ -850,7 +772,7 @@ export default function DeliveryOrderContent() {
             label: 'Estimasi Tiba (ETA)',
             type: 'datetime-local',
             required: true,
-            defaultValue: delivery?.eta ? convertDateTimeForInput(delivery.eta) : '',
+            defaultValue: delivery?.raw?.eta ? convertDateTimeForInput(delivery.raw.eta) : '',
             description: 'Estimasi waktu tiba dapat diubah'
         },
         {
@@ -905,27 +827,24 @@ export default function DeliveryOrderContent() {
     // Helper function to convert datetime for input field
     const convertDateTimeForInput = (dateTimeString) => {
         if (!dateTimeString) return '';
-        try {
-            // Handle different date formats
-            let date;
-            if (dateTimeString.includes('T')) {
-                // ISO format
-                date = new Date(dateTimeString);
-            } else {
-                // Format like "2024-01-17 08:30"
-                date = new Date(dateTimeString.replace(' ', 'T'));
-            }
+        // Create date object (handling numeric timestamps or strings)
+        const date = new Date(dateTimeString);
 
-            if (isNaN(date.getTime())) {
-                console.error('Invalid date:', dateTimeString);
-                return '';
-            }
-
-            return date.toISOString().slice(0, 16);
-        } catch (error) {
-            console.error('Error converting datetime:', error);
+        if (isNaN(date.getTime())) {
+            console.error('Invalid date:', dateTimeString);
             return '';
         }
+
+        // Format manually to YYYY-MM-DDTHH:mm using local time
+        // This avoids timezone shifts caused by toISOString() which converts to UTC
+        const pad = (num) => String(num).padStart(2, '0');
+        const year = date.getFullYear();
+        const month = pad(date.getMonth() + 1);
+        const day = pad(date.getDate());
+        const hours = pad(date.getHours());
+        const minutes = pad(date.getMinutes());
+
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
     };
 
     // Helper function to get driver ID from driver name
@@ -983,9 +902,16 @@ export default function DeliveryOrderContent() {
             const matchesStatus = statusFilter === 'all' || delivery.backendStatus === statusFilter;
             const matchesPriority = priorityFilter === 'all' || delivery.priority === priorityFilter;
 
-            return matchesSearch && matchesStatus && matchesPriority;
+            let matchesAlert = true;
+            if (alertFilter === 'pending_pod') {
+                matchesAlert = delivery.backendStatus === 'Delivered' || delivery.backendStatus === 'Completed';
+            } else if (alertFilter === 'late') {
+                matchesAlert = delivery.backendStatus === 'Cancelled' || delivery.priority === 'critical';
+            }
+
+            return matchesSearch && matchesStatus && matchesPriority && matchesAlert;
         });
-    }, [computedRecords, searchTerm, statusFilter, priorityFilter]);
+    }, [computedRecords, searchTerm, statusFilter, priorityFilter, alertFilter]);
 
     return (
         <>
@@ -1002,39 +928,17 @@ export default function DeliveryOrderContent() {
                 onStatusChange={setStatusFilter}
                 priorityFilter={priorityFilter}
                 onPriorityChange={setPriorityFilter}
+                alertFilter={alertFilter}
+                onAlertChange={setAlertFilter}
                 onEdit={handleEdit}
+                onViewDetail={handleViewDetail}
                 onAssignDriver={handleAssignDriver}
                 onCancel={handleCancel}
                 onAddNew={handleAddNew}
                 loading={loading}
                 error={error}
             />
-            <section className='grid grid-cols-1 gap-6 lg:grid-cols-3'>
-                <DeliveryPerformanceCard />
-                <IssueHighlightCard />
-                <RouteMonitoringCard />
-            </section>
-            <section className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
-                <DeliveryChecklistCard />
-                <article className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-                    <h3 className='text-base font-semibold text-slate-900'>Catatan Operasional</h3>
-                    <p className='mt-1 text-xs text-slate-400'>Insight penting dari tim lapangan hari ini.</p>
-                    <ul className='mt-5 space-y-3 text-sm text-slate-600'>
-                        <li className='rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3'>
-                            <p className='font-semibold text-slate-800'>Cold-chain</p>
-                            <p className='text-xs text-slate-400'>Monitoring suhu DO-2024-298 tetap stabil di 3°C menggunakan sensor IoT.</p>
-                        </li>
-                        <li className='rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3'>
-                            <p className='font-semibold text-slate-800'>Rute Panjang</p>
-                            <p className='text-xs text-slate-400'>Driver diminta update lokasi melalui aplikasi setiap 2 jam untuk lintasan lintas pulau.</p>
-                        </li>
-                        <li className='rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3'>
-                            <p className='font-semibold text-slate-800'>Kesiapan Dokumen</p>
-                            <p className='text-xs text-slate-400'>Tim CS menyiapkan template POD digital untuk customer enterprise.</p>
-                        </li>
-                    </ul>
-                </article>
-            </section>
+
 
             {editModal.isOpen && !editModal.delivery && (
                 <DeliveryOrderModal
@@ -1071,14 +975,26 @@ export default function DeliveryOrderContent() {
                 />
             )}
 
+            {/* Cancel Confirmation Modal */}
             <DeleteConfirmModal
-                title="Batalkan Delivery Order"
-                message={`Apakah Anda yakin ingin membatalkan delivery order "${deleteModal.delivery?.id}"? Tindakan ini tidak dapat dibatalkan!`}
                 isOpen={deleteModal.isOpen}
                 onClose={handleDeleteClose}
-                onConfirm={handleDeleteConfirm}
-                isLoading={isLoading}
+                onConfirm={handleCancelConfirm}
+                title='Batalkan Delivery Order'
+                message={`Apakah Anda yakin ingin membatalkan Delivery Order ${deleteModal.delivery?.id}? Status akan berubah menjadi Cancelled.`}
+                isLoading={isLoading || mutationState.deleting}
+                confirmLabel="Ya, Batalkan"
+                loadingLabel="Membatalkan..."
             />
+
+            {/* Delivery Order Detail Modal */}
+            {detailModal.isOpen && (
+                <DeliveryOrderDetailModal
+                    isOpen={detailModal.isOpen}
+                    onClose={handleViewDetailClose}
+                    data={detailModal.delivery}
+                />
+            )}
         </>
     );
 }

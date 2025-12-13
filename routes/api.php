@@ -127,6 +127,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/vehicles/available', [VehicleController::class, 'getAvailable'])->name('api.vehicles.available')->withoutMiddleware('auth:sanctum');
     // 2. Memperbarui status maintenance kendaraan
     Route::patch('/vehicles/{vehicleId}/maintenance', [VehicleController::class, 'updateMaintenance'])->name('api.vehicles.update-maintenance')->withoutMiddleware('auth:sanctum');
+    // 3. Mendapatkan daftar kendaraan aktif dengan status real-time
+    Route::get('/vehicles/active', [VehicleController::class, 'getActiveVehicles'])->name('api.vehicles.active')->withoutMiddleware('auth:sanctum');
     // 3. Memperbarui level bahan bakar kendaraan (Tidak perlu, karena Controller ini bisa digunakan untuk keperluan lain atau controller lain seperti DriverAppController)
     // Route::patch('/vehicles/{vehicleId}/fuel', [VehicleController::class, 'updateFuelLevel'])->name('api.vehicles.update-fuel')->withoutMiddleware('auth:sanctum');
 
@@ -186,6 +188,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/delivery-orders/{doId}/assign-driver', [DeliveryOrderController::class, 'assignDriverToDO'])->name('api.delivery-orders.assign-driver')->withoutMiddleware('auth:sanctum'); // ada
     // 2. Complete delivery order
     Route::post('/delivery-orders/{doId}/complete', [DeliveryOrderController::class, 'completeDeliveryOrder'])->name('api.delivery-orders.complete')->withoutMiddleware('auth:sanctum'); // ada
+    // 3. Cancel delivery order
+    Route::post('/delivery-orders/{doId}/cancel', [DeliveryOrderController::class, 'cancel'])->name('api.delivery-orders.cancel')->withoutMiddleware('auth:sanctum');
 
     // Delivery Orders (apiResource)
     Route::apiResource('delivery-orders', DeliveryOrderController::class)
@@ -206,7 +210,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // 3. Membatalkan invoice
     Route::post('/invoices/{invoiceId}/cancel', [InvoiceController::class, 'cancel'])->name('api.invoices.cancel')->withoutMiddleware('auth:sanctum');
     // 4. Mendapatkan statistik invoice
-    // Route::get('/invoices/stats', [InvoiceController::class, 'getStats'])->name('api.invoices.stats'); // ada
+    Route::get('/invoices/stats', [InvoiceController::class, 'getStats'])->name('api.invoices.stats')->withoutMiddleware('auth:sanctum'); // ada
 
     // Invoices (apiResource)
     Route::apiResource('invoices', InvoiceController::class)

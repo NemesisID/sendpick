@@ -461,36 +461,49 @@ class InvoiceController extends Controller
     }
 
     /**
-     * Get invoice statistics ini lebih cocok masuk ke DashboardController atau ReportController
+     * Get invoice statistics for Payment Tracking
      * 
      * @param Request $request
      * @return JsonResponse
      */
-    // public function getStats(Request $request): JsonResponse
-    // {
-    //     $query = Invoices::query();
+    public function getStats(Request $request): JsonResponse
+    {
+        // 1. This Month Paid: Sum of payments made in current month
+        $startOfMonth = Carbon::now()->startOfMonth();
+        $endOfMonth = Carbon::now()->endOfMonth();
+        
+        $thisMonthPaid = Payment::whereBetween('payment_date', [$startOfMonth, $endOfMonth])
+            ->sum('amount');
 
-    //     // Filter by date range if provided
-    //     if ($request->filled('start_date') && $request->filled('end_date')) {
-    //         $query->whereBetween('invoice_date', [$request->start_date, $request->end_date]);
-    //     }
+        // 2. Outstanding: Total unpaid amount (Total - Paid) for non-cancelled invoices
+        // We calculate this by summing (total_amount - paid_amount) for all active invoices
+        $outstanding = Invoices::where('status', '!=', 'Cancelled')
+            ->where('status', '!=', 'Paid')
+            ->sum(DB::raw('total_amount - paid_amount'));
 
-    //     $stats = [
-    //         'total_invoices' => $query->count(),
-    //         'total_amount' => $query->sum('total_amount'),
-    //         'pending_invoices' => $query->where('status', 'Pending')->count(),
-    //         'pending_amount' => $query->where('status', 'Pending')->sum('total_amount'),
-    //         'paid_invoices' => $query->where('status', 'Paid')->count(),
-    //         'paid_amount' => $query->where('status', 'Paid')->sum('total_amount'),
-    //         'overdue_invoices' => $query->where('status', 'Overdue')->count(),
-    //         'overdue_amount' => $query->where('status', 'Overdue')->sum('total_amount'),
-    //     ];
+        // 3. Overdue Amount: Total unpaid amount for overdue invoices
+        $overdueAmount = Invoices::where('status', '!=', 'Cancelled')
+            ->where('status', '!=', 'Paid')
+            ->where('due_date', '<', Carbon::now()->toDateString())
+            ->sum(DB::raw('total_amount - paid_amount'));
 
-    //     return response()->json([
-    //         'success' => true,
-    //         'data' => $stats
-    //     ], 200);
-    // }
+        // 4. Average Payment Time: Average days between invoice_date and payment_date for Paid invoices
+        // We only consider fully paid invoices
+        $avgPaymentTime = Invoices::where('status', 'Paid')
+            ->whereNotNull('payment_date')
+            ->select(DB::raw('AVG(DATE_PART(\'day\', payment_date::timestamp - invoice_date::timestamp)) as avg_days'))
+            ->value('avg_days');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'this_month_paid' => (float) $thisMonthPaid,
+                'outstanding' => (float) $outstanding,
+                'overdue_amount' => (float) $overdueAmount,
+                'avg_payment_time' => round((float) $avgPaymentTime, 1)
+            ]
+        ], 200);
+    }
 
     /**
      * Get available sources for creating invoices

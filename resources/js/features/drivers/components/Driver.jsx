@@ -929,29 +929,6 @@ function DriverManagementContent() {
                         placeholder: 'Ulangi password',
                     },
                     {
-                        name: 'vehicle',
-                        label: 'Pilih Kendaraan',
-                        type: 'select',
-                        required: true,
-                        placeholder: 'Pilih kendaraan yang tersedia',
-                        options: [
-                            { value: '', label: '-- Pilih Kendaraan --' },
-                            ...vehicles.map(v => ({
-                                value: v.vehicle_id,
-                                label: `${v.brand || ''} - ${v.model || ''} - ${v.plate_no || ''}`.trim()
-                            }))
-                        ],
-                    },
-                    {
-                        name: 'plate',
-                        label: 'Nomor Plat',
-                        type: 'text',
-                        required: true,
-                        placeholder: 'Contoh: B 1234 ABC',
-                        disabled: true, // Auto-filled from vehicle selection
-                        description: 'Otomatis terisi saat memilih kendaraan',
-                    },
-                    {
                         name: 'shift',
                         label: 'Shift Kerja',
                         type: 'select',
@@ -985,17 +962,6 @@ function DriverManagementContent() {
                         ...prev,
                         [fieldName]: value
                     }));
-
-                    // Special handling untuk field vehicle
-                    if (fieldName === 'vehicle') {
-                        const selectedVehicle = vehicles.find(v => v.vehicle_id === value);
-                        if (selectedVehicle) {
-                            setFormData(prev => ({
-                                ...prev,
-                                plate: selectedVehicle.plate_no || ''
-                            }));
-                        }
-                    }
                 }}
                 onSubmit={async (formData) => {
                     try {
@@ -1004,9 +970,6 @@ function DriverManagementContent() {
                         // Siapkan data yang akan dikirim
                         const dataToSubmit = {
                             ...formData,
-                            // Ubah field 'vehicle' menjadi 'vehicle_id' untuk backend
-                            vehicle_id: formData.vehicle,
-                            // Hapus field 'vehicle' asli untuk menghindari duplikasi
                         };
 
                         console.log('📤 Data to submit:', dataToSubmit);
