@@ -313,4 +313,82 @@ class VehicleController extends Controller
             'data' => $vehicle
         ], 200);
     }
+    /**
+     * Get active vehicles with real-time status
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getActiveVehicles(Request $request): JsonResponse
+    {
+        $vehicles = Vehicles::with(['assignments' => function ($query) {
+            $query->where('status', 'Active')
+                  ->with(['driver', 'jobOrder']);
+        }, 'gpsLogs' => function ($query) {
+            $query->latest()->limit(1);
+        }])->get();
+
+        // Transform data
+        $data = $vehicles->map(function ($vehicle) {
+            $activeAssignment = $vehicle->assignments->first();
+            $jobOrder = $activeAssignment ? $activeAssignment->jobOrder : null;
+            $driver = $activeAssignment ? $activeAssignment->driver : null;
+            $lastGps = $vehicle->gpsLogs->first();
+
+            // Default values (Idle/Empty)
+            $displayDriver = '-';
+            $displayRoute = '-';
+            $displayLoad = '-';
+            $displayEta = '-';
+            $status = 'idle';
+            $statusLabel = 'Idle';
+
+            // Define active statuses that should show data
+            $activeStatuses = ['Assigned', 'Pickup', 'On Delivery'];
+
+            // Only populate data if we have a Job Order in an active state
+            if ($jobOrder && in_array($jobOrder->status, $activeStatuses)) {
+                $displayDriver = $driver ? $driver->driver_name : '-';
+                $displayRoute = "{$jobOrder->pickup_city} - {$jobOrder->delivery_city}";
+                $displayLoad = ($jobOrder->goods_weight / 1000) . ' Ton';
+                
+                // Map Status
+                if ($jobOrder->status === 'On Delivery') {
+                    $status = 'onRoute';
+                    $statusLabel = 'On Route';
+                } elseif ($jobOrder->status === 'Pickup') {
+                    $status = 'loading';
+                    $statusLabel = 'Loading';
+                } else {
+                    // Assigned
+                    $status = 'assigned';
+                    $statusLabel = 'Assigned';
+                }
+            } else {
+                 // Fallback to vehicle status if no active job order or job order is not active
+                 if ($vehicle->status === 'Maintenance') {
+                     $status = 'maintenance';
+                     $statusLabel = 'Maintenance';
+                 }
+            }
+
+            return [
+                'id' => $vehicle->vehicle_id,
+                'vehicle' => $vehicle->plate_no,
+                'driver' => $displayDriver,
+                'route' => $displayRoute,
+                'eta' => $displayEta,
+                'load' => $displayLoad,
+                'status' => $status,
+                'status_label' => $statusLabel,
+                'lastUpdate' => $lastGps ? $lastGps->created_at->diffForHumans() : '-',
+                'region' => 'jabodetabek', // Default
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ], 200);
+    }
 }

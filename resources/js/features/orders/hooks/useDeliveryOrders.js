@@ -7,6 +7,7 @@ import {
     deleteDeliveryOrder as deleteDeliveryOrderRequest,
     assignDriverToDeliveryOrder as assignDriverRequest,
     completeDeliveryOrder as completeDeliveryOrderRequest,
+    cancelDeliveryOrder as cancelDeliveryOrderRequest,
 } from '../services/deliveryOrderService';
 
 const DEFAULT_PAGINATION = {
@@ -184,6 +185,24 @@ export function useDeliveryOrders(initialParams = {}) {
         [loadDeliveryOrders, updateMutationState],
     );
 
+    const cancelDeliveryOrder = useCallback(
+        async (doId) => {
+            updateMutationState({ deleting: true, actionError: null, successMessage: null }); // Reuse deleting state for loading spinner
+            try {
+                const response = await cancelDeliveryOrderRequest(doId);
+                await loadDeliveryOrders();
+                updateMutationState({ successMessage: response?.message ?? 'Delivery order berhasil dibatalkan' });
+                return response?.data;
+            } catch (error) {
+                updateMutationState({ actionError: getErrorMessage(error, 'Gagal membatalkan delivery order') });
+                throw error;
+            } finally {
+                updateMutationState({ deleting: false });
+            }
+        },
+        [loadDeliveryOrders, updateMutationState],
+    );
+
     return {
         deliveryOrders,
         pagination,
@@ -195,6 +214,7 @@ export function useDeliveryOrders(initialParams = {}) {
         createDeliveryOrder,
         updateDeliveryOrder,
         deleteDeliveryOrder,
+        cancelDeliveryOrder,
         getDeliveryOrder: getDeliveryOrderDetail,
         assignDriver,
         completeDeliveryOrder,

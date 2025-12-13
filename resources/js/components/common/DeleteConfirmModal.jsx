@@ -12,7 +12,9 @@ const DeleteConfirmModal = ({
     type = 'danger', // danger, warning
     backdropOpacity = 'default',
     disableScroll = true,
-    hideContentScrollbar = false
+    hideContentScrollbar = false,
+    confirmLabel = 'Ya, Hapus',
+    loadingLabel = 'Menghapus...'
 }) => {
 
     const handleConfirm = async () => {
@@ -157,7 +159,7 @@ const DeleteConfirmModal = ({
                             </svg>
                         )}
                         <span className="relative z-10">
-                            {isLoading ? 'Menghapus...' : '🗑️ Ya, Hapus'}
+                            {isLoading ? loadingLabel : `🗑️ ${confirmLabel}`}
                         </span>
                     </button>
                 </div>

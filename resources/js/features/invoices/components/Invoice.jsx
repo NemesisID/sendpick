@@ -130,40 +130,7 @@ const monthFilterOptions = [
     { value: '2023-12', label: 'Desember 2023' },
 ];
 
-const paymentHighlights = [
-    {
-        title: 'This Month Paid',
-        value: 'Rp 2.200.000',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-500',
-        description: 'Pembayaran masuk Januari 2024',
-        icon: <HiOutlinePlus className='h-6 w-6' />,
-    },
-    {
-        title: 'Outstanding',
-        value: 'Rp 412.500',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-500',
-        description: 'Menunggu pembayaran customer',
-        icon: <HiOutlineClock className='h-6 w-6' />,
-    },
-    {
-        title: 'Overdue Amount',
-        value: 'Rp 137.500',
-        iconBg: 'bg-rose-100',
-        iconColor: 'text-rose-500',
-        description: 'Segera follow up pelanggan',
-        icon: <HiOutlineExclamation className='h-6 w-6' />,
-    },
-    {
-        title: 'Average Payment Time',
-        value: '12 days',
-        iconBg: 'bg-indigo-100',
-        iconColor: 'text-indigo-500',
-        description: 'Rata-rata penyelesaian invoice',
-        icon: <HiOutlineClock className='h-6 w-6' />,
-    },
-];
+
 
 function SummaryCard({ card }) {
     return (
@@ -331,12 +298,85 @@ function InvoiceTable({ invoices, onEdit, onCancel, onRecordPayment, onViewDetai
     );
 }
 
+import { fetchInvoiceStats } from '../services/invoiceService';
+
 function PaymentTracking() {
+    const [stats, setStats] = useState({
+        this_month_paid: 0,
+        outstanding: 0,
+        overdue_amount: 0,
+        avg_payment_time: 0
+    });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadStats = async () => {
+            try {
+                const data = await fetchInvoiceStats();
+                if (data) {
+                    setStats(data);
+                }
+            } catch (error) {
+                console.error('Failed to load invoice stats:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadStats();
+    }, []);
+
+    const highlights = [
+        {
+            title: 'This Month Paid',
+            value: formatCurrency(stats.this_month_paid),
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-500',
+            description: 'Pembayaran masuk bulan ini',
+            icon: <HiOutlinePlus className='h-6 w-6' />,
+        },
+        {
+            title: 'Outstanding',
+            value: formatCurrency(stats.outstanding),
+            iconBg: 'bg-amber-100',
+            iconColor: 'text-amber-500',
+            description: 'Menunggu pembayaran customer',
+            icon: <HiOutlineClock className='h-6 w-6' />,
+        },
+        {
+            title: 'Overdue Amount',
+            value: formatCurrency(stats.overdue_amount),
+            iconBg: 'bg-rose-100',
+            iconColor: 'text-rose-500',
+            description: 'Segera follow up pelanggan',
+            icon: <HiOutlineExclamation className='h-6 w-6' />,
+        },
+        {
+            title: 'Average Payment Time',
+            value: `${stats.avg_payment_time} days`,
+            iconBg: 'bg-indigo-100',
+            iconColor: 'text-indigo-500',
+            description: 'Rata-rata penyelesaian invoice',
+            icon: <HiOutlineClock className='h-6 w-6' />,
+        },
+    ];
+
+    if (loading) {
+        return (
+            <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+                <h3 className='text-sm font-semibold text-slate-700'>Payment Tracking</h3>
+                <div className='mt-6 flex justify-center'>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+            </section>
+        );
+    }
+
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <h3 className='text-sm font-semibold text-slate-700'>Payment Tracking</h3>
             <div className='mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4'>
-                {paymentHighlights.map((card) => (
+                {highlights.map((card) => (
                     <article
                         key={card.title}
                         className='rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm'

@@ -96,3 +96,16 @@ export async function completeDeliveryOrder(doId) {
         handleError(`❌ Complete delivery order ${doId} failed:`, error);
     }
 }
+
+export async function cancelDeliveryOrder(doId) {
+    try {
+        const response = await api.post(`/delivery-orders/${doId}/cancel`);
+        return {
+            success: true,
+            data: response.data?.data,
+            message: response.data?.message ?? 'Delivery order berhasil dibatalkan',
+        };
+    } catch (error) {
+        handleError(`❌ Cancel delivery order ${doId} failed:`, error);
+    }
+}

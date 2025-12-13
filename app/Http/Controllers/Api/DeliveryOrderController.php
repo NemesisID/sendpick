@@ -115,14 +115,17 @@ class DeliveryOrderController extends Controller
         $request->validate([
             'source_type' => 'required|in:JO,MF',
             'source_id' => 'required|string',
-            'customer_id' => 'required|exists:customers,customer_id',
+            'customer_id' => 'nullable|exists:customers,customer_id',
             'do_date' => 'required|date',
-            'goods_summary' => 'required|string',
+            'goods_summary' => 'nullable|string',
             'priority' => 'nullable|in:Low,Medium,High,Urgent',
             'temperature' => 'nullable|string|max:50'
         ]);
 
-        // Validate source exists
+        $customerId = $request->customer_id;
+        $goodsSummary = $request->goods_summary;
+
+        // Validate source exists and fetch data
         if ($request->source_type === 'JO') {
             $source = JobOrder::where('job_order_id', $request->source_id)->first();
             if (!$source) {
@@ -131,14 +134,45 @@ class DeliveryOrderController extends Controller
                     'message' => 'Job Order tidak ditemukan'
                 ], 404);
             }
+            
+            // Auto-fill if not provided
+            if (!$customerId) $customerId = $source->customer_id;
+            if (!$goodsSummary) $goodsSummary = $source->goods_desc;
+
         } elseif ($request->source_type === 'MF') {
-            $source = Manifests::where('manifest_id', $request->source_id)->first();
+            $source = Manifests::with('jobOrders')->where('manifest_id', $request->source_id)->first();
             if (!$source) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Manifest tidak ditemukan'
                 ], 404);
             }
+
+            // Auto-fill if not provided
+            if (!$goodsSummary) $goodsSummary = $source->cargo_summary;
+            
+            if (!$customerId) {
+                // Try to get customer from the first job order in the manifest
+                $firstJob = $source->jobOrders->first();
+                if ($firstJob) {
+                    $customerId = $firstJob->customer_id;
+                }
+            }
+        }
+
+        // Final validation for required fields
+        if (!$customerId) {
+             return response()->json([
+                'success' => false,
+                'message' => 'Customer ID tidak dapat ditemukan dari sumber data. Mohon input manual.'
+            ], 422);
+        }
+        
+        if (!$goodsSummary) {
+             return response()->json([
+                'success' => false,
+                'message' => 'Ringkasan barang tidak dapat ditemukan dari sumber data. Mohon input manual.'
+            ], 422);
         }
 
         // Generate kode unik do_id
@@ -152,14 +186,16 @@ class DeliveryOrderController extends Controller
             'do_id' => $doId,
             'source_type' => $request->source_type,
             'source_id' => $request->source_id,
-            'customer_id' => $request->customer_id,
+            'customer_id' => $customerId,
             'status' => 'Pending',
             'do_date' => $request->do_date,
-            'goods_summary' => $request->goods_summary,
-            'priority' => $request->priority,
+            'goods_summary' => $goodsSummary,
             'temperature' => $request->temperature,
-            'created_by' => Auth::id()
+            'created_by' => Auth::id() ?? \App\Models\Admin::first()->user_id
         ]);
+
+        // Menambah informasi sumber ke delivery order untuk response
+        $deliveryOrder->source_info = $deliveryOrder->getSourceAttribute();
 
         return response()->json([
             'success' => true,
@@ -237,6 +273,9 @@ class DeliveryOrderController extends Controller
         if ($request->status === 'Delivered' && !$deliveryOrder->delivered_date) {
             $deliveryOrder->update(['delivered_date' => now()->toDateString()]);
         }
+
+        // Menambah informasi sumber ke delivery order untuk response
+        $deliveryOrder->source_info = $deliveryOrder->getSourceAttribute();
 
         return response()->json([
             'success' => true,
@@ -364,7 +403,7 @@ class DeliveryOrderController extends Controller
         $deliveryOrder->update([
             'status' => 'Completed',
             'completed_date' => now()->toDateString(),
-            'completed_by' => Auth::id()
+            'completed_by' => Auth::id() ?? \App\Models\Admin::first()->user_id
         ]);
 
         return response()->json([
@@ -378,6 +417,41 @@ class DeliveryOrderController extends Controller
                 'completed_by' => $deliveryOrder->completed_by,
                 'completed_at' => now()
             ]
+        ], 200);
+    }
+
+    /**
+     * Cancel delivery order
+     * Mengubah status menjadi 'Cancelled'
+     * 
+     * @param string $doId
+     * @return JsonResponse
+     */
+    public function cancel(string $doId): JsonResponse
+    {
+        $deliveryOrder = DeliveryOrder::where('do_id', $doId)->first();
+
+        if (!$deliveryOrder) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order tidak ditemukan'
+            ], 404);
+        }
+
+        if ($deliveryOrder->status === 'Cancelled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Delivery Order sudah dibatalkan'
+            ], 422);
+        }
+
+        // Update status menjadi 'Cancelled'
+        $deliveryOrder->update(['status' => 'Cancelled']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delivery Order berhasil dibatalkan',
+            'data' => $deliveryOrder
         ], 200);
     }
 }

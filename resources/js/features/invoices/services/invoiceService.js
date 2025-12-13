@@ -133,3 +133,12 @@ export async function cancelInvoice(invoiceId, reason) {
         throw normalizeError(error, 'Gagal membatalkan invoice');
     }
 }
+
+export async function fetchInvoiceStats(params = {}) {
+    try {
+        const response = await api.get(`${INVOICES_ENDPOINT}/stats`, { params });
+        return response?.data?.data ?? null;
+    } catch (error) {
+        throw normalizeError(error, 'Gagal memuat statistik invoice');
+    }
+}

@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
+import LiveTrackingMap from '../../tracking/components/LiveTrackingMap';
+import { fetchActiveVehicles } from '../services/vehicleService';
 
 const summaryCards = [
     {
@@ -60,6 +62,7 @@ const summaryCards = [
 
 const statusFilterOptions = [
     { value: 'all', label: 'Semua Status' },
+    { value: 'assigned', label: 'Assigned' },
     { value: 'onRoute', label: 'On Route' },
     { value: 'loading', label: 'Loading/Pickup' },
     { value: 'idle', label: 'Idle' },
@@ -94,82 +97,12 @@ const statusStyles = {
         bg: 'bg-rose-50',
         text: 'text-rose-600',
     },
+    assigned: {
+        label: 'Assigned',
+        bg: 'bg-sky-50',
+        text: 'text-sky-600',
+    },
 };
-
-const activeVehicles = [
-    {
-        id: 'av-001',
-        vehicle: 'B 1234 AB',
-        driver: 'Ahmad Subandi',
-        route: 'Jakarta Selatan - Bandung',
-        eta: '14:25 WIB',
-        load: '4.2 Ton',
-        temperature: '29�C',
-        lastUpdate: '5 menit lalu',
-        status: 'onRoute',
-        region: 'jabodetabek',
-    },
-    {
-        id: 'av-002',
-        vehicle: 'B 9981 SPM',
-        driver: 'Dewi Anggraini',
-        route: 'Gudang BSD - Cikarang',
-        eta: '12:10 WIB',
-        load: '3.1 Ton',
-        temperature: '27�C',
-        lastUpdate: '2 menit lalu',
-        status: 'loading',
-        region: 'jabodetabek',
-    },
-    {
-        id: 'av-003',
-        vehicle: 'D 7762 OL',
-        driver: 'Siti Kurnia',
-        route: 'Bandung - Cimahi',
-        eta: '11:45 WIB',
-        load: '2.7 Ton',
-        temperature: '24�C',
-        lastUpdate: 'Baru saja',
-        status: 'onRoute',
-        region: 'bandung',
-    },
-    {
-        id: 'av-004',
-        vehicle: 'B 7712 TK',
-        driver: 'Yudi Pranata',
-        route: 'Pool Cakung',
-        eta: '-',
-        load: '-',
-        temperature: '-',
-        lastUpdate: '18 menit lalu',
-        status: 'idle',
-        region: 'jabodetabek',
-    },
-    {
-        id: 'av-005',
-        vehicle: 'L 8823 QP',
-        driver: 'Rizky Firmansyah',
-        route: 'Surabaya - Gresik',
-        eta: '16:20 WIB',
-        load: '5.0 Ton',
-        temperature: '30�C',
-        lastUpdate: '9 menit lalu',
-        status: 'onRoute',
-        region: 'surabaya',
-    },
-    {
-        id: 'av-006',
-        vehicle: 'B 2165 XR',
-        driver: 'Joko Prabowo',
-        route: 'Workshop Internal',
-        eta: '-',
-        load: '-',
-        temperature: '-',
-        lastUpdate: '30 menit lalu',
-        status: 'maintenance',
-        region: 'jabodetabek',
-    },
-];
 
 const utilizationSnapshots = [
     {
@@ -245,7 +178,7 @@ function ActiveVehicleRow({ item }) {
     );
 }
 
-function ActiveVehicleTable({ items }) {
+function ActiveVehicleTable({ items, loading }) {
     return (
         <div className='mt-6 overflow-x-auto'>
             <table className='w-full min-w-[960px] border-collapse'>
@@ -260,7 +193,13 @@ function ActiveVehicleTable({ items }) {
                     </tr>
                 </thead>
                 <tbody className='divide-y divide-slate-100'>
-                    {items.length > 0 ? (
+                    {loading ? (
+                        <tr>
+                            <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                Memuat data kendaraan...
+                            </td>
+                        </tr>
+                    ) : items.length > 0 ? (
                         items.map((item) => <ActiveVehicleRow key={item.id} item={item} />)
                     ) : (
                         <tr>
@@ -289,11 +228,33 @@ export default function ActiveVehiclesContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [regionFilter, setRegionFilter] = useState('all');
+    const [vehicles, setVehicles] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const loadVehicles = async () => {
+            try {
+                const response = await fetchActiveVehicles();
+                if (response.success) {
+                    setVehicles(response.data);
+                }
+            } catch (error) {
+                console.error('Error fetching active vehicles:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadVehicles();
+        // Optional: Set up polling
+        const interval = setInterval(loadVehicles, 30000); // Poll every 30 seconds
+        return () => clearInterval(interval);
+    }, []);
 
     const filteredVehicles = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
 
-        return activeVehicles.filter((item) => {
+        return vehicles.filter((item) => {
             const matchesSearch =
                 term.length === 0 ||
                 item.vehicle.toLowerCase().includes(term) ||
@@ -305,7 +266,7 @@ export default function ActiveVehiclesContent() {
 
             return matchesSearch && matchesStatus && matchesRegion;
         });
-    }, [searchTerm, statusFilter, regionFilter]);
+    }, [searchTerm, statusFilter, regionFilter, vehicles]);
 
     return (
         <div className='flex flex-col gap-8'>
@@ -348,7 +309,7 @@ export default function ActiveVehiclesContent() {
                         />
                     </div>
                 </div>
-                <ActiveVehicleTable items={filteredVehicles} />
+                <ActiveVehicleTable items={filteredVehicles} loading={loading} />
             </section>
 
             <section className='grid grid-cols-1 gap-6 xl:grid-cols-1'>
@@ -356,12 +317,12 @@ export default function ActiveVehiclesContent() {
                     <div className='flex items-center justify-between'>
                         <div>
                             <h3 className='text-sm font-semibold text-slate-800'>Live Map Snapshot</h3>
-                            <p className='text-xs text-slate-400'>Integrasikan Mapbox atau Google Maps untuk akurasi posisi.</p>
+                            <p className='text-xs text-slate-400'>Real-time vehicle positions.</p>
                         </div>
                         <span className='text-xs font-semibold text-slate-400'>Update per 30 detik</span>
                     </div>
-                    <div className='mt-4 flex h-64 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400'>
-                        Map preview placeholder
+                    <div className='mt-4 flex h-96 overflow-hidden rounded-2xl border border-slate-200'>
+                        <LiveTrackingMap />
                     </div>
                 </article>
             </section>

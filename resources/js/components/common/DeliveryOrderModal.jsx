@@ -26,20 +26,41 @@ const DeliveryOrderModal = ({
     const [formData, setFormData] = useState({});
     const [errors, setErrors] = useState({});
 
-    // Mock data for dropdowns (in real app, this would come from API)
-    const mockJobOrders = [
-        { value: 'JO-2024-874', label: 'JO-2024-874 - PT Maju Jaya Logistics' },
-        { value: 'JO-2024-861', label: 'JO-2024-861 - CV Sukses Mandiri' },
-        { value: 'JO-2024-843', label: 'JO-2024-843 - UD Sumber Berkah' },
-        { value: 'JO-2024-852', label: 'JO-2024-852 - PT Nusantara Sejahtera' }
-    ];
+    const [jobOrders, setJobOrders] = useState([]);
+    const [manifests, setManifests] = useState([]);
+    const [isFetchingSources, setIsFetchingSources] = useState(false);
 
-    const mockManifests = [
-        { value: 'MF-2024-231', label: 'MF-2024-231 - Jakarta DC → Surabaya Hub' },
-        { value: 'MF-2024-229', label: 'MF-2024-229 - Bandung Hub → Makassar Hub' },
-        { value: 'MF-2024-220', label: 'MF-2024-220 - Surabaya Hub → Denpasar Hub' },
-        { value: 'MF-2024-224', label: 'MF-2024-224 - Jakarta DC → Medan Hub' }
-    ];
+    // Fetch available sources when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            const fetchSources = async () => {
+                setIsFetchingSources(true);
+                try {
+                    // Fetch Job Orders
+                    const joResponse = await import('../../features/orders/services/jobOrderService').then(module => module.fetchJobOrders({ per_page: 100 }));
+                    const joOptions = joResponse.items.map(jo => ({
+                        value: jo.job_order_id,
+                        label: `${jo.job_order_id} - ${jo.customer?.customer_name || 'Unknown Customer'}`
+                    }));
+                    setJobOrders(joOptions);
+
+                    // Fetch Manifests
+                    const mfResponse = await import('../../features/manifests/services/manifestService').then(module => module.fetchManifests({ per_page: 100 }));
+                    const mfOptions = mfResponse.items.map(mf => ({
+                        value: mf.manifest_id,
+                        label: `${mf.manifest_id} - ${mf.origin_city} → ${mf.dest_city}`
+                    }));
+                    setManifests(mfOptions);
+                } catch (error) {
+                    console.error('Failed to fetch sources:', error);
+                } finally {
+                    setIsFetchingSources(false);
+                }
+            };
+
+            fetchSources();
+        }
+    }, [isOpen]);
 
     // Initialize form data when modal opens
     useEffect(() => {
@@ -230,7 +251,7 @@ const DeliveryOrderModal = ({
                 label: formData.source_type === 'JO' ? 'Pilih Job Order' : 'Pilih Manifest',
                 type: 'select',
                 required: true,
-                options: formData.source_type === 'JO' ? mockJobOrders : mockManifests,
+                options: formData.source_type === 'JO' ? jobOrders : manifests,
                 description: `Data Customer, Rute, dan Barang akan terisi otomatis berdasarkan ${formData.source_type === 'JO' ? 'Job Order' : 'Manifest'} yang dipilih`
             });
         }
