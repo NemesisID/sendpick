@@ -21,6 +21,8 @@ const EditModal = ({
 }) => {
     const [formData, setFormData] = useState({});
     const [errors, setErrors] = useState({});
+    // State untuk alert validasi FTL/LTL multiselect
+    const [validationAlert, setValidationAlert] = useState({ show: false, message: '' });
 
     // Debug logging
     console.log('🔵 EditModal - isOpen:', isOpen, '| title:', title, '| fields count:', fields.length);
@@ -35,6 +37,7 @@ const EditModal = ({
             });
             setFormData(newFormData);
             setErrors({});
+            setValidationAlert({ show: false, message: '' }); // Reset alert saat modal dibuka
         }
     }, [isOpen, data, initialData, fields]);
 
@@ -180,44 +183,166 @@ const EditModal = ({
         switch (field.type) {
             case 'multiselect':
                 const selectedValues = Array.isArray(formData[fieldKey]) ? formData[fieldKey] : [];
+
+                // ✅ Debug logging
+                console.log('📋 Multiselect Debug:', {
+                    fieldKey,
+                    selectedValues,
+                    hasGetServiceType: !!field.getServiceType,
+                    formDataKeys: Object.keys(formData)
+                });
+
+                // ✅ Cek apakah ada FTL yang sudah terpilih
+                const hasFTLSelected = selectedValues.length > 0 && field.getServiceType &&
+                    selectedValues.some(id => {
+                        const serviceType = field.getServiceType(id);
+                        console.log(`  - Checking ${id}: serviceType = ${serviceType}`);
+                        return serviceType === 'FTL';
+                    });
+
+                // ✅ Cek apakah ada LTL yang sudah terpilih
+                const hasLTLSelected = selectedValues.length > 0 && field.getServiceType &&
+                    selectedValues.some(id => field.getServiceType(id) === 'LTL');
+
+                // ✅ Tentukan apakah dropdown harus disabled (FTL = dropdown terkunci)
+                const isDropdownDisabled = hasFTLSelected;
+
+                console.log('📋 FTL/LTL Check Result:', { hasFTLSelected, hasLTLSelected, isDropdownDisabled });
+
+                // ✅ Filter opsi berdasarkan mode saat ini
+                let filteredOptions = field.getFilteredOptions
+                    ? field.getFilteredOptions(selectedValues)
+                    : resolvedOptions?.map(opt => ({ ...opt, disabled: false, serviceType: null }));
+
+                // Jika LTL sudah terpilih, HIDE opsi FTL (bukan disable, tapi benar-benar tidak tampilkan)
+                if (hasLTLSelected && filteredOptions) {
+                    filteredOptions = filteredOptions.filter(opt => opt.serviceType !== 'FTL');
+                }
+
                 return (
                     <div className="space-y-2">
-                        <div className="relative">
-                            <select
-                                {...commonProps}
-                                value=""
-                                onChange={(e) => {
-                                    if (e.target.value && !selectedValues.includes(e.target.value)) {
-                                        const newValues = [...selectedValues, e.target.value];
-                                        handleChange(fieldKey, newValues);
+                        {/* Alert/Warning untuk validasi FTL/LTL */}
+                        {validationAlert.show && (
+                            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm animate-pulse">
+                                <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                <span className="font-medium">{validationAlert.message}</span>
+                            </div>
+                        )}
+
+                        {/* Badge indicator untuk tipe layanan yang aktif */}
+                        {selectedValues.length > 0 && field.getServiceType && (
+                            <div className="flex items-center gap-2">
+                                {(() => {
+                                    const firstServiceType = field.getServiceType(selectedValues[0]);
+                                    if (firstServiceType === 'FTL') {
+                                        return (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded-full">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
+                                                🔒 Mode FTL - Dropdown Terkunci (Hapus item untuk membuka)
+                                            </span>
+                                        );
+                                    } else if (firstServiceType === 'LTL') {
+                                        return (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z" />
+                                                </svg>
+                                                🔓 Mode LTL - Multi-Select Aktif (Hanya sesama LTL)
+                                            </span>
+                                        );
                                     }
-                                }}
-                            >
-                                <option value="">-- Pilih Job Order --</option>
-                                {resolvedOptions?.filter(option => !selectedValues.includes(option.value)).map(option => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                                    return null;
+                                })()}
+                            </div>
+                        )}
+
+                        <div className="relative">
+                            {/* ✅ Jika FTL terpilih, tampilkan dropdown disabled dengan pesan */}
+                            {isDropdownDisabled ? (
+                                <div className="w-full rounded-xl border-2 px-4 py-3 text-sm font-medium bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200 flex items-center justify-between">
+                                    <span>🔒 Dropdown terkunci (FTL bersifat eksklusif)</span>
+                                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                            ) : (
+                                <select
+                                    {...commonProps}
+                                    value=""
+                                    onChange={(e) => {
+                                        const newValue = e.target.value;
+                                        if (newValue && !selectedValues.includes(newValue)) {
+                                            // ✅ Validasi sebelum menambah item baru
+                                            if (field.validateSelection) {
+                                                const validation = field.validateSelection(selectedValues, newValue);
+                                                if (!validation.valid) {
+                                                    // Tampilkan alert dan jangan tambahkan item
+                                                    setValidationAlert({ show: true, message: validation.error });
+                                                    // Auto-hide after 4 seconds
+                                                    setTimeout(() => setValidationAlert({ show: false, message: '' }), 4000);
+                                                    return;
+                                                }
+                                            }
+
+                                            // Clear any previous alert
+                                            setValidationAlert({ show: false, message: '' });
+
+                                            const newValues = [...selectedValues, newValue];
+                                            handleChange(fieldKey, newValues);
+                                        }
+                                    }}
+                                >
+                                    <option value="">-- Pilih Job Order --</option>
+                                    {filteredOptions?.filter(option => !selectedValues.includes(option.value)).map(option => (
+                                        <option
+                                            key={option.value}
+                                            value={option.value}
+                                            disabled={option.disabled}
+                                            className={option.disabled ? 'text-slate-400 bg-slate-50' : ''}
+                                        >
+                                            {option.label}
+                                            {option.serviceType && ` [${option.serviceType}]`}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                         </div>
                         {selectedValues.length > 0 && (
                             <div className="flex flex-wrap gap-2 mt-2">
                                 {selectedValues.map(value => {
                                     const option = resolvedOptions?.find(opt => opt.value === value);
+                                    const serviceType = field.getServiceType ? field.getServiceType(value) : null;
+
+                                    // Warna badge berdasarkan service type
+                                    let badgeClass = 'bg-indigo-100 text-indigo-800';
+                                    if (serviceType === 'FTL') {
+                                        badgeClass = 'bg-purple-100 text-purple-800 border border-purple-300';
+                                    } else if (serviceType === 'LTL') {
+                                        badgeClass = 'bg-blue-100 text-blue-800 border border-blue-300';
+                                    }
+
                                     return (
                                         <span
                                             key={value}
-                                            className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-100 text-indigo-800 text-sm rounded-lg"
+                                            className={`inline-flex items-center gap-2 px-3 py-1.5 ${badgeClass} text-sm rounded-lg font-medium`}
                                         >
+                                            {serviceType && (
+                                                <span className="text-xs font-bold opacity-75">[{serviceType}]</span>
+                                            )}
                                             {option?.label || value}
                                             <button
                                                 type="button"
                                                 onClick={() => {
                                                     const newValues = selectedValues.filter(v => v !== value);
+                                                    // Reset alert saat menghapus item
+                                                    setValidationAlert({ show: false, message: '' });
                                                     handleChange(fieldKey, newValues);
                                                 }}
-                                                className="text-indigo-600 hover:text-indigo-800"
+                                                className="hover:opacity-70 transition-opacity"
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
