@@ -500,7 +500,9 @@ class ManifestController extends Controller
                         'order_value' => $jobOrder->order_value,
                         'status' => $jobOrder->status,
                         'assignment' => $assignment ? [
+                            'driver_id' => $assignment->driver_id,
                             'driver_name' => $assignment->driver->driver_name ?? null,
+                            'vehicle_id' => $assignment->vehicle_id,
                             'vehicle_plate' => $assignment->vehicle->license_plate ?? null,
                         ] : null,
                     ];

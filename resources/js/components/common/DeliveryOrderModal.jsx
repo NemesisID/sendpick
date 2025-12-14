@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
+import { fetchDrivers } from '../../features/drivers/services/driverService';
+import { fetchVehicles } from '../../features/vehicles/services/vehicleService';
 
 /**
  * DeliveryOrderModal - Form untuk membuat Delivery Order sesuai SRS
@@ -28,19 +30,22 @@ const DeliveryOrderModal = ({
 
     const [jobOrders, setJobOrders] = useState([]);
     const [manifests, setManifests] = useState([]);
+    const [drivers, setDrivers] = useState([]);
+    const [vehicles, setVehicles] = useState([]);
     const [isFetchingSources, setIsFetchingSources] = useState(false);
 
-    // Fetch available sources when modal opens
+    // Fetch available sources and options when modal opens
     useEffect(() => {
         if (isOpen) {
-            const fetchSources = async () => {
+            const fetchSourcesAndOptions = async () => {
                 setIsFetchingSources(true);
                 try {
                     // Fetch Job Orders
                     const joResponse = await import('../../features/orders/services/jobOrderService').then(module => module.fetchJobOrders({ per_page: 100 }));
                     const joOptions = joResponse.items.map(jo => ({
                         value: jo.job_order_id,
-                        label: `${jo.job_order_id} - ${jo.customer?.customer_name || 'Unknown Customer'}`
+                        label: `${jo.job_order_id} - ${jo.customer?.customer_name || 'Unknown Customer'}`,
+                        details: jo // Store full details for auto-fill logic
                     }));
                     setJobOrders(joOptions);
 
@@ -51,14 +56,29 @@ const DeliveryOrderModal = ({
                         label: `${mf.manifest_id} - ${mf.origin_city} → ${mf.dest_city}`
                     }));
                     setManifests(mfOptions);
+
+                    // Fetch Drivers
+                    const driverRes = await fetchDrivers({ per_page: 100, status: 'Active' }); // Or 'AVAILABLE'
+                    setDrivers((driverRes.items || []).map(d => ({
+                        value: d.driver_id,
+                        label: d.driver_name
+                    })));
+
+                    // Fetch Vehicles
+                    const vehicleRes = await fetchVehicles({ per_page: 100, status: 'Active' });
+                    setVehicles((vehicleRes.items || []).map(v => ({
+                        value: v.vehicle_id,
+                        label: `${v.plate_no} - ${v.vehicle_type?.name || v.brand || ''}`
+                    })));
+
                 } catch (error) {
-                    console.error('Failed to fetch sources:', error);
+                    console.error('Failed to fetch sources or options:', error);
                 } finally {
                     setIsFetchingSources(false);
                 }
             };
 
-            fetchSources();
+            fetchSourcesAndOptions();
         }
     }, [isOpen]);
 
@@ -68,12 +88,50 @@ const DeliveryOrderModal = ({
             const newFormData = {
                 source_type: initialData?.source_type || '',
                 source_id: initialData?.source_id || '',
-                do_date: initialData?.do_date || ''
+                do_date: initialData?.do_date || '',
+                driver_id: initialData?.driver_id || '',
+                vehicle_id: initialData?.vehicle_id || ''
             };
             setFormData(newFormData);
             setErrors({});
         }
     }, [isOpen, initialData]);
+
+    // FTL Auto-fill Logic
+    useEffect(() => {
+        if (formData.source_type === 'JO' && formData.source_id && jobOrders.length > 0) {
+            const selectedSource = jobOrders.find(jo => jo.value === formData.source_id);
+            if (selectedSource && selectedSource.details) {
+                const jobDetails = selectedSource.details;
+                const isFTL = jobDetails.order_type === 'FTL' || jobDetails.jobOrderType === 'FTL' || jobDetails.service_type === 'FTL';
+
+                if (isFTL) {
+                    // Auto-fill for FTL
+                    const assignments = Array.isArray(jobDetails.assignments) ? jobDetails.assignments : [];
+                    const activeAssignment = assignments.find(a => a.status === 'Active') || assignments[0];
+
+                    const driverId = activeAssignment?.driver_id || jobDetails.driver_id || '';
+                    const vehicleId = activeAssignment?.vehicle_id || jobDetails.vehicle_id || '';
+
+                    setFormData(prev => ({
+                        ...prev,
+                        driver_id: driverId,
+                        vehicle_id: vehicleId
+                    }));
+                } else {
+                    // LTL -> Reset to empty (Manual Input)
+                    // Only reset if they haven't been manually set? 
+                    // Requirement says: "TETAP KOSONG (Manual Input)".
+                    // It's safer to clear it on source change to avoid carrying over FTL driver to LTL
+                    setFormData(prev => ({
+                        ...prev,
+                        driver_id: '',
+                        vehicle_id: ''
+                    }));
+                }
+            }
+        }
+    }, [formData.source_id, formData.source_type, jobOrders]);
 
     // Handle input change
     const handleChange = (name, value) => {
@@ -263,6 +321,37 @@ const DeliveryOrderModal = ({
             type: 'date',
             required: true,
             description: 'Tanggal ketika Delivery Order ini akan dijalankan'
+        });
+
+        // Check if selected source is FTL (for disabling fields)
+        let isFTL = false;
+        if (formData.source_type === 'JO' && formData.source_id) {
+            const selectedSource = jobOrders.find(jo => jo.value === formData.source_id);
+            if (selectedSource && selectedSource.details) {
+                const d = selectedSource.details;
+                isFTL = d.order_type === 'FTL' || d.jobOrderType === 'FTL' || d.service_type === 'FTL';
+            }
+        }
+
+        // Add Driver & Vehicle fields (always visible, auto-filled & locked for FTL)
+        fields.push({
+            name: 'driver_id',
+            label: 'Assign Driver (Opsional)',
+            type: 'select',
+            required: false,
+            options: [{ value: '', label: '-- Pilih Driver --' }, ...drivers],
+            disabled: isFTL,
+            description: isFTL ? 'Driver otomatis dari Job Order (FTL)' : 'Pilih driver secara manual (LTL/Manifest)'
+        });
+
+        fields.push({
+            name: 'vehicle_id',
+            label: 'Assign Kendaraan (Opsional)',
+            type: 'select',
+            required: false,
+            options: [{ value: '', label: '-- Pilih Kendaraan --' }, ...vehicles],
+            disabled: isFTL,
+            description: isFTL ? 'Kendaraan otomatis dari Job Order (FTL)' : 'Pilih kendaraan secara manual'
         });
 
         return fields;

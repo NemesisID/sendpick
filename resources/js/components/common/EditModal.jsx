@@ -40,6 +40,8 @@ const EditModal = ({
 
     // Handle input change
     const handleChange = (name, value) => {
+        console.log('🔄 EditModal handleChange called:', { name, value });
+
         if (onFieldChange) {
             // Use custom field change handler if provided
             onFieldChange(name, value, setFormData);
@@ -53,13 +55,20 @@ const EditModal = ({
 
                 // Auto-fill data jika ini adalah field jobOrders dan ada calculateCombinedData
                 if (name === 'jobOrders' && calculateCombinedData) {
+                    console.log('📝 jobOrders field changed, calling calculateCombinedData...');
                     const selectedJobOrders = Array.isArray(value) ? value : (value ? [value] : []);
-                    const combinedData = calculateCombinedData(selectedJobOrders);
+                    console.log('📝 Selected Job Order IDs:', selectedJobOrders);
 
-                    return {
+                    const combinedData = calculateCombinedData(selectedJobOrders);
+                    console.log('📝 Combined Data Result:', combinedData);
+                    console.log('📝 Driver Value:', combinedData?.driver, '| Vehicle Value:', combinedData?.vehicle);
+
+                    const finalData = {
                         ...newData,
                         ...combinedData
                     };
+                    console.log('📝 Final Form Data after merge:', finalData);
+                    return finalData;
                 }
 
                 return newData;
@@ -145,7 +154,7 @@ const EditModal = ({
                 w-full rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all duration-200
                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
                 placeholder:text-slate-400
-                ${field.disabled || field.readOnly
+                ${(typeof field.disabled === 'function' ? field.disabled(formData) : field.disabled) || (typeof field.readOnly === 'function' ? field.readOnly(formData) : field.readOnly)
                     ? 'bg-slate-100 text-slate-500 cursor-not-allowed border-slate-200'
                     : errors[fieldKey]
                         ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500'
@@ -154,8 +163,8 @@ const EditModal = ({
                             : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:bg-indigo-50/50'
                 }
             `,
-            disabled: isLoading || field.disabled,
-            readOnly: field.readOnly
+            disabled: isLoading || (typeof field.disabled === 'function' ? field.disabled(formData) : field.disabled),
+            readOnly: typeof field.readOnly === 'function' ? field.readOnly(formData) : field.readOnly
         };
 
         if (field.type === 'select' && field.multiple) {

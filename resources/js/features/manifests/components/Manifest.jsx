@@ -616,12 +616,6 @@ function ManifestTable({
     );
 }
 
-
-
-
-
-
-
 export default function ManifestContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -701,6 +695,22 @@ export default function ManifestContent() {
 
                     // The API returns { data: { available_job_orders: [...] } }
                     const orders = response?.available_job_orders || [];
+
+                    // DEBUG: Log raw API response
+                    console.log('📡 Raw API Response for Job Orders:', response);
+                    console.log('📡 Available Job Orders:', orders);
+                    if (orders.length > 0) {
+                        console.log('📡 First Job Order Structure:', {
+                            job_order_id: orders[0].job_order_id,
+                            order_type: orders[0].order_type,
+                            assignment: orders[0].assignment,
+                            assignments: orders[0].assignments,
+                            driver_id: orders[0].driver_id,
+                            vehicle_id: orders[0].vehicle_id,
+                            fullObject: orders[0]
+                        });
+                    }
+
                     setRawAvailableJobOrders(Array.isArray(orders) ? orders : []);
                 } catch (error) {
                     console.error("Failed to load job orders", error);
@@ -721,18 +731,94 @@ export default function ManifestContent() {
     }, [rawAvailableJobOrders]);
 
     const availableDrivers = useMemo(() => {
-        return (drivers || []).map(d => ({
-            value: d.driver_id,
+        const baseDrivers = (drivers || []).map(d => ({
+            value: String(d.driver_id),
             label: d.driver_name
         }));
-    }, [drivers]);
+
+        // Merge drivers found in Job Orders (to handle FTL assignments that might be missing from base list)
+        (rawAvailableJobOrders || []).forEach(jo => {
+            let dId = jo.driver_id || jo.assigned_driver_id;
+            let dName = jo.driver_name || jo.driver;
+
+            // Check assignment (Singular - New Backend Structure)
+            if (jo.assignment) {
+                dId = jo.assignment.driver_id || dId;
+                dName = jo.assignment.driver_name || dName;
+            }
+            // Check assignments (Array - Legacy/Fallback)
+            else if (Array.isArray(jo.assignments)) {
+                const active = jo.assignments.find(a => a.status === 'Active') || jo.assignments[0];
+                if (active) {
+                    dId = active.driver_id || dId;
+                    dName = active.driver_name || active.driver?.driver_name || active.driver?.name || dName;
+                }
+            }
+
+            if (dId) {
+                const exists = baseDrivers.some(d => String(d.value) === String(dId));
+                if (!exists) {
+                    const label = dName || `Driver ${dId}`;
+                    console.log(`Injecting Auto-Driver: ${dId} - ${label}`);
+                    baseDrivers.push({ value: String(dId), label: label.includes('(Auto)') ? label : `${label} (Auto)` });
+                }
+            }
+        });
+
+        return baseDrivers;
+    }, [drivers, rawAvailableJobOrders]);
 
     const availableVehicles = useMemo(() => {
-        return (vehicles || []).map(v => ({
-            value: v.vehicle_id,
+        const baseVehicles = (vehicles || []).map(v => ({
+            value: String(v.vehicle_id),
             label: `${v.plate_no} - ${v.vehicle_type?.name || v.brand || 'Unknown'}`
         }));
-    }, [vehicles]);
+
+        // Merge vehicles found in Job Orders
+        (rawAvailableJobOrders || []).forEach(jo => {
+            let vId = jo.vehicle_id || jo.assigned_vehicle_id;
+            let vPlate = jo.plate_no || jo.vehicle_plate || jo.vehicle;
+
+            // Check assignment (Singular - New Backend Structure)
+            if (jo.assignment) {
+                vId = jo.assignment.vehicle_id || vId;
+                vPlate = jo.assignment.vehicle_plate || vPlate;
+            }
+            // Check assignments (Array - Legacy/Fallback)
+            else if (Array.isArray(jo.assignments)) {
+                const active = jo.assignments.find(a => a.status === 'Active') || jo.assignments[0];
+                if (active) {
+                    vId = active.vehicle_id || vId;
+                    vPlate = active.plate_no || active.vehicle?.plate_no || active.vehicle?.plate_number || vPlate;
+                }
+            }
+
+            if (vId) {
+                const exists = baseVehicles.some(v => String(v.value) === String(vId));
+                if (!exists) {
+                    const label = vPlate || `Vehicle ${vId}`;
+                    console.log(`Injecting Auto-Vehicle: ${vId} - ${label}`);
+                    baseVehicles.push({ value: String(vId), label: label.includes('(Auto)') ? label : `${label} (Auto)` });
+                }
+            }
+        });
+
+        return baseVehicles;
+    }, [vehicles, rawAvailableJobOrders]);
+
+    // Helper to check if FTL is selected in form data
+    const isFTLSelected = (formData) => {
+        const selectedIds = formData.jobOrders || [];
+        if (!selectedIds.length) return false;
+
+        const selectedData = availableJobOrders
+            .filter(option => selectedIds.includes(option.value))
+            .map(option => option.details);
+
+        return selectedData.some(jo =>
+            (jo.order_type === 'FTL' || jo.jobOrderType === 'FTL' || jo.service_type === 'FTL')
+        );
+    };
 
     const manifestFields = [
         {
@@ -750,17 +836,23 @@ export default function ManifestContent() {
         { name: 'totalWeight', label: 'Total Weight (kg)', type: 'text', required: false, readOnly: true },
         {
             name: 'driver',
-            label: 'Driver (Opsional)',
+            label: 'Driver',
             type: 'select',
             required: false,
-            options: availableDrivers
+            options: availableDrivers,
+            // Disable if FTL (Auto-filled & Locked)
+            disabled: (formData) => isFTLSelected(formData),
+            description: 'Untuk FTL, driver terisi otomatis dan terkunci.'
         },
         {
             name: 'vehicle',
-            label: 'Vehicle (Opsional)',
+            label: 'Vehicle',
             type: 'select',
             required: false,
-            options: availableVehicles
+            options: availableVehicles,
+            // Disable if FTL (Auto-filled & Locked)
+            disabled: (formData) => isFTLSelected(formData),
+            description: 'Untuk FTL, kendaraan terisi otomatis dan terkunci.'
         },
     ];
 
@@ -772,7 +864,9 @@ export default function ManifestContent() {
                 origin: '',
                 destination: '',
                 packages: 0,
-                totalWeight: ''
+                totalWeight: '',
+                driver: '',
+                vehicle: ''
             };
         }
 
@@ -786,7 +880,9 @@ export default function ManifestContent() {
                 origin: '',
                 destination: '',
                 packages: 0,
-                totalWeight: ''
+                totalWeight: '',
+                driver: '',
+                vehicle: ''
             };
         }
 
@@ -818,13 +914,114 @@ export default function ManifestContent() {
         const uniqueGoods = [...new Set(selectedData.map(data => data.goods_desc).filter(Boolean))];
         const cargoSummary = uniqueGoods.join(', ');
 
+        // --- FTL/LTL LOGIC ---
+        // Cek apakah Job Order yang dipilih bertipe FTL
+        // Asumsi: Jika salah satu FTL, maka manifest dianggap FTL (atau biasanya FTL cuma 1 JO)
+        const primaryJob = selectedData[0];
+
+        // DEBUG: Log struktur data Job Order yang dipilih
+        console.log('📦 Selected Job Order Data:', {
+            job_order_id: primaryJob?.job_order_id,
+            order_type: primaryJob?.order_type,
+            service_type: primaryJob?.service_type,
+            assignment: primaryJob?.assignment,
+            assignments: primaryJob?.assignments,
+            driver_id: primaryJob?.driver_id,
+            vehicle_id: primaryJob?.vehicle_id,
+            fullObject: primaryJob
+        });
+
+        const isFTL = selectedData.some(jo =>
+            (jo.order_type === 'FTL' || jo.jobOrderType === 'FTL' || jo.service_type === 'FTL' || (jo.order_type || '').includes('FTL'))
+        );
+
+        console.log('🚛 Is FTL Order?', isFTL);
+
+        let autoDriver = '';
+        let autoVehicle = '';
+
+        // ✅ FIXED: Deklarasi variabel yang hilang
+        let foundDriverId = null;
+        let foundVehicleId = null;
+
+        if (isFTL && primaryJob) {
+            console.log('🔍 FTL Detected, attempting auto-fill for:', primaryJob);
+
+            // 1. Coba ambil dari assignment (Singular - Priority from Backend)
+            if (primaryJob.assignment) {
+                console.log('📍 Found assignment object:', primaryJob.assignment);
+                foundDriverId = primaryJob.assignment.driver_id;
+                foundVehicleId = primaryJob.assignment.vehicle_id;
+            }
+
+            // 2. Fallback: Coba ambil dari assignments array (Legacy)
+            if (!foundDriverId && Array.isArray(primaryJob.assignments) && primaryJob.assignments.length > 0) {
+                const activeAssignment = primaryJob.assignments.find(a => a.status === 'Active') || primaryJob.assignments[0];
+                console.log('📍 Found assignments array, using:', activeAssignment);
+                if (activeAssignment) {
+                    foundDriverId = foundDriverId || activeAssignment.driver_id;
+                    foundVehicleId = foundVehicleId || activeAssignment.vehicle_id;
+                }
+            }
+
+            // 3. Fallback: Cek fields langsung (Flattened API response)
+            if (!foundDriverId) {
+                foundDriverId = primaryJob.driver_id || primaryJob.assigned_driver_id;
+                console.log('📍 Fallback to direct field driver_id:', foundDriverId);
+            }
+            if (!foundVehicleId) {
+                foundVehicleId = primaryJob.vehicle_id || primaryJob.assigned_vehicle_id;
+                console.log('📍 Fallback to direct field vehicle_id:', foundVehicleId);
+            }
+
+            // 4. Fallback: Lookup by Name if ID is missing (use availableDrivers/Vehicles lists)
+            if (!foundDriverId) {
+                const searchName = primaryJob.driver_name || primaryJob.driver || primaryJob.assignment?.driver_name;
+                if (searchName) {
+                    console.log('📍 Searching driver by name:', searchName);
+                    const match = availableDrivers.find(d => d.label === searchName || d.label.includes(searchName));
+                    if (match) {
+                        foundDriverId = match.value;
+                        console.log('✅ Found driver by name:', match);
+                    }
+                }
+            }
+
+            if (!foundVehicleId) {
+                const searchPlate = primaryJob.plate_no || primaryJob.vehicle_plate || primaryJob.vehicle || primaryJob.assignment?.vehicle_plate;
+                if (searchPlate) {
+                    console.log('📍 Searching vehicle by plate:', searchPlate);
+                    const match = availableVehicles.find(v => v.label.includes(searchPlate));
+                    if (match) {
+                        foundVehicleId = match.value;
+                        console.log('✅ Found vehicle by plate:', match);
+                    }
+                }
+            }
+
+            // Convert to String for dropdown compatibility
+            if (foundDriverId) {
+                autoDriver = String(foundDriverId);
+            }
+            if (foundVehicleId) {
+                autoVehicle = String(foundVehicleId);
+            }
+
+            console.log('✅ Auto-fill Result:', { autoDriver, autoVehicle, foundDriverId, foundVehicleId });
+        } else {
+            console.log('📋 LTL Order - Driver & Vehicle will be empty for manual selection');
+        }
+        // Jika LTL (Not FTL), driver & vehicle tetap kosong ('') -> Manual Input
+
         return {
             customer,
             origin,
             destination,
             packages: totalPackages,
             totalWeight: `${totalWeightKg.toLocaleString('id-ID')} kg`,
-            cargoSummary
+            cargoSummary,
+            driver: autoDriver,
+            vehicle: autoVehicle
         };
     };
 
