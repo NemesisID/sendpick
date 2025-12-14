@@ -390,6 +390,19 @@ const EditModal = ({
                     <div className={`flex-1 ${hideContentScrollbar ? 'space-y-4 overflow-hidden' : 'space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[60vh]'}`}>
                         {fields.map((field, index) => {
                             const fieldKey = field.key || field.name;
+
+                            // If hidden field, render directly without wrapper/label
+                            if (field.type === 'hidden') {
+                                return (
+                                    <input
+                                        key={fieldKey}
+                                        type="hidden"
+                                        name={fieldKey}
+                                        value={formData[fieldKey] || ''}
+                                    />
+                                );
+                            }
+
                             const staggerClass = `field-stagger-${Math.min(index + 1, 8)}`;
                             return (
                                 <div key={fieldKey} className={`group field-wrapper ${staggerClass}`}>

@@ -256,7 +256,9 @@ class DeliveryOrderController extends Controller
             'goods_summary' => 'required|string',
             'priority' => 'nullable|in:Low,Medium,High,Urgent',
             'temperature' => 'nullable|string|max:50',
-            'status' => 'in:Pending,Assigned,In Transit,Delivered,Completed'
+            'status' => 'in:Pending,Assigned,In Transit,Delivered,Completed',
+            'driver_id' => 'nullable|exists:drivers,driver_id',
+            'vehicle_id' => 'nullable|exists:vehicles,vehicle_id'
         ]);
 
         // Jika datanya berhasil divalidasi, update delivery order
@@ -268,6 +270,62 @@ class DeliveryOrderController extends Controller
             'temperature',
             'status'
         ]));
+
+        // Handle Driver & Vehicle Assignment
+        if ($request->has('driver_id') || $request->has('vehicle_id')) {
+            $driverId = $request->driver_id;
+            $vehicleId = $request->vehicle_id;
+
+            if ($deliveryOrder->source_type === 'JO') {
+                // Update or Create Assignment for Job Order
+                $jobOrder = JobOrder::where('job_order_id', $deliveryOrder->source_id)->first();
+                if ($jobOrder) {
+                    // Find active assignment
+                    $assignment = \App\Models\Assignment::where('job_order_id', $jobOrder->job_order_id)
+                        ->where('status', 'Active')
+                        ->first();
+
+                    if ($assignment) {
+                        // Update existing assignment
+                        $assignment->update([
+                            'driver_id' => $driverId ?? $assignment->driver_id,
+                            'vehicle_id' => $vehicleId ?? $assignment->vehicle_id,
+                            'assigned_at' => now()
+                        ]);
+                    } else {
+                        // Create new assignment if we have both driver and vehicle (or at least one if allowed)
+                        if ($driverId && $vehicleId) {
+                            \App\Models\Assignment::create([
+                                'job_order_id' => $jobOrder->job_order_id,
+                                'driver_id' => $driverId,
+                                'vehicle_id' => $vehicleId,
+                                'status' => 'Active',
+                                'assigned_at' => now(),
+                                'notes' => 'Assigned via Delivery Order Edit'
+                            ]);
+                            
+                            // If status is Pending, upgrade to Assigned
+                             if ($deliveryOrder->status === 'Pending') {
+                                $deliveryOrder->update(['status' => 'Assigned']);
+                            }
+                        }
+                    }
+                }
+            } elseif ($deliveryOrder->source_type === 'MF') {
+                // Update Manifest directly
+                $manifest = Manifests::where('manifest_id', $deliveryOrder->source_id)->first();
+                if ($manifest) {
+                    $manifest->update([
+                        'driver_id' => $driverId ?? $manifest->driver_id,
+                        'vehicle_id' => $vehicleId ?? $manifest->vehicle_id
+                    ]);
+                     // If status is Pending, upgrade to Assigned
+                     if ($deliveryOrder->status === 'Pending') {
+                        $deliveryOrder->update(['status' => 'Assigned']);
+                    }
+                }
+            }
+        }
 
         // If status is delivered, set delivered_date
         if ($request->status === 'Delivered' && !$deliveryOrder->delivered_date) {
@@ -342,6 +400,39 @@ class DeliveryOrderController extends Controller
             'notes' => 'nullable|string'
         ]);
 
+        $driverId = $request->driver_id;
+        $vehicleId = $request->vehicle_id;
+        $notes = $request->notes;
+
+        // Perform Assignment Logic based on source type
+        if ($deliveryOrder->source_type === 'JO') {
+            $jobOrder = JobOrder::where('job_order_id', $deliveryOrder->source_id)->first();
+            if ($jobOrder) {
+                // Deactivate previous active assignments
+                \App\Models\Assignment::where('job_order_id', $jobOrder->job_order_id)
+                    ->where('status', 'Active')
+                    ->update(['status' => 'Inactive']);
+
+                // Create new assignment
+                \App\Models\Assignment::create([
+                    'job_order_id' => $jobOrder->job_order_id,
+                    'driver_id' => $driverId,
+                    'vehicle_id' => $vehicleId,
+                    'status' => 'Active',
+                    'assigned_at' => now(),
+                    'notes' => $notes ?? 'Assigned via DO Assignment'
+                ]);
+            }
+        } elseif ($deliveryOrder->source_type === 'MF') {
+             $manifest = Manifests::where('manifest_id', $deliveryOrder->source_id)->first();
+             if ($manifest) {
+                 $manifest->update([
+                     'driver_id' => $driverId,
+                     'vehicle_id' => $vehicleId
+                 ]);
+             }
+        }
+
         // Jika validasi berhasil, maka update status delivery order menjadi 'Assigned'
         $deliveryOrder->update(['status' => 'Assigned']);
 
@@ -350,8 +441,8 @@ class DeliveryOrderController extends Controller
             'message' => 'Driver assigned to Delivery Order successfully',
             'data' => [
                 'do_id' => $deliveryOrder->do_id,
-                'driver_id' => $request->driver_id,
-                'vehicle_id' => $request->vehicle_id,
+                'driver_id' => $driverId,
+                'vehicle_id' => $vehicleId,
                 'status' => $deliveryOrder->status,
                 'assigned_at' => now()
             ]
