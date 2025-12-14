@@ -1,10 +1,12 @@
-﻿import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState, useEffect } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import DeliveryOrderModal from '../../../components/common/DeliveryOrderModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import EditModal from '../../../components/common/EditModal';
 import DeliveryOrderDetailModal from './DeliveryOrderDetailModal';
 import { useDeliveryOrders } from '../hooks/useDeliveryOrders';
+import { fetchDrivers } from '../../drivers/services/driverService';
+import { fetchVehicles } from '../../vehicles/services/vehicleService';
 
 const summaryCardsBase = [
     {
@@ -542,11 +544,21 @@ function DeliveryOrderTable({
 
 
 
+// Helper to format status (AVAILABLE -> Available)
+const formatStatus = (status) => {
+    if (!status) return 'Unknown';
+    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase().replace('_', ' ');
+};
+
 export default function DeliveryOrderContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [priorityFilter, setPriorityFilter] = useState('all');
     const [alertFilter, setAlertFilter] = useState('all');
+
+    // Data lists for options
+    const [drivers, setDrivers] = useState([]);
+    const [vehicles, setVehicles] = useState([]);
 
     // Modal states
     const [editModal, setEditModal] = useState({ isOpen: false, delivery: null });
@@ -567,6 +579,26 @@ export default function DeliveryOrderContent() {
         mutationState,
         resetMutationStatus,
     } = useDeliveryOrders({ per_page: 50 });
+
+    // Fetch drivers and vehicles on mount
+    useEffect(() => {
+        const fetchOptions = async () => {
+            try {
+                // Fetch Drivers
+                const driverRes = await fetchDrivers({ per_page: 100 });
+                setDrivers(driverRes.items || []);
+
+                // Fetch Vehicles
+                const vehicleRes = await fetchVehicles({ per_page: 100 });
+                setVehicles(vehicleRes.items || []);
+
+            } catch (err) {
+                console.error("Error fetching options:", err);
+            }
+        };
+
+        fetchOptions();
+    }, []);
 
     const computedRecords = useMemo(() => {
         if (!Array.isArray(deliveryOrders)) return [];
@@ -718,111 +750,153 @@ export default function DeliveryOrderContent() {
     ];
 
     // Get delivery order form fields for editing existing DO
-    const getDeliveryOrderEditFields = (delivery) => [
-        {
-            name: 'source_display',
-            label: 'Sumber',
-            type: 'text',
-            required: false,
-            readOnly: true,
-            defaultValue: delivery?.jobOrder ? `Job Order: ${delivery.jobOrder}` : `Manifest: ${delivery.manifestId}`,
-            description: 'Sumber DO tidak dapat diubah setelah dibuat'
-        },
-        {
-            name: 'customer_display',
-            label: 'Customer',
-            type: 'text',
-            required: false,
-            readOnly: true,
-            defaultValue: delivery?.customer || '',
-            description: 'Data customer diambil dari sumber DO'
-        },
-        {
-            name: 'route_display',
-            label: 'Rute',
-            type: 'text',
-            required: false,
-            readOnly: true,
-            defaultValue: delivery?.route || '',
-            description: 'Rute diambil dari sumber DO'
-        },
-        {
-            name: 'packages_display',
-            label: 'Ringkasan Barang',
-            type: 'text',
-            required: false,
-            readOnly: true,
-            defaultValue: delivery?.packages ? `${delivery.packages} koli` : '',
-            description: 'Informasi barang diambil dari sumber DO'
-        },
-        {
-            name: 'departure',
-            label: 'Tanggal Keberangkatan',
-            type: 'datetime-local',
-            required: true,
-            defaultValue: delivery?.raw?.departure
-                ? convertDateTimeForInput(delivery.raw.departure)
-                : delivery?.raw?.do_date
-                    ? convertDateTimeForInput(delivery.raw.do_date)
-                    : '',
-            description: 'Tanggal dan waktu keberangkatan dapat diubah'
-        },
-        {
-            name: 'eta',
-            label: 'Estimasi Tiba (ETA)',
-            type: 'datetime-local',
-            required: true,
-            defaultValue: delivery?.raw?.eta ? convertDateTimeForInput(delivery.raw.eta) : '',
-            description: 'Estimasi waktu tiba dapat diubah'
-        },
-        {
-            name: 'driver_id',
-            label: 'Driver',
-            type: 'select',
-            required: false,
-            options: [
-                { value: '', label: '-- Pilih Driver --' },
-                { value: '', label: '-- Pilih Driver --' }
-            ],
-            defaultValue: delivery?.raw?.assigned_driver_id ?? '',
-            description: 'Driver dapat diubah atau diganti'
-        },
-        {
-            name: 'vehicle_id',
-            label: 'Kendaraan',
-            type: 'select',
-            required: false,
-            options: [
-                { value: '', label: '-- Pilih Kendaraan --' },
-                { value: '', label: '-- Pilih Kendaraan --' }
-            ],
-            defaultValue: delivery?.raw?.assigned_vehicle_id ?? '',
-            description: 'Kendaraan dapat diubah atau diganti'
-        },
-        {
-            name: 'priority',
-            label: 'Prioritas',
-            type: 'select',
-            required: true,
-            options: [
-                { value: 'normal', label: 'Normal' },
-                { value: 'high', label: 'High Priority' },
-                { value: 'critical', label: 'Critical - Cold Chain' }
-            ],
-            defaultValue: delivery?.priority || 'normal',
-            description: 'Prioritas pengiriman dapat diubah'
-        },
-        {
-            name: 'notes',
-            label: 'Catatan',
-            type: 'textarea',
-            required: false,
-            rows: 3,
-            defaultValue: delivery?.notes || '',
-            placeholder: 'Catatan tambahan untuk delivery order ini',
-            description: 'Catatan khusus untuk driver atau tim operasional'
-        }
-    ];
+    const getDeliveryOrderEditFields = (delivery) => {
+        // --- LOGIC FILTERING (Requested by User) ---
+        const currentDriverId = delivery?.raw?.assigned_driver_id || delivery?.raw?.driver_id;
+        const currentVehicleId = delivery?.raw?.assigned_vehicle_id || delivery?.raw?.vehicle_id;
+
+        // "Tampilkan Driver JIKA (Status == 'AVAILABLE') ATAU (Driver.id == currentSelectedDriverId)"
+        const filteredDrivers = drivers
+            .filter(d => (d.status === 'AVAILABLE' || d.status === 'Active' || d.status === 'Aktif' || d.driver_id === currentDriverId))
+            .map(d => ({
+                value: d.driver_id,
+                label: `${d.driver_name} (${formatStatus(d.status)})`
+            }));
+
+        // Include default option
+        const driverOptions = [
+            { value: '', label: '-- Pilih Driver --' },
+            ...filteredDrivers
+        ];
+
+        // "Tampilkan Vehicle JIKA (Status == 'AVAILABLE') ATAU (Vehicle.id == currentSelectedVehicleId)"
+        const filteredVehicles = vehicles
+            .filter(v => (v.status === 'AVAILABLE' || v.status === 'Active' || v.status === 'Aktif' || v.vehicle_id === currentVehicleId))
+            .map(v => ({
+                value: v.vehicle_id,
+                label: `${v.plate_no} (${formatStatus(v.status)})`
+            }));
+
+        // Include default option
+        const vehicleOptions = [
+            { value: '', label: '-- Pilih Kendaraan --' },
+            ...filteredVehicles
+        ];
+
+        return [
+            {
+                name: 'source_display',
+                label: 'Sumber',
+                type: 'text',
+                required: false,
+                readOnly: true,
+                defaultValue: delivery?.jobOrder && delivery.jobOrder !== '-' ? `Job Order: ${delivery.jobOrder}` : `Manifest: ${delivery.manifestId}`,
+                description: 'Sumber DO tidak dapat diubah setelah dibuat'
+            },
+            {
+                name: 'customer_display',
+                label: 'Customer',
+                type: 'text',
+                required: false,
+                readOnly: true,
+                defaultValue: delivery?.customer || '',
+                description: 'Data customer diambil dari sumber DO'
+            },
+            // HIDDEN FIELDS REQUIRED FOR UPDATE
+            {
+                name: 'customer_id',
+                type: 'hidden',
+                defaultValue: delivery?.raw?.customer_id || ''
+            },
+            {
+                name: 'do_date',
+                label: 'Tanggal DO',
+                type: 'date',
+                required: true,
+                defaultValue: delivery?.raw?.do_date || ''
+            },
+            {
+                name: 'goods_summary',
+                label: 'Ringkasan Barang',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                defaultValue: delivery?.raw?.goods_summary || delivery?.goods_desc || '',
+                description: 'Ringkasan muatan barang (Koli/Berat/Jenis)'
+            },
+            {
+                name: 'route_display',
+                label: 'Rute',
+                type: 'text',
+                required: false,
+                readOnly: true,
+                defaultValue: delivery?.route || '',
+                description: 'Rute diambil dari sumber DO'
+            },
+            {
+                name: 'departure',
+                label: 'Tanggal Keberangkatan',
+                type: 'datetime-local',
+                required: false,
+                defaultValue: delivery?.raw?.departure
+                    ? convertDateTimeForInput(delivery.raw.departure)
+                    : delivery?.raw?.do_date
+                        ? convertDateTimeForInput(delivery.raw.do_date)
+                        : '',
+                description: 'Tanggal dan waktu keberangkatan'
+            },
+            {
+                name: 'eta',
+                label: 'Estimasi Tiba (ETA)',
+                type: 'datetime-local',
+                required: false,
+                defaultValue: delivery?.raw?.eta ? convertDateTimeForInput(delivery.raw.eta) : '',
+                description: 'Estimasi waktu tiba'
+            },
+            {
+                name: 'driver_id',
+                label: 'Driver',
+                type: 'select',
+                required: false,
+                options: driverOptions,
+                defaultValue: currentDriverId ?? '',
+                description: 'Driver dapat diubah atau diganti'
+            },
+            {
+                name: 'vehicle_id',
+                label: 'Kendaraan',
+                type: 'select',
+                required: false,
+                options: vehicleOptions,
+                defaultValue: currentVehicleId ?? '',
+                description: 'Kendaraan dapat diubah atau diganti'
+            },
+            {
+                name: 'priority',
+                label: 'Prioritas',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'Low', label: 'Low' },
+                    { value: 'Medium', label: 'Medium' },
+                    { value: 'High', label: 'High Priority' },
+                    { value: 'Urgent', label: 'Urgent / Critical' }
+                ],
+                defaultValue: delivery?.raw?.priority ? delivery.raw.priority.charAt(0).toUpperCase() + delivery.raw.priority.slice(1) : 'Medium',
+                description: 'Prioritas pengiriman dapat diubah'
+            },
+            {
+                name: 'notes',
+                label: 'Catatan',
+                type: 'textarea',
+                required: false,
+                rows: 3,
+                defaultValue: delivery?.notes || '',
+                placeholder: 'Catatan tambahan untuk delivery order ini',
+                description: 'Catatan khusus untuk driver atau tim operasional'
+            }
+        ];
+    };
 
     // Helper function to convert datetime for input field
     const convertDateTimeForInput = (dateTimeString) => {
@@ -850,15 +924,15 @@ export default function DeliveryOrderContent() {
     // Helper function to get driver ID from driver name
     const getDriverIdFromName = (driverName) => {
         if (!driverName) return '';
-        const driver = mockDrivers.find(d => d.label === driverName);
-        return driver ? driver.value : '';
+        const driver = drivers.find(d => d.driver_name === driverName);
+        return driver ? driver.driver_id : '';
     };
 
     // Helper function to get vehicle ID from vehicle description
     const getVehicleIdFromName = (vehicleDesc) => {
         if (!vehicleDesc) return '';
-        const vehicle = mockVehicles.find(v => v.label === vehicleDesc);
-        return vehicle ? vehicle.value : '';
+        const vehicle = vehicles.find(v => v.plate_no === vehicleDesc);
+        return vehicle ? vehicle.vehicle_id : '';
     };
 
     // Assign driver form fields

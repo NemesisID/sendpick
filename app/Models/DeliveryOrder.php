@@ -26,6 +26,13 @@ class DeliveryOrder extends Model
         'created_by'
     ];
 
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['driver_name', 'vehicle_plate'];
+
     protected $casts = [
         'do_date' => 'date',
         'delivered_date' => 'date'
@@ -81,7 +88,7 @@ class DeliveryOrder extends Model
     }
 
     /**
-     * Accessor: Get driver name from Job Order Assignment
+     * Accessor: Get driver name from Job Order Assignment or Manifest
      */
     public function getDriverNameAttribute()
     {
@@ -91,14 +98,16 @@ class DeliveryOrder extends Model
                 ->with('driver')
                 ->first();
             
-            return $assignment?->driver?->name ?? 'Unassigned';
+            return $assignment?->driver?->driver_name ?? 'Belum ditugaskan';
+        } elseif ($this->source_type === 'MF' && $this->manifest) {
+            return $this->manifest->drivers?->driver_name ?? 'Belum ditugaskan';
         }
         
-        return 'N/A';
+        return 'Belum ditugaskan';
     }
 
     /**
-     * Accessor: Get vehicle plate from Job Order Assignment
+     * Accessor: Get vehicle plate from Job Order Assignment or Manifest
      */
     public function getVehiclePlateAttribute()
     {
@@ -108,9 +117,11 @@ class DeliveryOrder extends Model
                 ->with('vehicle')
                 ->first();
             
-            return $assignment?->vehicle?->plate_no ?? 'N/A';
+            return $assignment?->vehicle?->plate_no ?? 'Belum ditugaskan';
+        } elseif ($this->source_type === 'MF' && $this->manifest) {
+            return $this->manifest->vehicles?->plate_no ?? 'Belum ditugaskan';
         }
         
-        return 'N/A';
+        return 'Belum ditugaskan';
     }
 }
