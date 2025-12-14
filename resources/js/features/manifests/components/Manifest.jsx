@@ -162,13 +162,45 @@ const mapManifestFromApi = (manifest) => {
     // For now, let's stick to jobOrders.length. If 0, it's 0.
     const totalPackages = jobOrders.length;
 
+    // ✅ Extract driver_id and vehicle_id for form pre-population
+    // Try from direct manifest fields first, then from relationships
+    const driverId = manifest.driver_id || manifest.drivers?.driver_id || null;
+    const vehicleId = manifest.vehicle_id || manifest.vehicles?.vehicle_id || null;
+
+    console.log('🗺️ mapManifestFromApi - Driver/Vehicle IDs:', {
+        manifest_id: manifest.manifest_id,
+        driver_id: driverId,
+        vehicle_id: vehicleId,
+        drivers_relation: manifest.drivers,
+        vehicles_relation: manifest.vehicles,
+    });
+
+    // ✅ Format shipmentDate for both display and form input
+    // HTML date input requires yyyy-mm-dd format
+    const shipmentDateRaw = manifest.planned_departure
+        ? manifest.planned_departure.split('T')[0]  // Extract date part from ISO string
+        : '';
+    const shipmentDateDisplay = manifest.planned_departure
+        ? new Date(manifest.planned_departure).toLocaleDateString('id-ID')
+        : '-';
+
     return {
         id: manifest.manifest_id ?? manifest.id,
         jobOrder: jobOrderDisplay,
         jobOrderTooltip: jobOrderTooltip,
+        // ✅ PENTING: Simpan array Job Order IDs untuk form Edit
+        jobOrders: jobOrderIds,
+        // ✅ Simpan data lengkap job orders untuk referensi (termasuk order_type)
+        jobOrdersData: jobOrders,
         customer: customerName || '-',
-        origin: (manifest.origin_city && manifest.origin_city.includes('⚠️ Beda Origin')) ? 'Mixed Origins' : extractCity(manifest.origin_city),
-        destination: extractCity(manifest.dest_city),
+        // ✅ FIX: Separate raw origin/destination for form vs display for table
+        // Raw values from database for form editing
+        origin: manifest.origin_city || '',
+        destination: manifest.dest_city || '',
+        // Display values for table (processed/extracted city names)
+        // Always show actual city name, not "Mixed Origins"
+        originDisplay: extractCity(manifest.origin_city),
+        destinationDisplay: extractCity(manifest.dest_city),
         packages: totalPackages,
         totalWeight: manifest.cargo_weight ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg` : '-',
         status: manifest.status ?? 'Pending',
@@ -179,9 +211,15 @@ const mapManifestFromApi = (manifest) => {
                 : (manifest.origin_city ?? '').toLowerCase().includes('bandung')
                     ? 'bandung'
                     : 'all',
-        shipmentDate: manifest.planned_departure ? new Date(manifest.planned_departure).toLocaleDateString('id-ID') : '-',
-        // Fix Driver Display: Use manifest.drivers relationship
-        driver: manifest.drivers?.driver_name || manifest.driver?.driver_name || 'Belum Assign',
+        // ✅ FIX: Use raw date format for form, display format for table
+        shipmentDate: shipmentDateRaw, // For form input (yyyy-mm-dd)
+        shipmentDateDisplay: shipmentDateDisplay, // For table display (dd/mm/yyyy)
+        // ✅ FIX: Tambahkan driver dan vehicle ID untuk form Edit (dropdown pre-population)
+        // Convert to string for dropdown value compatibility
+        driver: driverId ? String(driverId) : '',
+        vehicle: vehicleId ? String(vehicleId) : '',
+        // Display names for table
+        driverName: manifest.drivers?.driver_name || manifest.driver?.driver_name || 'Belum Assign',
         vehiclePlate: manifest.vehicles?.plate_no || manifest.vehicle?.plate_no,
         vehicleBrand: manifest.vehicles?.brand || manifest.vehicle?.brand,
         lastUpdate: manifest.updated_at ? new Date(manifest.updated_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
@@ -399,7 +437,7 @@ function StatusBadge({ status }) {
 
 function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
     const isPending = normalizeManifestStatus(manifest.status) === 'pending';
-    const hasDriver = manifest.driver !== 'Belum Assign';
+    const hasDriver = manifest.driverName !== 'Belum Assign';
     const hasVehicle = !!manifest.vehiclePlate;
     const hasItems = manifest.packages > 0;
 
@@ -423,8 +461,8 @@ function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='flex flex-col gap-1'>
-                    <span className='font-medium text-slate-700'>{manifest.origin}</span>
-                    <span className='text-xs text-slate-400'>→ {manifest.destination}</span>
+                    <span className='font-medium text-slate-700'>{manifest.originDisplay || '-'}</span>
+                    <span className='text-xs text-slate-400'>→ {manifest.destinationDisplay || '-'}</span>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -436,11 +474,11 @@ function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
             <td className='px-6 py-4'>
                 <StatusBadge status={manifest.status} />
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{manifest.shipmentDate}</td>
+            <td className='px-6 py-4 text-sm text-slate-600'>{manifest.shipmentDateDisplay}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                {manifest.driver !== 'Belum Assign' ? (
+                {manifest.driverName !== 'Belum Assign' ? (
                     <div className='flex flex-col'>
-                        <span className='font-medium text-slate-900'>{manifest.driver}</span>
+                        <span className='font-medium text-slate-900'>{manifest.driverName}</span>
                         {manifest.vehiclePlate && (
                             <span className='text-xs text-slate-500'>
                                 {manifest.vehiclePlate} {manifest.vehicleBrand ? `(${manifest.vehicleBrand})` : ''}
@@ -570,7 +608,7 @@ function ManifestTable({
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
                             <th className='px-6 py-3'>Manifest</th>
                             <th className='px-6 py-3'>Customer</th>
-                            <th className='px-6 py-3'>Tujuan</th>
+                            <th className='px-6 py-3'>Rute</th>
                             <th className='px-6 py-3'>Koli & Berat</th>
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Tgl Kirim</th>
@@ -806,6 +844,18 @@ export default function ManifestContent() {
         return baseVehicles;
     }, [vehicles, rawAvailableJobOrders]);
 
+    // State untuk alert/warning saat memilih Job Order
+    const [selectionAlert, setSelectionAlert] = useState({ show: false, message: '', type: 'warning' });
+
+    // Helper untuk mendapatkan service type dari Job Order
+    const getServiceType = (jobOrder) => {
+        if (!jobOrder) return null;
+        const orderType = jobOrder.order_type || jobOrder.jobOrderType || jobOrder.service_type;
+        if (orderType === 'FTL' || (orderType || '').includes('FTL')) return 'FTL';
+        if (orderType === 'LTL' || (orderType || '').includes('LTL')) return 'LTL';
+        return null;
+    };
+
     // Helper to check if FTL is selected in form data
     const isFTLSelected = (formData) => {
         const selectedIds = formData.jobOrders || [];
@@ -815,9 +865,126 @@ export default function ManifestContent() {
             .filter(option => selectedIds.includes(option.value))
             .map(option => option.details);
 
-        return selectedData.some(jo =>
-            (jo.order_type === 'FTL' || jo.jobOrderType === 'FTL' || jo.service_type === 'FTL')
-        );
+        return selectedData.some(jo => getServiceType(jo) === 'FTL');
+    };
+
+    // Helper to check if LTL is selected in form data
+    const isLTLSelected = (formData) => {
+        const selectedIds = formData.jobOrders || [];
+        if (!selectedIds.length) return false;
+
+        const selectedData = availableJobOrders
+            .filter(option => selectedIds.includes(option.value))
+            .map(option => option.details);
+
+        return selectedData.some(jo => getServiceType(jo) === 'LTL');
+    };
+
+    // Fungsi validasi dan handler untuk Job Order selection (FTL/LTL rules)
+    const validateJobOrderSelection = (currentSelection, newJobOrderId) => {
+        // Ambil data Job Order yang baru dipilih
+        const newJobOrder = availableJobOrders.find(jo => jo.value === newJobOrderId)?.details;
+        if (!newJobOrder) {
+            return { valid: true, error: null };
+        }
+
+        const newServiceType = getServiceType(newJobOrder);
+
+        // Jika ini adalah item pertama, langsung valid
+        if (!currentSelection || currentSelection.length === 0) {
+            return { valid: true, error: null };
+        }
+
+        // Ambil data Job Orders yang sudah terpilih
+        const existingJobOrders = availableJobOrders
+            .filter(jo => currentSelection.includes(jo.value))
+            .map(jo => jo.details);
+
+        // Cek apakah sudah ada FTL yang dipilih
+        const hasFTL = existingJobOrders.some(jo => getServiceType(jo) === 'FTL');
+        const hasLTL = existingJobOrders.some(jo => getServiceType(jo) === 'LTL');
+
+        // RULE 1: Jika sudah ada FTL, tidak boleh tambah apapun
+        if (hasFTL) {
+            return {
+                valid: false,
+                error: '⚠️ Tidak bisa menambah Job Order lagi. FTL bersifat eksklusif (1 item saja).'
+            };
+        }
+
+        // RULE 2: Jika sudah ada LTL dan mencoba menambah FTL
+        if (hasLTL && newServiceType === 'FTL') {
+            return {
+                valid: false,
+                error: '⚠️ Tidak bisa menggabungkan FTL dengan LTL dalam satu Manifest.'
+            };
+        }
+
+        // RULE 3: Jika mencoba menambah FTL saat sudah ada item lain
+        if (newServiceType === 'FTL' && currentSelection.length > 0) {
+            return {
+                valid: false,
+                error: '⚠️ FTL tidak bisa digabung dengan Job Order lain. FTL bersifat eksklusif.'
+            };
+        }
+
+        // Valid: LTL + LTL atau item pertama
+        return { valid: true, error: null };
+    };
+
+    // Fungsi untuk mendapatkan opsi Job Order yang tersedia berdasarkan seleksi saat ini
+    const getFilteredJobOrderOptions = (currentSelection) => {
+        if (!currentSelection || currentSelection.length === 0) {
+            // Semua opsi tersedia jika belum ada seleksi
+            return availableJobOrders.map(jo => ({
+                value: jo.value,
+                label: jo.label,
+                disabled: false,
+                serviceType: getServiceType(jo.details)
+            }));
+        }
+
+        // Cek tipe service dari item yang sudah terpilih
+        const existingJobOrders = availableJobOrders
+            .filter(jo => currentSelection.includes(jo.value))
+            .map(jo => jo.details);
+
+        const hasFTL = existingJobOrders.some(jo => getServiceType(jo) === 'FTL');
+        const hasLTL = existingJobOrders.some(jo => getServiceType(jo) === 'LTL');
+
+        return availableJobOrders.map(jo => {
+            const serviceType = getServiceType(jo.details);
+            let disabled = false;
+            let disabledReason = '';
+
+            // Jika sudah ada FTL, disable semua opsi lain
+            if (hasFTL) {
+                disabled = !currentSelection.includes(jo.value);
+                disabledReason = 'FTL bersifat eksklusif';
+            }
+            // Jika sudah ada LTL, disable semua FTL
+            else if (hasLTL && serviceType === 'FTL') {
+                disabled = true;
+                disabledReason = 'Tidak bisa menggabungkan FTL dan LTL';
+            }
+
+            return {
+                value: jo.value,
+                label: disabled ? `${jo.label} (${disabledReason})` : jo.label,
+                disabled,
+                serviceType
+            };
+        });
+    };
+
+    // Custom handler untuk perubahan Job Order dengan validasi FTL/LTL
+    const handleJobOrderChange = (selectedIds) => {
+        // Reset alert
+        setSelectionAlert({ show: false, message: '', type: 'warning' });
+
+        // Jika menghapus item, langsung jalankan tanpa validasi
+        // (Validasi hanya diperlukan saat menambah item baru)
+        return { valid: true, selectedIds };
     };
 
     const manifestFields = [
@@ -826,7 +993,44 @@ export default function ManifestContent() {
             label: 'Pilih Job Order',
             type: 'multiselect',
             required: true,
-            options: availableJobOrders.map(jo => ({ value: jo.value, label: jo.label }))
+            options: availableJobOrders.map(jo => ({ value: jo.value, label: jo.label })),
+            // ✅ Props baru untuk validasi FTL/LTL
+            getFilteredOptions: getFilteredJobOrderOptions,
+            validateSelection: validateJobOrderSelection,
+            getServiceType: (jobOrderId) => {
+                // 1. Cari di availableJobOrders (untuk Create atau Job Order yang masih available)
+                const jo = availableJobOrders.find(j => j.value === jobOrderId);
+                if (jo) {
+                    const serviceType = getServiceType(jo.details);
+                    console.log(`🔍 getServiceType(${jobOrderId}) dari availableJobOrders:`, serviceType);
+                    return serviceType;
+                }
+
+                // 2. Fallback: Cari di manifest yang sedang di-edit (jobOrdersData)
+                if (editModal.manifest?.jobOrdersData) {
+                    const existingJo = editModal.manifest.jobOrdersData.find(j => j.job_order_id === jobOrderId);
+                    if (existingJo) {
+                        const serviceType = getServiceType(existingJo);
+                        console.log(`🔍 getServiceType(${jobOrderId}) dari jobOrdersData:`, serviceType);
+                        return serviceType;
+                    }
+                }
+
+                // 3. Fallback: Cari di raw manifest data
+                if (editModal.manifest?.raw?.job_orders || editModal.manifest?.raw?.jobOrders) {
+                    const rawJobOrders = editModal.manifest.raw.job_orders || editModal.manifest.raw.jobOrders || [];
+                    const rawJo = rawJobOrders.find(j => j.job_order_id === jobOrderId);
+                    if (rawJo) {
+                        const serviceType = getServiceType(rawJo);
+                        console.log(`🔍 getServiceType(${jobOrderId}) dari raw data:`, serviceType);
+                        return serviceType;
+                    }
+                }
+
+                console.log(`⚠️ getServiceType(${jobOrderId}): Job Order tidak ditemukan`);
+                return null;
+            },
+            description: '💡 FTL = Eksklusif (1 item). LTL = Multi-select (hanya sesama LTL).'
         },
         { name: 'customer', label: 'Customer', type: 'text', required: false, readOnly: true },
         { name: 'origin', label: 'Origin', type: 'text', required: false, readOnly: true },
@@ -890,17 +1094,13 @@ export default function ManifestContent() {
         const uniqueCustomers = [...new Set(selectedData.map(data => data.customer_name))];
         const customer = uniqueCustomers.join(', ');
 
-        // Validasi Origin: Cek apakah ada lebih dari 1 origin
-        const uniqueOrigins = [...new Set(selectedData.map(data => data.pickup_address))];
-        let origin = uniqueOrigins[0] || '-';
+        // ✅ FIX: Ambil origin dari Job Order PERTAMA saja
+        // Untuk manifest dengan multiple Job Orders, gunakan origin dari JO pertama
+        const origin = selectedData[0]?.pickup_address || '-';
 
-        if (uniqueOrigins.length > 1) {
-            origin = `⚠️ Beda Origin`;
-        }
-
-        // Menggabungkan destination
-        const uniqueDestinations = [...new Set(selectedData.map(data => data.delivery_address))];
-        const destination = uniqueDestinations.join(', ');
+        // ✅ FIX: Ambil destination dari Job Order PERTAMA saja
+        // Untuk manifest dengan multiple Job Orders, gunakan destination dari JO pertama
+        const destination = selectedData[0]?.delivery_address || '-';
 
         // Menghitung total packages
         const totalPackages = selectedData.length;
@@ -1036,6 +1236,19 @@ export default function ManifestContent() {
     const handleEditSubmit = async (formData) => {
         setIsLoading(true);
         try {
+            // ✅ Convert empty strings to null for optional fields
+            // Laravel's `nullable|exists` validation treats empty strings as invalid values
+            // By sending null, the validation passes correctly
+            const driverId = formData.driver && formData.driver !== '' ? formData.driver : null;
+            const vehicleId = formData.vehicle && formData.vehicle !== '' ? formData.vehicle : null;
+
+            console.log('📤 Preparing payload:', {
+                driver_raw: formData.driver,
+                driver_processed: driverId,
+                vehicle_raw: formData.vehicle,
+                vehicle_processed: vehicleId,
+            });
+
             const payload = {
                 origin_city: formData.origin,
                 dest_city: formData.destination,
@@ -1043,8 +1256,8 @@ export default function ManifestContent() {
                 cargo_weight: parseFloat(formData.totalWeight.replace(/[^\d]/g, '')) || 0,
                 planned_departure: formData.shipmentDate,
                 job_order_ids: formData.jobOrders,
-                driver_id: formData.driver,
-                vehicle_id: formData.vehicle,
+                driver_id: driverId,
+                vehicle_id: vehicleId,
             };
 
             if (!editModal.manifest) {
