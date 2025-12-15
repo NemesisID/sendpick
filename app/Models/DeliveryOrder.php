@@ -19,6 +19,8 @@ class DeliveryOrder extends Model
         'customer_id',
         'status',
         'do_date',
+        'departure_date',
+        'eta',
         'delivered_date',
         'goods_summary',
         'priority',
@@ -35,6 +37,8 @@ class DeliveryOrder extends Model
 
     protected $casts = [
         'do_date' => 'date',
+        'departure_date' => 'datetime',
+        'eta' => 'datetime',
         'delivered_date' => 'date'
     ];
 

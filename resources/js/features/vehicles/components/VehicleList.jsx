@@ -5,62 +5,82 @@ import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import { useVehicles } from '../hooks/useVehicles';
 import { useVehiclesCrud } from '../hooks/useVehiclesCrud';
 import { useActiveVehicleTypes } from '../hooks/useActiveVehicleTypes';
+import { useAvailableDrivers } from '../hooks/useAvailableDrivers';
 
-const summaryCards = [
-    {
-        title: 'Total Kendaraan',
-        value: '45',
-        description: 'Armada terdaftar',
-        iconBg: 'bg-sky-100',
-        iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 13h18l-2-6H5z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M5 17h14' strokeLinecap='round' />
-                <circle cx='7.5' cy='17.5' r='1.5' />
-                <circle cx='16.5' cy='17.5' r='1.5' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Beroperasi',
-        value: '38',
-        description: 'Sedang digunakan di lapangan',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 12l4 4L21 4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Maintenance',
-        value: '5',
-        description: 'Jadwal perawatan minggu ini',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M10 2h4l2 3h5v4l-2 2 2 2v4h-5l-2 3h-4l-2-3H3v-4l2-2-2-2V5h5z' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Tidak Aktif',
-        value: '2',
-        description: 'Perlu tindak lanjut',
-        iconBg: 'bg-rose-100',
-        iconColor: 'text-rose-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 4 3 19h18z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M12 9v4' strokeLinecap='round' />
-                <circle cx='12' cy='15' r='1' fill='currentColor' stroke='none' />
-            </svg>
-        ),
-    },
-];
+// Generate real-time summary cards from vehicle data
+const generateSummaryCards = (vehicles = []) => {
+    const totalVehicles = vehicles.length;
+
+    // Count by status
+    const operatingVehicles = vehicles.filter(v => v.status === 'Aktif' || v.status === 'Sedang Kirim').length;
+    const maintenanceVehicles = vehicles.filter(v => v.status === 'Maintenance').length;
+    const inactiveVehicles = vehicles.filter(v => v.status === 'Tidak Aktif').length;
+
+    // Count vehicles with upcoming maintenance this week
+    const today = new Date();
+    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const maintenanceThisWeek = vehicles.filter(v => {
+        if (!v.next_maintenance_date) return false;
+        const maintenanceDate = new Date(v.next_maintenance_date);
+        return maintenanceDate >= today && maintenanceDate <= nextWeek;
+    }).length;
+
+    return [
+        {
+            title: 'Total Kendaraan',
+            value: totalVehicles.toString(),
+            description: 'Armada terdaftar',
+            iconBg: 'bg-sky-100',
+            iconColor: 'text-sky-600',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M3 13h18l-2-6H5z' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M5 17h14' strokeLinecap='round' />
+                    <circle cx='7.5' cy='17.5' r='1.5' />
+                    <circle cx='16.5' cy='17.5' r='1.5' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Beroperasi',
+            value: operatingVehicles.toString(),
+            description: 'Sedang digunakan di lapangan',
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-500',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M3 12l4 4L21 4' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Maintenance',
+            value: maintenanceThisWeek.toString(),
+            description: 'Jadwal perawatan minggu ini',
+            iconBg: 'bg-amber-100',
+            iconColor: 'text-amber-500',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M10 2h4l2 3h5v4l-2 2 2 2v4h-5l-2 3h-4l-2-3H3v-4l2-2-2-2V5h5z' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Tidak Aktif',
+            value: inactiveVehicles.toString(),
+            description: 'Perlu tindak lanjut',
+            iconBg: 'bg-rose-100',
+            iconColor: 'text-rose-500',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M12 4 3 19h18z' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M12 9v4' strokeLinecap='round' />
+                    <circle cx='12' cy='15' r='1' fill='currentColor' stroke='none' />
+                </svg>
+            ),
+        },
+    ];
+};
 
 const tabs = [
     { key: 'vehicles', label: 'Daftar Kendaraan' },
@@ -116,11 +136,6 @@ const conditionStyles = {
 
 const driverFilterOptions = [
     { value: 'all', label: 'Semua Driver' },
-    { value: '1', label: 'Ahmad Subandi' },
-    { value: '2', label: 'Budi Santoso' },
-    { value: '3', label: 'Siti Nurhaliza' },
-    { value: '4', label: 'Dedi Mulyadi' },
-    { value: '5', label: 'Rina Sari' }
 ];
 
 const statusFilterOptions = [
@@ -183,19 +198,7 @@ function Tag({ children, bg, text }) {
     );
 }
 
-function FuelBar({ value }) {
-    return (
-        <div className='w-32'>
-            <div className='flex items-center justify-between text-xs font-semibold text-slate-500'>
-                <span>Fuel Level</span>
-                <span>{value}%</span>
-            </div>
-            <div className='mt-1 h-2 w-full rounded-full bg-slate-100'>
-                <div className='h-full rounded-full bg-indigo-500' style={{ width: `${value}%` }} />
-            </div>
-        </div>
-    );
-}
+
 
 function VehicleRow({ vehicle, onEdit, onDelete }) {
     const statusStyle = vehicleStatusStyles[vehicle.status] ?? vehicleStatusStyles['Aktif'];
@@ -219,9 +222,9 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                {vehicle.driver?.name || 'Tidak ada driver'}
+                {vehicle.driver?.driver_name || 'Tidak ada driver'}
             </td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{vehicle.location}</td>
+            <td className='px-6 py-4 text-sm text-slate-600'>{vehicle.current_location || 'Pool (Standby)'}</td>
             <td className='px-6 py-4'>
                 <Tag bg={statusStyle.bg} text={statusStyle.text}>
                     {statusStyle.label}
@@ -232,9 +235,7 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
                     {conditionStyle.label}
                 </Tag>
             </td>
-            <td className='px-6 py-4'>
-                <FuelBar value={vehicle.fuel} />
-            </td>
+
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
                     <p>Last: {vehicle.last_maintenance_date ? new Date(vehicle.last_maintenance_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Belum ada'}</p>
@@ -293,7 +294,7 @@ function VehicleTable({ vehicles, onEdit, onDelete, loading }) {
                             <th className='px-6 py-3'>Lokasi</th>
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Kondisi</th>
-                            <th className='px-6 py-3'>Fuel Level</th>
+
                             <th className='px-6 py-3'>Maintenance</th>
                             <th className='px-6 py-3'>Aksi</th>
                         </tr>
@@ -301,7 +302,7 @@ function VehicleTable({ vehicles, onEdit, onDelete, loading }) {
                     <tbody className='divide-y divide-slate-100'>
                         {loading ? (
                             <tr>
-                                <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
                                     Memuat data kendaraan...
                                 </td>
                             </tr>
@@ -316,7 +317,7 @@ function VehicleTable({ vehicles, onEdit, onDelete, loading }) {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
                                     Tidak ada kendaraan pada filter saat ini.
                                 </td>
                             </tr>
@@ -338,10 +339,14 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
     const { vehicles, loading, error, refetch, setParams } = useVehicles();
     const { createVehicle, updateVehicle, deleteVehicle, creating, updating, deleting } = useVehiclesCrud();
     const { activeVehicleTypes } = useActiveVehicleTypes();
+    const { availableDrivers, refetch: refetchDrivers } = useAvailableDrivers();
 
     // Modal states
     const [editModal, setEditModal] = useState({ isOpen: false, vehicle: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, vehicle: null });
+
+    // Generate real-time summary cards from vehicle data
+    const summaryCards = useMemo(() => generateSummaryCards(vehicles), [vehicles]);
 
     // Debounce search
     useEffect(() => {
@@ -373,6 +378,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
                 await createVehicle(formData);
             }
             refetch();
+            refetchDrivers(); // Refresh available drivers list
             setEditModal({ isOpen: false, vehicle: null });
         } catch (error) {
             console.error('Error saving vehicle:', error);
@@ -472,11 +478,10 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             placeholder: 'Pilih driver (opsional)',
             options: [
                 { value: '', label: 'Tidak ada driver' },
-                { value: '1', label: 'Ahmad Subandi' },
-                { value: '2', label: 'Budi Santoso' },
-                { value: '3', label: 'Siti Nurhaliza' },
-                { value: '4', label: 'Dedi Mulyadi' },
-                { value: '5', label: 'Rina Sari' }
+                ...availableDrivers.map(driver => ({
+                    value: driver.driver_id,
+                    label: driver.driver_name
+                }))
             ]
         }
     ];

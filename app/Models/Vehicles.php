@@ -24,6 +24,7 @@ class Vehicles extends Model
         'odometer_km',
         'status',
         'condition_label',
+        'driver_id',
         'fuel_level_pct',
         'last_maintenance_date',
         'next_maintenance_date'
@@ -43,6 +44,14 @@ class Vehicles extends Model
     public function vehicleType(): BelongsTo
     {
         return $this->belongsTo(VehicleTypes::class, 'vehicle_type_id');
+    }
+
+    /**
+     * Relationship: Vehicle belongs to Driver (assigned driver)
+     */
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(Drivers::class, 'driver_id', 'driver_id');
     }
 
     /**

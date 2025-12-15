@@ -150,8 +150,8 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
     const isJobOrder = deliveryOrder.source_type === 'JO';
     const sourceLabel = isJobOrder ? `Job Order: ${deliveryOrder.source_id}` : `Manifest: ${deliveryOrder.source_id}`;
 
-    // Fix Date Format: Remove time
-    const departureDate = deliveryOrder.departure ?? deliveryOrder.do_date;
+    // Fix Date Format: Use departure_date if available, otherwise fall back to do_date
+    const departureDate = deliveryOrder.departure_date ?? deliveryOrder.do_date;
     const formattedDeparture = departureDate ? new Date(departureDate).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-';
 
     // Fix Koli & Goods Info
@@ -161,12 +161,15 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
     // Use goods_summary first, then sourceInfo.goods_desc
     const goodsDesc = deliveryOrder.goods_summary || sourceInfo.goods_desc || '-';
 
-    // Fix ETA: Real-time from Tracking
+    // Fix ETA: Now using the eta field from database
     const status = normalizeStatus(deliveryOrder.status);
     let eta = '-';
 
-    if (status === 'inTransit') {
-        eta = deliveryOrder.eta || 'Estimating...';
+    // If eta is stored in database, use it
+    if (deliveryOrder.eta) {
+        eta = new Date(deliveryOrder.eta).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } else if (status === 'inTransit') {
+        eta = 'Estimating...';
     }
 
     return {
@@ -346,7 +349,7 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
                     <p className='text-xs text-slate-500 truncate max-w-[180px]' title={delivery.goods_desc}>
                         {delivery.goods_desc}
                     </p>
-                    <p className='text-xs text-slate-400'>ETA {delivery.eta}</p>
+                    <p className='text-xs text-slate-400'>ETA: {delivery.eta}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -834,16 +837,14 @@ export default function DeliveryOrderContent() {
                 description: 'Rute diambil dari sumber DO'
             },
             {
-                name: 'departure',
+                name: 'departure_date',
                 label: 'Tanggal Keberangkatan',
-                type: 'datetime-local',
+                type: 'date',
                 required: false,
-                defaultValue: delivery?.raw?.departure
-                    ? convertDateTimeForInput(delivery.raw.departure)
-                    : delivery?.raw?.do_date
-                        ? convertDateTimeForInput(delivery.raw.do_date)
-                        : '',
-                description: 'Tanggal dan waktu keberangkatan'
+                defaultValue: delivery?.raw?.departure_date
+                    ? new Date(delivery.raw.departure_date).toISOString().split('T')[0]
+                    : '',
+                description: 'Tanggal keberangkatan armada'
             },
             {
                 name: 'eta',

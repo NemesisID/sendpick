@@ -32,7 +32,11 @@ class VehicleController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Vehicles::with('vehicleType');
+        // Include active assignment with job order for location display, and driver relationship
+        $query = Vehicles::with(['vehicleType', 'driver', 'assignments' => function ($q) {
+            $q->where('status', 'Active')
+              ->with(['jobOrder', 'driver']);
+        }]);
 
         // Search functionality
         if ($request->filled('search')) {
@@ -64,9 +68,34 @@ class VehicleController extends Controller
         $perPage = $request->get('per_page', 15);
         $vehicles = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
+        // Transform data to include current location based on assignment status
+        $transformedVehicles = collect($vehicles->items())->map(function ($vehicle) {
+            $activeAssignment = $vehicle->assignments->first();
+            $jobOrder = $activeAssignment ? $activeAssignment->jobOrder : null;
+            $driver = $activeAssignment ? $activeAssignment->driver : null;
+
+            // Determine current location
+            // If vehicle has active job order with status "On Delivery" or "Pickup", show destination city
+            $currentLocation = 'Pool (Standby)';
+            $inTransitStatuses = ['On Delivery', 'Pickup'];
+            
+            if ($jobOrder && in_array($jobOrder->status, $inTransitStatuses)) {
+                $currentLocation = $jobOrder->delivery_city ?? 'Pool (Standby)';
+            }
+
+            // Add computed fields to vehicle
+            $vehicleData = $vehicle->toArray();
+            $vehicleData['current_location'] = $currentLocation;
+            // Use directly assigned driver first, fallback to assignment driver
+            $vehicleData['driver'] = $vehicle->driver ?? $driver;
+            $vehicleData['active_job_order'] = $jobOrder;
+
+            return $vehicleData;
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $vehicles->items(),
+            'data' => $transformedVehicles,
             'pagination' => [
                 'current_page' => $vehicles->currentPage(),
                 'per_page' => $vehicles->perPage(),
@@ -94,6 +123,7 @@ class VehicleController extends Controller
             'odometer_km' => 'nullable|integer|min:0',
             'status' => 'nullable|in:Aktif,Tidak Aktif',
             'condition_label' => 'nullable|in:Baru,Sangat Baik,Baik,Perlu Perbaikan',
+            'driver_id' => 'nullable|exists:drivers,driver_id',
             'fuel_level_pct' => 'nullable|integer|min:0|max:100',
             'last_maintenance_date' => 'nullable|date',
             'next_maintenance_date' => 'nullable|date|after:last_maintenance_date'
@@ -116,6 +146,7 @@ class VehicleController extends Controller
             'odometer_km' => $request->odometer_km ?? 0,
             'status' => $request->status ?? 'Aktif',
             'condition_label' => $request->condition_label ?? 'Baik',
+            'driver_id' => $request->driver_id ?: null,
             'fuel_level_pct' => $request->fuel_level_pct ?? 0,
             'last_maintenance_date' => $request->last_maintenance_date,
             'next_maintenance_date' => $request->next_maintenance_date
@@ -124,7 +155,7 @@ class VehicleController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Vehicle created successfully',
-            'data' => $vehicle->load('vehicleType')
+            'data' => $vehicle->load(['vehicleType', 'driver'])
         ], 201);
     }
 
@@ -186,12 +217,14 @@ class VehicleController extends Controller
             'odometer_km' => 'nullable|integer|min:0',
             'status' => 'nullable|in:Aktif,Tidak Aktif',
             'condition_label' => 'nullable|in:Baru,Sangat Baik,Baik,Perlu Perbaikan',
+            'driver_id' => 'nullable|exists:drivers,driver_id',
             'fuel_level_pct' => 'nullable|integer|min:0|max:100',
             'last_maintenance_date' => 'nullable|date',
             'next_maintenance_date' => 'nullable|date|after:last_maintenance_date'
         ]);
 
-        $vehicle->update($request->only([
+        // Handle driver_id - convert empty string to null
+        $updateData = $request->only([
             'plate_no',
             'vehicle_type_id',
             'brand',
@@ -204,12 +237,17 @@ class VehicleController extends Controller
             'fuel_level_pct',
             'last_maintenance_date',
             'next_maintenance_date'
-        ]));
+        ]);
+        
+        // Add driver_id (convert empty string to null)
+        $updateData['driver_id'] = $request->driver_id ?: null;
+        
+        $vehicle->update($updateData);
 
         return response()->json([
             'success' => true,
             'message' => 'Vehicle updated successfully',
-            'data' => $vehicle->load('vehicleType')
+            'data' => $vehicle->load(['vehicleType', 'driver'])
         ], 200);
     }
 
@@ -314,81 +352,84 @@ class VehicleController extends Controller
         ], 200);
     }
     /**
-     * Get active vehicles with real-time status
-     * 
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function getActiveVehicles(Request $request): JsonResponse
-    {
-        $vehicles = Vehicles::with(['assignments' => function ($query) {
-            $query->where('status', 'Active')
-                  ->with(['driver', 'jobOrder']);
-        }, 'gpsLogs' => function ($query) {
-            $query->latest()->limit(1);
-        }])->get();
+ * Get active vehicles with real-time status
+ * 
+ * @param Request $request
+ * @return JsonResponse
+ */
+public function getActiveVehicles(Request $request): JsonResponse
+{
+    // Include driver relationship (directly assigned driver) and assignments
+    $vehicles = Vehicles::with(['driver', 'assignments' => function ($query) {
+        $query->where('status', 'Active')
+              ->with(['driver', 'jobOrder']);
+    }, 'gpsLogs' => function ($query) {
+        $query->latest()->limit(1);
+    }])->get();
 
-        // Transform data
-        $data = $vehicles->map(function ($vehicle) {
-            $activeAssignment = $vehicle->assignments->first();
-            $jobOrder = $activeAssignment ? $activeAssignment->jobOrder : null;
-            $driver = $activeAssignment ? $activeAssignment->driver : null;
-            $lastGps = $vehicle->gpsLogs->first();
+    // Transform data
+    $data = $vehicles->map(function ($vehicle) {
+        $activeAssignment = $vehicle->assignments->first();
+        $jobOrder = $activeAssignment ? $activeAssignment->jobOrder : null;
+        // Use directly assigned driver first, fallback to assignment driver
+        $assignmentDriver = $activeAssignment ? $activeAssignment->driver : null;
+        $driver = $vehicle->driver ?? $assignmentDriver;
+        $lastGps = $vehicle->gpsLogs->first();
 
-            // Default values (Idle/Empty)
-            $displayDriver = '-';
-            $displayRoute = '-';
-            $displayLoad = '-';
-            $displayEta = '-';
-            $status = 'idle';
-            $statusLabel = 'Idle';
+        // Default values (Idle/Empty)
+        // Show directly assigned driver even when vehicle is idle
+        $displayDriver = $driver ? $driver->driver_name : '-';
+        $displayRoute = '-';
+        $displayLoad = '-';
+        $displayEta = '-';
+        $status = 'idle';
+        $statusLabel = 'Idle';
 
-            // Define active statuses that should show data
-            $activeStatuses = ['Assigned', 'Pickup', 'On Delivery'];
+        // Define active statuses that should show data
+        $activeStatuses = ['Assigned', 'Pickup', 'On Delivery'];
 
-            // Only populate data if we have a Job Order in an active state
-            if ($jobOrder && in_array($jobOrder->status, $activeStatuses)) {
-                $displayDriver = $driver ? $driver->driver_name : '-';
-                $displayRoute = "{$jobOrder->pickup_city} - {$jobOrder->delivery_city}";
-                $displayLoad = ($jobOrder->goods_weight / 1000) . ' Ton';
-                
-                // Map Status
-                if ($jobOrder->status === 'On Delivery') {
-                    $status = 'onRoute';
-                    $statusLabel = 'On Route';
-                } elseif ($jobOrder->status === 'Pickup') {
-                    $status = 'loading';
-                    $statusLabel = 'Loading';
-                } else {
-                    // Assigned
-                    $status = 'assigned';
-                    $statusLabel = 'Assigned';
-                }
+        // Only populate route/load data if we have a Job Order in an active state
+        if ($jobOrder && in_array($jobOrder->status, $activeStatuses)) {
+            $displayRoute = "{$jobOrder->pickup_city} - {$jobOrder->delivery_city}";
+            $displayLoad = ($jobOrder->goods_weight / 1000) . ' Ton';
+            
+            // Map Status
+            if ($jobOrder->status === 'On Delivery') {
+                $status = 'onRoute';
+                $statusLabel = 'On Route';
+            } elseif ($jobOrder->status === 'Pickup') {
+                $status = 'loading';
+                $statusLabel = 'Loading';
             } else {
-                 // Fallback to vehicle status if no active job order or job order is not active
-                 if ($vehicle->status === 'Maintenance') {
-                     $status = 'maintenance';
-                     $statusLabel = 'Maintenance';
-                 }
+                // Assigned
+                $status = 'assigned';
+                $statusLabel = 'Assigned';
             }
+        } else {
+             // Fallback to vehicle status if no active job order or job order is not active
+             if ($vehicle->status === 'Maintenance') {
+                 $status = 'maintenance';
+                 $statusLabel = 'Maintenance';
+             }
+        }
 
-            return [
-                'id' => $vehicle->vehicle_id,
-                'vehicle' => $vehicle->plate_no,
-                'driver' => $displayDriver,
-                'route' => $displayRoute,
-                'eta' => $displayEta,
-                'load' => $displayLoad,
-                'status' => $status,
-                'status_label' => $statusLabel,
-                'lastUpdate' => $lastGps ? $lastGps->created_at->diffForHumans() : '-',
-                'region' => 'jabodetabek', // Default
-            ];
-        });
+        return [
+            'id' => $vehicle->vehicle_id,
+            'vehicle' => $vehicle->plate_no,
+            'driver' => $displayDriver,
+            'route' => $displayRoute,
+            'eta' => $displayEta,
+            'load' => $displayLoad,
+            'status' => $status,
+            'status_label' => $statusLabel,
+            'lastUpdate' => $lastGps ? $lastGps->created_at->diffForHumans() : '-',
+            'region' => 'jabodetabek', // Default
+        ];
+    });
 
-        return response()->json([
-            'success' => true,
-            'data' => $data
-        ], 200);
-    }
+    return response()->json([
+        'success' => true,
+        'data' => $data
+    ], 200);
+}
 }

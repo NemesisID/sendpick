@@ -89,6 +89,7 @@ const DeliveryOrderModal = ({
                 source_type: initialData?.source_type || '',
                 source_id: initialData?.source_id || '',
                 do_date: initialData?.do_date || '',
+                departure_date: initialData?.departure_date || '',
                 driver_id: initialData?.driver_id || '',
                 vehicle_id: initialData?.vehicle_id || ''
             };
@@ -320,7 +321,16 @@ const DeliveryOrderModal = ({
             label: 'Tanggal DO',
             type: 'date',
             required: true,
-            description: 'Tanggal ketika Delivery Order ini akan dijalankan'
+            description: 'Tanggal ketika Delivery Order ini dibuat'
+        });
+
+        // Add departure date field (Tanggal Keberangkatan)
+        fields.push({
+            name: 'departure_date',
+            label: 'Tanggal Keberangkatan',
+            type: 'date',
+            required: false,
+            description: 'Tanggal keberangkatan armada untuk pengiriman ini'
         });
 
         // Check if selected source is FTL (for disabling fields)

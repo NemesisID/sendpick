@@ -113,6 +113,127 @@ const extractCity = (address) => {
     return address;
 };
 
+/**
+ * Menentukan label "Rute Manifest" secara dinamis berdasarkan daftar Job Order yang dipilih (Case LTL).
+ * 
+ * @param {Array} jobOrders - Array Job Orders dengan properties:
+ *   - origin_city atau pickup_address
+ *   - destination_city atau delivery_address  
+ *   - pickup_datetime (Date/String)
+ *   - delivery_datetime_estimation (Date/String)
+ * @returns {String} - Route name label, contoh: "Jakarta -> Surabaya (Multi-stop)"
+ */
+const getManifestRouteName = (jobOrders) => {
+    // Validasi input
+    if (!Array.isArray(jobOrders) || jobOrders.length === 0) {
+        return '-';
+    }
+
+    // 1. SORTING: Urutkan berdasarkan pickup_datetime secara Ascending (Terlama ke Terbaru)
+    const sortedByPickup = [...jobOrders].sort((a, b) => {
+        const dateA = new Date(a.pickup_datetime || a.pickup_date || 0);
+        const dateB = new Date(b.pickup_datetime || b.pickup_date || 0);
+        return dateA - dateB;
+    });
+
+    // 2. TENTUKAN START NODE: origin_city dari item pertama (index 0) setelah sorting pickup
+    const firstJob = sortedByPickup[0];
+    const startNode = extractCity(
+        firstJob.origin_city ||
+        firstJob.pickup_address ||
+        firstJob.pickup_city ||
+        firstJob.origin ||
+        '-'
+    );
+
+    // 3. TENTUKAN END NODE: destination_city dari item dengan delivery time paling akhir
+    // Sort by delivery time untuk menentukan EndNode yang paling akurat jika rutenya bercabang
+    const sortedByDelivery = [...jobOrders].sort((a, b) => {
+        const dateA = new Date(a.delivery_datetime_estimation || a.delivery_date || a.estimated_delivery || 0);
+        const dateB = new Date(b.delivery_datetime_estimation || b.delivery_date || b.estimated_delivery || 0);
+        return dateB - dateA; // Descending: terbaru ke terlama
+    });
+
+    const lastDeliveryJob = sortedByDelivery[0]; // Item dengan delivery time paling akhir
+    const endNode = extractCity(
+        lastDeliveryJob.destination_city ||
+        lastDeliveryJob.delivery_address ||
+        lastDeliveryJob.delivery_city ||
+        lastDeliveryJob.destination ||
+        '-'
+    );
+
+    // 4. HANDLING DUPLIKAT
+    if (startNode === endNode) {
+        // Pengiriman dalam kota yang sama
+        if (jobOrders.length > 1) {
+            return `${startNode} (Multi-stop)`;
+        }
+        return startNode;
+    }
+
+    // 5. Format string dengan arrow
+    let routeLabel = `${startNode} --> ${endNode}`;
+
+    // 6. TAMBAHAN UI: Jika jumlah Job Order > 1, tambahkan suffix "(Multi-stop)"
+    if (jobOrders.length > 1) {
+        routeLabel = `${routeLabel} (Multi-stop)`;
+    }
+
+    return routeLabel;
+};
+
+/**
+ * Versi ringkas getManifestRouteName untuk tampilan tabel
+ * Menggunakan format "Jakarta --> Surabaya" tanpa suffix
+ * 
+ * @param {Array} jobOrders - Array Job Orders
+ * @returns {String} - Route name untuk tabel
+ */
+const getManifestRouteForTable = (jobOrders) => {
+    if (!Array.isArray(jobOrders) || jobOrders.length === 0) {
+        return '-';
+    }
+
+    // Sort by pickup time (ascending)
+    const sortedByPickup = [...jobOrders].sort((a, b) => {
+        const dateA = new Date(a.pickup_datetime || a.pickup_date || 0);
+        const dateB = new Date(b.pickup_datetime || b.pickup_date || 0);
+        return dateA - dateB;
+    });
+
+    const firstJob = sortedByPickup[0];
+    const startNode = extractCity(
+        firstJob.origin_city ||
+        firstJob.pickup_address ||
+        firstJob.pickup_city ||
+        firstJob.origin ||
+        '-'
+    );
+
+    // Sort by delivery time (descending) untuk EndNode
+    const sortedByDelivery = [...jobOrders].sort((a, b) => {
+        const dateA = new Date(a.delivery_datetime_estimation || a.delivery_date || a.estimated_delivery || 0);
+        const dateB = new Date(b.delivery_datetime_estimation || b.delivery_date || b.estimated_delivery || 0);
+        return dateB - dateA;
+    });
+
+    const lastDeliveryJob = sortedByDelivery[0];
+    const endNode = extractCity(
+        lastDeliveryJob.destination_city ||
+        lastDeliveryJob.delivery_address ||
+        lastDeliveryJob.delivery_city ||
+        lastDeliveryJob.destination ||
+        '-'
+    );
+
+    if (startNode === endNode) {
+        return startNode;
+    }
+
+    return `${startNode} --> ${endNode}`;
+};
+
 const mapManifestFromApi = (manifest) => {
     if (!manifest) {
         return null;
@@ -201,6 +322,11 @@ const mapManifestFromApi = (manifest) => {
         // Always show actual city name, not "Mixed Origins"
         originDisplay: extractCity(manifest.origin_city),
         destinationDisplay: extractCity(manifest.dest_city),
+        // ✅ NEW: Dynamic route display for LTL multi-stop
+        // Uses getManifestRouteForTable to determine route based on Job Orders
+        routeDisplay: jobOrders.length > 0
+            ? getManifestRouteForTable(jobOrders)
+            : `${extractCity(manifest.origin_city)} --> ${extractCity(manifest.dest_city)}`,
         packages: totalPackages,
         totalWeight: manifest.cargo_weight ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg` : '-',
         status: manifest.status ?? 'Pending',
@@ -284,86 +410,7 @@ const manifestStatusOptions = [
     { value: 'Completed', label: 'Completed' },
 ];
 
-const fallbackManifestRecords = [
-    {
-        id: 'MF-2024-231',
-        jobOrder: 'JO-2024-874',
-        jobOrderTooltip: 'JO-2024-874',
-        customer: 'PT Maju Jaya Logistics',
-        origin: 'Jakarta DC',
-        destination: 'Surabaya Hub',
-        shipmentDate: '2024-01-16',
-        packages: 48,
-        totalWeight: '1,250 kg',
-        status: 'released',
-        statusLabel: 'Released',
-        hub: 'jakarta',
-        lastUpdate: '2024-01-15 19:45',
-        driver: 'Budi Santoso',
-        vehiclePlate: 'B 9988 XYZ',
-        vehicleBrand: 'Fuso',
-        cargoSummary: 'Elektronik & Sparepart',
-    },
-    {
-        id: 'MF-2024-229',
-        jobOrder: '2 Orders',
-        jobOrderTooltip: 'JO-2024-861, JO-2024-862',
-        customer: 'CV Sukses Mandiri',
-        origin: 'Bandung Hub',
-        destination: 'Makassar Hub',
-        shipmentDate: '2024-01-16',
-        packages: 36,
-        totalWeight: '980 kg',
-        status: 'inProgress',
-        statusLabel: 'In Transit',
-        hub: 'bandung',
-        lastUpdate: '2024-01-15 17:10',
-        driver: 'Asep Sunandar',
-        vehiclePlate: 'D 1234 ABC',
-        vehicleBrand: 'Hino',
-        cargoSummary: 'Tekstil & Garment',
-    },
-    {
-        id: 'MF-2024-224',
-        jobOrder: 'JO-2024-852',
-        jobOrderTooltip: 'JO-2024-852',
-        customer: 'PT Nusantara Sejahtera',
-        origin: 'Jakarta DC',
-        destination: 'Medan Hub',
-        shipmentDate: '2024-01-17',
-        packages: 54,
-        totalWeight: '1,540 kg',
-        status: 'pending',
-        statusLabel: 'Pending',
-        hub: 'jakarta',
-        lastUpdate: '2024-01-15 16:20',
-        driver: 'Belum Assign',
-        vehiclePlate: null,
-        vehicleBrand: null,
-        cargoSummary: 'FMCG & Retail',
-    },
-    {
-        id: 'MF-2024-220',
-        jobOrder: 'JO-2024-843',
-        jobOrderTooltip: 'JO-2024-843',
-        customer: 'UD Sumber Berkah',
-        origin: 'Surabaya Hub',
-        destination: 'Denpasar Hub',
-        shipmentDate: '2024-01-15',
-        packages: 29,
-        totalWeight: '720 kg',
-        status: 'completed',
-        statusLabel: 'Completed',
-        hub: 'surabaya',
-        lastUpdate: '2024-01-15 13:40',
-        driver: 'Wayan Gede',
-        vehiclePlate: 'DK 8877 XX',
-        vehicleBrand: 'Isuzu',
-        cargoSummary: 'Furniture & Mebel',
-    },
-];
-
-
+// Dummy data dihapus - sekarang menggunakan data real dari API
 
 const SearchIcon = ({ className = 'h-5 w-5' }) => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
@@ -461,8 +508,14 @@ function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='flex flex-col gap-1'>
-                    <span className='font-medium text-slate-700'>{manifest.originDisplay || '-'}</span>
-                    <span className='text-xs text-slate-400'>→ {manifest.destinationDisplay || '-'}</span>
+                    {/* ✅ NEW: Use routeDisplay for dynamic route label */}
+                    <span className='font-medium text-slate-700'>{manifest.routeDisplay || `${manifest.originDisplay || '-'} --> ${manifest.destinationDisplay || '-'}`}</span>
+                    {/* Show Multi-stop indicator when there are multiple Job Orders */}
+                    {manifest.packages > 1 && (
+                        <span className='inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 w-fit'>
+                            Multi-stop
+                        </span>
+                    )}
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -675,18 +728,19 @@ export default function ManifestContent() {
     const { drivers } = useDrivers({ per_page: 100 });
     const { vehicles } = useVehicles({ per_page: 100 });
 
+    // Transform API data to display format (no more fallback to dummy data)
     const manifestRecords = useMemo(() => {
         if (Array.isArray(manifests) && manifests.length > 0) {
             return manifests
                 .map(mapManifestFromApi)
                 .filter(Boolean);
         }
-        return fallbackManifestRecords;
+        return []; // Return empty array instead of fallback
     }, [manifests]);
 
     const summaryCards = useMemo(() => {
         const baseCards = summaryCardsBase.map((card) => ({ ...card }));
-        if (!manifestRecords.length) {
+        if (!manifestRecords || manifestRecords.length === 0) {
             return baseCards;
         }
 
@@ -1035,6 +1089,14 @@ export default function ManifestContent() {
         { name: 'customer', label: 'Customer', type: 'text', required: false, readOnly: true },
         { name: 'origin', label: 'Origin', type: 'text', required: false, readOnly: true },
         { name: 'destination', label: 'Destination', type: 'text', required: false, readOnly: true },
+        {
+            name: 'routePreview',
+            label: 'Rute Manifest',
+            type: 'text',
+            required: false,
+            readOnly: true,
+            description: '✨ Rute dihitung otomatis berdasarkan Job Order yang dipilih.'
+        },
         { name: 'shipmentDate', label: 'Shipment Date', type: 'date', required: true },
         { name: 'packages', label: 'Total Packages', type: 'number', required: false, readOnly: true },
         { name: 'totalWeight', label: 'Total Weight (kg)', type: 'text', required: false, readOnly: true },
@@ -1067,6 +1129,7 @@ export default function ManifestContent() {
                 customer: '',
                 origin: '',
                 destination: '',
+                routePreview: '',
                 packages: 0,
                 totalWeight: '',
                 driver: '',
@@ -1083,6 +1146,7 @@ export default function ManifestContent() {
                 customer: '',
                 origin: '',
                 destination: '',
+                routePreview: '',
                 packages: 0,
                 totalWeight: '',
                 driver: '',
@@ -1094,13 +1158,25 @@ export default function ManifestContent() {
         const uniqueCustomers = [...new Set(selectedData.map(data => data.customer_name))];
         const customer = uniqueCustomers.join(', ');
 
-        // ✅ FIX: Ambil origin dari Job Order PERTAMA saja
-        // Untuk manifest dengan multiple Job Orders, gunakan origin dari JO pertama
-        const origin = selectedData[0]?.pickup_address || '-';
+        // ✅ UPDATED: Use sorting logic for origin/destination (same as getManifestRouteName)
+        // Sort by pickup time (ascending) untuk menentukan StartNode
+        const sortedByPickup = [...selectedData].sort((a, b) => {
+            const dateA = new Date(a.pickup_datetime || a.pickup_date || 0);
+            const dateB = new Date(b.pickup_datetime || b.pickup_date || 0);
+            return dateA - dateB;
+        });
+        const origin = sortedByPickup[0]?.pickup_address || sortedByPickup[0]?.origin_city || '-';
 
-        // ✅ FIX: Ambil destination dari Job Order PERTAMA saja
-        // Untuk manifest dengan multiple Job Orders, gunakan destination dari JO pertama
-        const destination = selectedData[0]?.delivery_address || '-';
+        // Sort by delivery time (descending) untuk menentukan EndNode
+        const sortedByDelivery = [...selectedData].sort((a, b) => {
+            const dateA = new Date(a.delivery_datetime_estimation || a.delivery_date || a.estimated_delivery || 0);
+            const dateB = new Date(b.delivery_datetime_estimation || b.delivery_date || b.estimated_delivery || 0);
+            return dateB - dateA;
+        });
+        const destination = sortedByDelivery[0]?.delivery_address || sortedByDelivery[0]?.destination_city || '-';
+
+        // ✅ NEW: Generate route label preview for form
+        const routePreview = getManifestRouteName(selectedData);
 
         // Menghitung total packages
         const totalPackages = selectedData.length;
@@ -1221,7 +1297,8 @@ export default function ManifestContent() {
             totalWeight: `${totalWeightKg.toLocaleString('id-ID')} kg`,
             cargoSummary,
             driver: autoDriver,
-            vehicle: autoVehicle
+            vehicle: autoVehicle,
+            routePreview // ✅ NEW: Route label preview for form display
         };
     };
 

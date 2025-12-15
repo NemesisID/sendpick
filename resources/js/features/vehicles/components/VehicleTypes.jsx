@@ -5,65 +5,77 @@ import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import { useVehicleTypes } from '../hooks/useVehicleTypes';
 import { useVehicleTypesCrud } from '../hooks/useVehicleTypesCrud';
 
-const summaryCards = [
-    {
-        title: 'Total Tipe Kendaraan',
-        value: '8',
-        description: 'Kategori terdaftar',
-        iconBg: 'bg-blue-100',
-        iconColor: 'text-blue-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2l-2 2H5l-2-2z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2l-2-2H5l-2 2z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M9 7v10' strokeLinecap='round' />
-                <path d='M15 7v10' strokeLinecap='round' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Aktif',
-        value: '7',
-        description: 'Sedang digunakan',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M9 12l2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-                <circle cx='12' cy='12' r='9' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Non-Aktif',
-        value: '1',
-        description: 'Tidak digunakan',
-        iconBg: 'bg-slate-100',
-        iconColor: 'text-slate-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='9' />
-                <path d='M9 9l6 6' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M15 9l-6 6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Kendaraan Terdaftar',
-        value: '45',
-        description: 'Total unit',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 13h18l-2-6H5z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M5 17h14' strokeLinecap='round' />
-                <circle cx='7.5' cy='17.5' r='1.5' />
-                <circle cx='16.5' cy='17.5' r='1.5' />
-            </svg>
-        ),
-    },
-];
+// Generate real-time summary cards from vehicle types data
+const generateSummaryCards = (vehicleTypes = []) => {
+    const totalTypes = vehicleTypes.length;
+
+    // Count by status
+    const activeTypes = vehicleTypes.filter(vt => vt.status === 'Aktif').length;
+    const inactiveTypes = vehicleTypes.filter(vt => vt.status === 'Tidak Aktif').length;
+
+    // Count total vehicles registered
+    const totalVehicles = vehicleTypes.reduce((sum, vt) => sum + (vt.vehicles_count ?? vt.vehicle_count ?? 0), 0);
+
+    return [
+        {
+            title: 'Total Tipe Kendaraan',
+            value: totalTypes.toString(),
+            description: 'Kategori terdaftar',
+            iconBg: 'bg-blue-100',
+            iconColor: 'text-blue-600',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2l-2 2H5l-2-2z' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2l-2-2H5l-2 2z' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M9 7v10' strokeLinecap='round' />
+                    <path d='M15 7v10' strokeLinecap='round' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Aktif',
+            value: activeTypes.toString(),
+            description: 'Sedang digunakan',
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-600',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M9 12l2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
+                    <circle cx='12' cy='12' r='9' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Non-Aktif',
+            value: inactiveTypes.toString(),
+            description: 'Tidak digunakan',
+            iconBg: 'bg-slate-100',
+            iconColor: 'text-slate-600',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <circle cx='12' cy='12' r='9' />
+                    <path d='M9 9l6 6' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M15 9l-6 6' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Kendaraan Terdaftar',
+            value: totalVehicles.toString(),
+            description: 'Total unit',
+            iconBg: 'bg-amber-100',
+            iconColor: 'text-amber-600',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M3 13h18l-2-6H5z' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M5 17h14' strokeLinecap='round' />
+                    <circle cx='7.5' cy='17.5' r='1.5' />
+                    <circle cx='16.5' cy='17.5' r='1.5' />
+                </svg>
+            ),
+        },
+    ];
+};
 
 const statusOptions = [
     { value: 'all', label: 'Semua Status' },
@@ -144,8 +156,9 @@ function VehicleTypeRow({ vehicleType, onEdit, onDelete }) {
                 </Tag>
             </td>
             <td className='px-6 py-4'>
-                <div className='text-sm text-slate-900'>{vehicleType.vehicle_count}</div>
-                <div className='text-xs text-slate-500'>unit terdaftar</div>
+                <div className='text-sm font-medium text-slate-900'>
+                    {vehicleType.vehicles_count ?? vehicleType.vehicle_count ?? 0} Unit
+                </div>
             </td>
             <td className='px-6 py-4'>
                 <div className='text-sm text-slate-900'>
@@ -255,6 +268,9 @@ export default function VehicleTypesContent({ showPopup = false, setShowPopup = 
     // Modal states
     const [editModal, setEditModal] = useState({ isOpen: false, vehicleType: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, vehicleType: null });
+
+    // Generate real-time summary cards from vehicle types data
+    const summaryCards = useMemo(() => generateSummaryCards(vehicleTypes), [vehicleTypes]);
 
     // Debounce search
     useEffect(() => {

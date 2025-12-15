@@ -113,16 +113,24 @@ export default function DeliveryOrderDetailModal({ isOpen, onClose, data }) {
 
                 {/* Header */}
                 <div className='flex items-center justify-between border-b border-slate-100 bg-white px-6 py-4'>
-                    <div className='flex items-center gap-3'>
-                        <h2 className='text-xl font-bold text-slate-900'>{delivery.id}</h2>
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyle} uppercase tracking-wide`}>
-                            {delivery.status}
-                        </span>
-                        {delivery.priority === 'critical' && (
-                            <span className='inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-600 border border-rose-100 uppercase tracking-wide'>
-                                Priority
+                    <div className='flex flex-col gap-1'>
+                        <div className='flex items-center gap-3'>
+                            <h2 className='text-xl font-bold text-slate-900'>{delivery.id}</h2>
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusStyle} uppercase tracking-wide`}>
+                                {delivery.status}
                             </span>
-                        )}
+                            {delivery.priority === 'critical' && (
+                                <span className='inline-flex items-center rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-600 border border-rose-100 uppercase tracking-wide'>
+                                    Priority
+                                </span>
+                            )}
+                        </div>
+                        <p className='text-sm text-slate-500'>
+                            <span className='font-medium text-slate-600'>Tanggal DO:</span>{' '}
+                            {delivery.raw?.do_date
+                                ? new Date(delivery.raw.do_date).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                : '-'}
+                        </p>
                     </div>
                     <button
                         onClick={onClose}
@@ -290,8 +298,8 @@ export default function DeliveryOrderDetailModal({ isOpen, onClose, data }) {
                         disabled={!hasDriver}
                         title={!hasDriver ? 'Assign Driver terlebih dahulu untuk mencetak.' : 'Cetak Surat Jalan'}
                         className={`inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-slate-200 ${!hasDriver
-                                ? 'cursor-not-allowed text-slate-400 bg-slate-50'
-                                : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                            ? 'cursor-not-allowed text-slate-400 bg-slate-50'
+                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
                             }`}
                     >
                         <PrinterIcon className='h-4 w-4' />
