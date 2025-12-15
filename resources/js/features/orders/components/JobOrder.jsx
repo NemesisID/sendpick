@@ -319,19 +319,24 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{order.customer}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='flex flex-col gap-3'>
+                <div className='flex flex-col gap-2'>
                     {/* Pickup */}
-                    <div className='relative pl-4 border-l-2 border-emerald-100'>
-                        <div className='absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-white' />
-                        <p className='font-bold text-slate-800 text-xs uppercase tracking-wide'>{order.pickup_city || 'Kota Asal'}</p>
-                        <p className='text-xs text-slate-500' title={order.origin}>{order.origin}</p>
+                    <div className='flex items-center gap-2'>
+                        <div className='h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100' />
+                        <p className='font-semibold text-slate-800 text-sm'>{order.pickup_city || 'Kota Asal'}</p>
+                    </div>
+
+                    {/* Arrow */}
+                    <div className='flex items-center pl-1'>
+                        <svg className='h-4 w-4 text-slate-300' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                            <path d='M12 5v14M19 12l-7 7-7-7' strokeLinecap='round' strokeLinejoin='round' />
+                        </svg>
                     </div>
 
                     {/* Delivery */}
-                    <div className='relative pl-4 border-l-2 border-slate-100'>
-                        <div className='absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-sky-500 ring-4 ring-white' />
-                        <p className='font-bold text-slate-800 text-xs uppercase tracking-wide'>{order.delivery_city || 'Kota Tujuan'}</p>
-                        <p className='text-xs text-slate-500' title={order.destination}>{order.destination}</p>
+                    <div className='flex items-center gap-2'>
+                        <div className='h-2.5 w-2.5 rounded-full bg-sky-500 ring-2 ring-sky-100' />
+                        <p className='font-semibold text-slate-800 text-sm'>{order.delivery_city || 'Kota Tujuan'}</p>
                     </div>
                 </div>
             </td>
