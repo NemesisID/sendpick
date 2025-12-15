@@ -3,62 +3,80 @@ import FilterDropdown from '../../../components/common/FilterDropdown';
 import LiveTrackingMap from '../../tracking/components/LiveTrackingMap';
 import { fetchActiveVehicles } from '../services/vehicleService';
 
-const summaryCards = [
-    {
-        title: 'Kendaraan On-Route',
-        value: '18',
-        description: 'Sedang melakukan delivery',
-        iconBg: 'bg-indigo-100',
-        iconColor: 'text-indigo-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 7h11v8H3z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M14 11h3l3 3v3h-3' strokeLinecap='round' strokeLinejoin='round' />
-                <circle cx='7.5' cy='19' r='1.5' />
-                <circle cx='16.5' cy='19' r='1.5' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Siap Berangkat',
-        value: '9',
-        description: 'Idle < 30 menit',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 12l4 4L21 4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Maintenance Ringan',
-        value: '3',
-        description: 'Terjadwal hari ini',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M10 2h4l2 3h5v4l-2 2 2 2v4h-5l-2 3h-4l-2-3H3v-4l2-2-2-2V5h5z' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
-    },
-    {
-        title: 'Utilisasi Rata-rata',
-        value: '82%',
-        description: '7 hari terakhir',
-        iconBg: 'bg-sky-100',
-        iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M4 19h16' strokeLinecap='round' />
-                <path d='M7 16v-5' strokeLinecap='round' />
-                <path d='M12 16V9' strokeLinecap='round' />
-                <path d='M17 16V6' strokeLinecap='round' />
-            </svg>
-        ),
-    },
-];
+// Generate real-time summary cards from active vehicles data
+const generateSummaryCards = (vehicles = []) => {
+    // Count vehicles on route (status = onRoute)
+    const onRouteVehicles = vehicles.filter(v => v.status === 'onRoute').length;
+
+    // Count idle vehicles (status = idle or assigned)
+    const idleVehicles = vehicles.filter(v => v.status === 'idle' || v.status === 'assigned').length;
+
+    // Count maintenance vehicles
+    const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance').length;
+
+    // Calculate average utilization
+    const totalVehicles = vehicles.length;
+    const utilizationRate = totalVehicles > 0
+        ? Math.round((onRouteVehicles / totalVehicles) * 100)
+        : 0;
+
+    return [
+        {
+            title: 'Kendaraan On-Route',
+            value: onRouteVehicles.toString(),
+            description: 'Sedang melakukan delivery',
+            iconBg: 'bg-indigo-100',
+            iconColor: 'text-indigo-600',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M3 7h11v8H3z' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M14 11h3l3 3v3h-3' strokeLinecap='round' strokeLinejoin='round' />
+                    <circle cx='7.5' cy='19' r='1.5' />
+                    <circle cx='16.5' cy='19' r='1.5' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Siap Berangkat',
+            value: idleVehicles.toString(),
+            description: 'Idle < 30 menit',
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-500',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M3 12l4 4L21 4' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Maintenance Ringan',
+            value: maintenanceVehicles.toString(),
+            description: 'Terjadwal hari ini',
+            iconBg: 'bg-amber-100',
+            iconColor: 'text-amber-500',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M10 2h4l2 3h5v4l-2 2 2 2v4h-5l-2 3h-4l-2-3H3v-4l2-2-2-2V5h5z' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
+            ),
+        },
+        {
+            title: 'Utilisasi Rata-rata',
+            value: `${utilizationRate}%`,
+            description: '7 hari terakhir',
+            iconBg: 'bg-sky-100',
+            iconColor: 'text-sky-600',
+            icon: (
+                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
+                    <path d='M4 19h16' strokeLinecap='round' />
+                    <path d='M7 16v-5' strokeLinecap='round' />
+                    <path d='M12 16V9' strokeLinecap='round' />
+                    <path d='M17 16V6' strokeLinecap='round' />
+                </svg>
+            ),
+        },
+    ];
+};
 
 const statusFilterOptions = [
     { value: 'all', label: 'Semua Status' },
@@ -267,6 +285,9 @@ export default function ActiveVehiclesContent() {
             return matchesSearch && matchesStatus && matchesRegion;
         });
     }, [searchTerm, statusFilter, regionFilter, vehicles]);
+
+    // Generate real-time summary cards from vehicles data
+    const summaryCards = useMemo(() => generateSummaryCards(vehicles), [vehicles]);
 
     return (
         <div className='flex flex-col gap-8'>

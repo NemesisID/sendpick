@@ -63,9 +63,10 @@ class DriverController extends Controller
             $query->where('shift', $request->shift);
         }
 
-        // Eager load active assignments to get vehicle info
-        // Logic: Show vehicle if Job Order is Assigned, Pickup, or Delivery (Not Completed/Cancelled)
-        $query->with(['assignments' => function($q) {
+        // Eager load:
+        // 1. assignedVehicle - directly assigned vehicle from vehicles.driver_id (from Vehicle List module)
+        // 2. assignments - for fallback vehicle info from job order assignments
+        $query->with(['assignedVehicle', 'assignments' => function($q) {
             $q->where('status', 'Active')
               ->whereHas('jobOrder', function($jq) {
                   $jq->whereNotIn('status', ['Completed', 'Cancelled']);
@@ -79,17 +80,25 @@ class DriverController extends Controller
 
         // Transform data to include active_vehicle info
         $drivers->getCollection()->transform(function ($driver) {
-            $activeAssignment = $driver->assignments->first();
-            
-            if ($activeAssignment && $activeAssignment->vehicle) {
-                $driver->active_vehicle_plate = $activeAssignment->vehicle->plate_no;
-                $driver->active_vehicle_name = $activeAssignment->vehicle->brand . ' ' . $activeAssignment->vehicle->model;
-            } else {
-                $driver->active_vehicle_plate = '-';
-                $driver->active_vehicle_name = '-';
+            // Priority 1: Use directly assigned vehicle from Vehicle List (vehicles.driver_id)
+            if ($driver->assignedVehicle) {
+                $driver->active_vehicle_plate = $driver->assignedVehicle->plate_no;
+                $driver->active_vehicle_name = $driver->assignedVehicle->brand . ' ' . $driver->assignedVehicle->model;
+            } 
+            // Priority 2: Fallback to active assignment vehicle
+            else {
+                $activeAssignment = $driver->assignments->first();
+                if ($activeAssignment && $activeAssignment->vehicle) {
+                    $driver->active_vehicle_plate = $activeAssignment->vehicle->plate_no;
+                    $driver->active_vehicle_name = $activeAssignment->vehicle->brand . ' ' . $activeAssignment->vehicle->model;
+                } else {
+                    $driver->active_vehicle_plate = '-';
+                    $driver->active_vehicle_name = '-';
+                }
             }
             
-            // Clean up assignments from response to keep it clean
+            // Clean up relationships from response to keep it clean
+            unset($driver->assignedVehicle);
             unset($driver->assignments);
             
             return $driver;

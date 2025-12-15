@@ -42,7 +42,6 @@ import {
     HiMoon
 } from 'react-icons/hi2';
 
-import { ThemeProvider } from '../../../context/ThemeContext';
 import { UserProvider, useUser } from '../../../context/UserContext';
 import HomeContent from '../../../pages/Home';
 import CustomerContent from '../../customers/components/Customer';
@@ -180,40 +179,75 @@ const navigationSections = [
         ],
     },
 ];
-const driverSummaryCards = [
-    {
-        title: 'Total Driver',
-        value: '89',
-        description: '12 driver baru bulan ini',
-        iconBg: 'bg-indigo-100',
-        iconColor: 'text-indigo-600',
-        icon: <VehicleIcon className='h-5 w-5' />,
-    },
-    {
-        title: 'Driver Aktif',
-        value: '76',
-        description: '85% sedang bertugas',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-500',
-        icon: <HiCheckCircle className='h-5 w-5' />,
-    },
-    {
-        title: 'Sedang Kirim',
-        value: '24',
-        description: 'Rata-rata 5 order / driver',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-500',
-        icon: <HiArrowTrendingUp className='h-5 w-5' />,
-    },
-    {
-        title: 'Rating Rata-rata',
-        value: '4.8',
-        description: 'Dari 520 review pelanggan',
-        iconBg: 'bg-purple-100',
-        iconColor: 'text-purple-500',
-        icon: <StarIcon className='h-5 w-5' />,
-    },
-];
+// Generate real-time summary cards from driver data
+const generateDriverSummaryCards = (drivers = []) => {
+    const totalDrivers = drivers.length;
+    const activeDrivers = drivers.filter(d => d.status === 'Aktif' || d.status === 'aktif' || d.status === 'active').length;
+
+    // Drivers yang sedang dalam pengiriman (memiliki active_vehicle)
+    const driversOnDelivery = drivers.filter(d => d.active_vehicle_plate || d.active_vehicle_name).length;
+
+    // Calculate average rating from drivers with valid ratings
+    const driversWithRating = drivers.filter(d => Number.isFinite(Number(d.rating)) && Number(d.rating) > 0);
+    const avgRating = driversWithRating.length > 0
+        ? (driversWithRating.reduce((sum, d) => sum + Number(d.rating), 0) / driversWithRating.length).toFixed(1)
+        : '0.0';
+
+    // Calculate active percentage
+    const activePercentage = totalDrivers > 0
+        ? Math.round((activeDrivers / totalDrivers) * 100)
+        : 0;
+
+    // Calculate average orders per driver
+    const totalDeliveryCount = drivers.reduce((sum, d) => sum + (d.delivery_count || 0), 0);
+    const avgOrdersPerDriver = activeDrivers > 0
+        ? Math.round(totalDeliveryCount / activeDrivers)
+        : 0;
+
+    // Get new drivers this month
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const newDriversThisMonth = drivers.filter(d => {
+        if (!d.created_at) return false;
+        const createdDate = new Date(d.created_at);
+        return createdDate.getMonth() === currentMonth && createdDate.getFullYear() === currentYear;
+    }).length;
+
+    return [
+        {
+            title: 'Total Driver',
+            value: totalDrivers.toString(),
+            description: `${newDriversThisMonth} driver baru bulan ini`,
+            iconBg: 'bg-indigo-100',
+            iconColor: 'text-indigo-600',
+            icon: <VehicleIcon className='h-5 w-5' />,
+        },
+        {
+            title: 'Driver Aktif',
+            value: activeDrivers.toString(),
+            description: `${activePercentage}% sedang bertugas`,
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-500',
+            icon: <HiCheckCircle className='h-5 w-5' />,
+        },
+        {
+            title: 'Sedang Kirim',
+            value: driversOnDelivery.toString(),
+            description: `Rata-rata ${avgOrdersPerDriver} order / driver`,
+            iconBg: 'bg-amber-100',
+            iconColor: 'text-amber-500',
+            icon: <HiArrowTrendingUp className='h-5 w-5' />,
+        },
+        {
+            title: 'Rating Rata-rata',
+            value: avgRating,
+            description: `Dari ${driversWithRating.length} review pelanggan`,
+            iconBg: 'bg-purple-100',
+            iconColor: 'text-purple-500',
+            icon: <StarIcon className='h-5 w-5' />,
+        },
+    ];
+};
 
 const driverStatusStyles = {
     // Format yang sesuai dengan backend
@@ -863,6 +897,9 @@ function DriverManagementContent() {
             return matchesShift && matchesSearch;
         });
     }, [searchTerm, shiftFilter, driversList]);
+
+    // Generate real-time summary cards from driver data
+    const driverSummaryCards = useMemo(() => generateDriverSummaryCards(driversList), [driversList]);
 
     return (
         <>
@@ -1567,13 +1604,12 @@ function DashboardLayout() {
         </div>
     );
 }
+
 function Dashboard() {
     return (
-        <ThemeProvider>
-            <UserProvider>
-                <DashboardLayout />
-            </UserProvider>
-        </ThemeProvider>
+        <UserProvider>
+            <DashboardLayout />
+        </UserProvider>
     );
 }
 

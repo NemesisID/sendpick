@@ -117,6 +117,8 @@ class DeliveryOrderController extends Controller
             'source_id' => 'required|string',
             'customer_id' => 'nullable|exists:customers,customer_id',
             'do_date' => 'required|date',
+            'departure_date' => 'nullable|date',
+            'eta' => 'nullable|date',
             'goods_summary' => 'nullable|string',
             'priority' => 'nullable|in:Low,Medium,High,Urgent',
             'temperature' => 'nullable|string|max:50'
@@ -189,6 +191,8 @@ class DeliveryOrderController extends Controller
             'customer_id' => $customerId,
             'status' => 'Pending',
             'do_date' => $request->do_date,
+            'departure_date' => $request->departure_date,
+            'eta' => $request->eta,
             'goods_summary' => $goodsSummary,
             'temperature' => $request->temperature,
             'created_by' => Auth::id() ?? \App\Models\Admin::first()->user_id
@@ -253,6 +257,8 @@ class DeliveryOrderController extends Controller
         $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
             'do_date' => 'required|date',
+            'departure_date' => 'nullable|date',
+            'eta' => 'nullable|date',
             'goods_summary' => 'required|string',
             'priority' => 'nullable|in:Low,Medium,High,Urgent',
             'temperature' => 'nullable|string|max:50',
@@ -265,6 +271,8 @@ class DeliveryOrderController extends Controller
         $deliveryOrder->update($request->only([
             'customer_id',
             'do_date',
+            'departure_date',
+            'eta',
             'goods_summary',
             'priority',
             'temperature',

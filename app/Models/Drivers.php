@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable; // ← UBAH dari Model ke Authenticatable
 use Laravel\Sanctum\HasApiTokens; // ← TAMBAHKAN
 use Illuminate\Notifications\Notifiable;
@@ -44,6 +45,15 @@ class Drivers extends Authenticatable
         'email_verified_at' => 'datetime', // ← TAMBAHKAN
         'password' => 'hashed', // ← TAMBAHKAN (Laravel 11)
     ];
+
+    /**
+     * Relationship: Driver has one assigned Vehicle (via vehicles.driver_id)
+     * This is the reverse of Vehicles::driver()
+     */
+    public function assignedVehicle(): HasOne
+    {
+        return $this->hasOne(Vehicles::class, 'driver_id', 'driver_id');
+    }
 
     /**
      * Relationship: Driver has many Job Order Assignments

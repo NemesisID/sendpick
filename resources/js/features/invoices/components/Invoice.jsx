@@ -44,48 +44,72 @@ const formatDate = (dateString) => {
     });
 };
 
-const summaryCards = [
-    {
-        title: 'Total Invoice',
-        value: '4',
-        description: 'Invoice bulan ini',
-        iconBg: 'bg-indigo-100',
-        iconColor: 'text-indigo-600',
-        icon: <HiOutlineDocumentText className='h-5 w-5' />,
-    },
-    {
-        title: 'Paid',
-        value: '1',
-        description: 'Invoice lunas',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-500',
-        icon: <HiOutlineCheckCircle className='h-5 w-5' />,
-    },
-    {
-        title: 'Pending',
-        value: '1',
-        description: 'Menunggu pembayaran',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-500',
-        icon: <HiOutlineClock className='h-5 w-5' />,
-    },
-    {
-        title: 'Overdue',
-        value: '1',
-        description: 'Lampaui jatuh tempo',
-        iconBg: 'bg-rose-100',
-        iconColor: 'text-rose-500',
-        icon: <HiOutlineExclamation className='h-5 w-5' />,
-    },
-    {
-        title: 'Total Revenue',
-        value: 'Rp 2.750.000',
-        description: 'Dari invoice paid',
-        iconBg: 'bg-purple-100',
-        iconColor: 'text-purple-500',
-        icon: <HiOutlineCurrencyDollar className='h-5 w-5' />,
-    },
-];
+// Generate real-time summary cards from invoice data
+const generateSummaryCards = (invoices = []) => {
+    const totalInvoices = invoices.length;
+
+    // Count by status
+    const paidInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'paid').length;
+    const pendingInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'pending').length;
+    const overdueInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'overdue').length;
+
+    // Calculate total revenue from paid invoices
+    const totalRevenue = invoices
+        .filter(inv => inv.status?.toLowerCase() === 'paid')
+        .reduce((sum, inv) => sum + (parseFloat(inv.total_amount) || 0), 0);
+
+    // Count invoices created this month
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const invoicesThisMonth = invoices.filter(inv => {
+        if (!inv.invoice_date && !inv.date) return false;
+        const invoiceDate = new Date(inv.invoice_date || inv.date);
+        return invoiceDate.getMonth() === currentMonth && invoiceDate.getFullYear() === currentYear;
+    }).length;
+
+    return [
+        {
+            title: 'Total Invoice',
+            value: totalInvoices.toString(),
+            description: `${invoicesThisMonth} invoice bulan ini`,
+            iconBg: 'bg-indigo-100',
+            iconColor: 'text-indigo-600',
+            icon: <HiOutlineDocumentText className='h-5 w-5' />,
+        },
+        {
+            title: 'Paid',
+            value: paidInvoices.toString(),
+            description: 'Invoice lunas',
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-500',
+            icon: <HiOutlineCheckCircle className='h-5 w-5' />,
+        },
+        {
+            title: 'Pending',
+            value: pendingInvoices.toString(),
+            description: 'Menunggu pembayaran',
+            iconBg: 'bg-amber-100',
+            iconColor: 'text-amber-500',
+            icon: <HiOutlineClock className='h-5 w-5' />,
+        },
+        {
+            title: 'Overdue',
+            value: overdueInvoices.toString(),
+            description: 'Lampaui jatuh tempo',
+            iconBg: 'bg-rose-100',
+            iconColor: 'text-rose-500',
+            icon: <HiOutlineExclamation className='h-5 w-5' />,
+        },
+        {
+            title: 'Total Revenue',
+            value: formatCurrency(totalRevenue),
+            description: 'Dari invoice paid',
+            iconBg: 'bg-purple-100',
+            iconColor: 'text-purple-500',
+            icon: <HiOutlineCurrencyDollar className='h-5 w-5' />,
+        },
+    ];
+};
 
 const statusStyles = {
     paid: {
@@ -447,6 +471,9 @@ export default function InvoiceContent() {
             } : null
         }));
     }, [invoices]);
+
+    // Generate real-time summary cards from invoice data
+    const summaryCards = useMemo(() => generateSummaryCards(invoices), [invoices]);
 
     const handleCreate = () => {
         setSelectedInvoice(null);

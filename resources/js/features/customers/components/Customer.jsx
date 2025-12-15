@@ -20,40 +20,59 @@ import {
     HiMapPin
 } from 'react-icons/hi2';
 
-const summaryCards = [
-    {
-        title: 'Total Pelanggan',
-        value: '245',
-        description: 'Termasuk corporate & individu',
-        iconBg: 'bg-sky-100',
-        iconColor: 'text-sky-600',
-        icon: <HiUsers className='h-5 w-5' />,
-    },
-    {
-        title: 'Pelanggan Aktif',
-        value: '198',
-        description: '81% dari total pelanggan',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-500',
-        icon: <HiCheckCircle className='h-5 w-5' />,
-    },
-    {
-        title: 'Corporate',
-        value: '89',
-        description: 'Termasuk SME & enterprise',
-        iconBg: 'bg-purple-100',
-        iconColor: 'text-purple-500',
-        icon: <HiBuildingOffice className='h-5 w-5' />,
-    },
-    {
-        title: 'Rata-rata Rating',
-        value: '4.7',
-        description: 'Dari 320 ulasan pelanggan',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-500',
-        icon: <HiStar className='h-5 w-5' />,
-    },
-];
+// Generate real-time summary cards from customer data
+const generateSummaryCards = (customers = []) => {
+    const totalCustomers = customers.length;
+    const activeCustomers = customers.filter(c => c.status === 'active').length;
+    const corporateCustomers = customers.filter(c => c.type === 'corporate').length;
+    const smeCustomers = customers.filter(c => c.type === 'sme').length;
+
+    // Calculate average rating from customers with valid ratings
+    const customersWithRating = customers.filter(c => Number.isFinite(c.rating) && c.rating > 0);
+    const avgRating = customersWithRating.length > 0
+        ? (customersWithRating.reduce((sum, c) => sum + c.rating, 0) / customersWithRating.length).toFixed(1)
+        : '0.0';
+
+    // Calculate active percentage
+    const activePercentage = totalCustomers > 0
+        ? Math.round((activeCustomers / totalCustomers) * 100)
+        : 0;
+
+    return [
+        {
+            title: 'Total Pelanggan',
+            value: totalCustomers.toString(),
+            description: `Termasuk ${corporateCustomers} corporate & ${totalCustomers - corporateCustomers} lainnya`,
+            iconBg: 'bg-sky-100',
+            iconColor: 'text-sky-600',
+            icon: <HiUsers className='h-5 w-5' />,
+        },
+        {
+            title: 'Pelanggan Aktif',
+            value: activeCustomers.toString(),
+            description: `${activePercentage}% dari total pelanggan`,
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-500',
+            icon: <HiCheckCircle className='h-5 w-5' />,
+        },
+        {
+            title: 'Corporate',
+            value: corporateCustomers.toString(),
+            description: `Termasuk SME (${smeCustomers}) & enterprise`,
+            iconBg: 'bg-purple-100',
+            iconColor: 'text-purple-500',
+            icon: <HiBuildingOffice className='h-5 w-5' />,
+        },
+        {
+            title: 'Rata-rata Rating',
+            value: avgRating,
+            description: `Dari ${customersWithRating.length} ulasan pelanggan`,
+            iconBg: 'bg-amber-100',
+            iconColor: 'text-amber-500',
+            icon: <HiStar className='h-5 w-5' />,
+        },
+    ];
+};
 
 const customerTypeStyles = {
     corporate: {
@@ -390,6 +409,9 @@ export default function CustomerContent() {
     } = useCustomersCrud();
 
     const formattedCustomers = useMemo(() => formatCustomerList(customers ?? []), [customers]);
+
+    // Generate real-time summary cards from formatted customer data
+    const summaryCards = useMemo(() => generateSummaryCards(formattedCustomers), [formattedCustomers]);
 
     useEffect(() => {
         if (!filterEffectInitialized.current) {
