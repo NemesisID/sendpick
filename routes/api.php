@@ -171,6 +171,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/manifests/{manifestId}/remove-job-orders', [ManifestController::class, 'removeJobOrders'])->name('api.manifests.remove-job-orders')->withoutMiddleware('auth:sanctum');
     // 4. Membatalkan manifest
     Route::post('/manifests/{manifestId}/cancel', [ManifestController::class, 'cancel'])->name('api.manifests.cancel')->withoutMiddleware('auth:sanctum');
+    // 5. Update status manifest saja (untuk Berangkat/Depart, Arrived, Completed)
+    Route::patch('/manifests/{manifestId}/status', [ManifestController::class, 'updateStatus'])->name('api.manifests.update-status')->withoutMiddleware('auth:sanctum');
 
     // Manifests (apiResource)
     Route::apiResource('manifests', ManifestController::class)

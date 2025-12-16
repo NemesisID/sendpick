@@ -119,3 +119,20 @@ export async function cancelManifest(manifestId) {
         handleError(`❌ Cancel manifest ${manifestId} failed:`, error);
     }
 }
+
+/**
+ * Update manifest status only (for status transitions like Pending -> In Transit)
+ * Uses PATCH /manifests/{manifestId}/status endpoint
+ */
+export async function updateManifestStatus(manifestId, status) {
+    try {
+        const response = await api.patch(`/manifests/${manifestId}/status`, { status });
+        return {
+            success: true,
+            data: response.data?.data,
+            message: response.data?.message,
+        };
+    } catch (error) {
+        handleError(`❌ Update manifest ${manifestId} status failed:`, error);
+    }
+}

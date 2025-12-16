@@ -13,7 +13,18 @@ class InvoiceSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('invoices')->truncate();
+        // ✅ Skip jika data sudah ada
+        if (DB::table('invoices')->count() > 0) {
+            $this->command->info('⚠️  Invoices already seeded. Skipping...');
+            return;
+        }
+
+        // ✅ Pastikan customer sudah ada
+        $customerExists = DB::table('customers')->where('customer_id', 'CUST001')->exists();
+        if (!$customerExists) {
+            $this->command->error('❌ Customer CUST001 not found. Please seed CustomerSeeder first!');
+            return;
+        }
 
         $invoices = [
             // Invoice 1: Pending (belum ada pembayaran)
@@ -84,7 +95,7 @@ class InvoiceSeeder extends Seeder
                 'invoice_id' => 'INV-20251101-004',
                 'source_type' => 'JO',
                 'source_id' => 'JO-20251101-003',
-                'customer_id' => 'CUST0004',
+                'customer_id' => 'CUST001',
                 'invoice_date' => '2025-11-01',
                 'due_date' => '2025-11-08',
                 'subtotal' => 7000000.00,

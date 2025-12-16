@@ -24,13 +24,19 @@ class Manifests extends Model
         'status',
         'created_by',
         'driver_id',
-        'vehicle_id'
+        'vehicle_id',
+        'departed_at',
+        'arrived_at',
+        'completed_at'
     ];
 
     protected $casts = [
         'cargo_weight' => 'decimal:2',
         'planned_departure' => 'datetime',
-        'planned_arrival' => 'datetime'
+        'planned_arrival' => 'datetime',
+        'departed_at' => 'datetime',
+        'arrived_at' => 'datetime',
+        'completed_at' => 'datetime'
     ];
 
     /**

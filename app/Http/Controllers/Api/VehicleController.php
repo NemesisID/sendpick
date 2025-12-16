@@ -289,18 +289,37 @@ class VehicleController extends Controller
     /**
      * Get available vehicles (not currently assigned)
      * 
+     * Supports min_capacity filter to only show vehicles that can carry
+     * the required weight (based on vehicle_types.capacity_max_kg)
+     * 
      * @param Request $request
      * @return JsonResponse
      */
     public function getAvailable(Request $request): JsonResponse
     {
+        // Validate optional min_capacity parameter
+        $request->validate([
+            'min_capacity' => 'nullable|numeric|min:0'
+        ]);
+
         // Filter kendaraan yang statusnya 'Aktif', kondisi bukan 'Rusak', dan tidak memiliki assignment aktif 
-        $vehicles = Vehicles::with('vehicleType')
+        $query = Vehicles::with('vehicleType')
             ->where('status', 'Aktif')
             ->where('condition_label', '!=', 'Rusak')
-            ->whereDoesntHave('assignments', function($query) {
-                $query->where('status', 'Active');
-            })
+            ->whereDoesntHave('assignments', function($q) {
+                $q->where('status', 'Active');
+            });
+
+        // Filter by minimum capacity if provided
+        // Only show vehicles whose vehicle type can carry at least min_capacity kg
+        if ($request->filled('min_capacity')) {
+            $minCapacity = (float) $request->min_capacity;
+            $query->whereHas('vehicleType', function($q) use ($minCapacity) {
+                $q->where('capacity_max_kg', '>=', $minCapacity);
+            });
+        }
+
+        $vehicles = $query
             ->select('vehicle_id', 'plate_no', 'brand', 'model', 'vehicle_type_id', 'capacity_label', 'fuel_level_pct')
             ->orderBy('plate_no')
             ->get()
@@ -311,7 +330,10 @@ class VehicleController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $vehicles
+            'data' => $vehicles,
+            'filter_applied' => $request->filled('min_capacity') ? [
+                'min_capacity' => (float) $request->min_capacity
+            ] : null
         ], 200);
     }
 

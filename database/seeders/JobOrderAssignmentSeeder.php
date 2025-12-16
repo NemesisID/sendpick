@@ -18,12 +18,22 @@ class JobOrderAssignmentSeeder extends Seeder
             return;
         }
 
-        // ✅ Sample assignments (Driver + Vehicle assigned to Job Order)
+        // ✅ Ambil data yang benar dari database
+        $jobOrders = DB::table('job_orders')->pluck('job_order_id')->toArray();
+        $drivers = DB::table('drivers')->pluck('driver_id')->toArray();
+        $vehicles = DB::table('vehicles')->pluck('vehicle_id')->toArray();
+
+        if (empty($jobOrders) || empty($drivers) || empty($vehicles)) {
+            $this->command->error('❌ Job Orders, Drivers, atau Vehicles belum ada! Jalankan seeder lain terlebih dahulu.');
+            return;
+        }
+
+        // ✅ Sample assignments menggunakan data yang ada di database
         $assignments = [
             [
-                'job_order_id' => 'JO001', // Harus ada di job_orders
-                'driver_id' => 'DRV001',
-                'vehicle_id' => 'VEH001',
+                'job_order_id' => $jobOrders[0] ?? 'JO-20251109-001',
+                'driver_id' => $drivers[0] ?? 'DRV-001',
+                'vehicle_id' => $vehicles[0] ?? 'VEH-001',
                 'status' => 'Active',
                 'notes' => 'Pengiriman rutin ke Jakarta Pusat',
                 'assigned_at' => now()->subDays(2),
@@ -31,9 +41,9 @@ class JobOrderAssignmentSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'job_order_id' => 'JO002',
-                'driver_id' => 'DRV002',
-                'vehicle_id' => 'VEH002',
+                'job_order_id' => $jobOrders[1] ?? 'JO-20251109-002',
+                'driver_id' => $drivers[1] ?? 'DRV-002',
+                'vehicle_id' => $vehicles[1] ?? 'VEH-002',
                 'status' => 'Active',
                 'notes' => 'Pengiriman besar ke Tangerang',
                 'assigned_at' => now()->subDays(1),
@@ -41,9 +51,9 @@ class JobOrderAssignmentSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'job_order_id' => 'JO003',
-                'driver_id' => 'DRV003',
-                'vehicle_id' => 'VEH003',
+                'job_order_id' => $jobOrders[2] ?? 'JO-20251109-003',
+                'driver_id' => $drivers[2] ?? 'DRV-003',
+                'vehicle_id' => $vehicles[2] ?? 'VEH-003',
                 'status' => 'Completed',
                 'notes' => 'Pengiriman ekspres selesai',
                 'assigned_at' => now()->subDays(3),

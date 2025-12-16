@@ -5,11 +5,13 @@ import {
     deleteManifest as deleteManifestRequest,
     getManifest as getManifestRequest,
     cancelManifest as cancelManifestRequest,
+    updateManifestStatus as updateManifestStatusRequest,
 } from '../services/manifestService';
 
 const INITIAL_STATE = {
     creating: false,
     updating: false,
+    updatingStatus: false,
     deleting: false,
     cancelling: false,
     loadingDetail: false,
@@ -129,9 +131,29 @@ export function useManifestCrud(options = {}) {
         [setMutationState],
     );
 
+    const handleUpdateStatus = useCallback(
+        async (manifestId, status) => {
+            setMutationState({ updatingStatus: true, actionError: null, successMessage: null });
+            try {
+                const response = await updateManifestStatusRequest(manifestId, status);
+                onUpdateSuccess?.(response?.data, response);
+                setMutationState({ successMessage: response?.message ?? 'Status manifest berhasil diperbarui' });
+                return response?.data;
+            } catch (error) {
+                setMutationState({ actionError: getErrorMessage(error, 'Gagal memperbarui status manifest') });
+                throw error;
+            } finally {
+                setMutationState({ updatingStatus: false });
+                onMutationsComplete?.();
+            }
+        },
+        [onMutationsComplete, onUpdateSuccess, setMutationState],
+    );
+
     return {
         createManifest: handleCreate,
         updateManifest: handleUpdate,
+        updateManifestStatus: handleUpdateStatus,
         deleteManifest: handleDelete,
         cancelManifest: handleCancel,
         getManifest: getManifestDetail,
