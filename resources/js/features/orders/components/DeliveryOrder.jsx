@@ -55,40 +55,34 @@ const summaryCardsBase = [
     },
     {
         key: 'exception',
-        title: 'Exception',
+        title: 'Returned / Cancelled',
         value: '0',
-        description: 'Perlu tindakan CS & logistik',
-        iconBg: 'bg-rose-100',
-        iconColor: 'text-rose-500',
+        description: 'Gagal kirim atau dibatalkan',
+        iconBg: 'bg-amber-100',
+        iconColor: 'text-amber-500',
         icon: (
             <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 4 3 19h18z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M12 9v5' strokeLinecap='round' />
-                <circle cx='12' cy='15' r='1' fill='currentColor' stroke='none' />
+                <path d='M3 12h18' strokeLinecap='round' />
+                <path d='m17 8-4 4 4 4' strokeLinecap='round' strokeLinejoin='round' />
             </svg>
         ),
     },
 ];
 
 const DO_STATUS_MAP = {
-    pending: 'scheduled',
-    assigned: 'loading',
+    pending: 'pending',
     'in transit': 'inTransit',
     delivered: 'delivered',
-    completed: 'delivered',
-    cancelled: 'exception',
+    returned: 'returned',
+    completed: 'completed',
+    cancelled: 'cancelled',
 };
 
 const statusStyles = {
-    scheduled: {
-        label: 'Scheduled',
+    pending: {
+        label: 'Pending',
         bg: 'bg-slate-100',
-        text: 'text-slate-500',
-    },
-    loading: {
-        label: 'Loading',
-        bg: 'bg-amber-50',
-        text: 'text-amber-600',
+        text: 'text-slate-600',
     },
     inTransit: {
         label: 'In Transit',
@@ -100,8 +94,18 @@ const statusStyles = {
         bg: 'bg-emerald-50',
         text: 'text-emerald-600',
     },
-    exception: {
-        label: 'Exception',
+    returned: {
+        label: 'Returned',
+        bg: 'bg-amber-50',
+        text: 'text-amber-600',
+    },
+    completed: {
+        label: 'Completed',
+        bg: 'bg-indigo-50',
+        text: 'text-indigo-600',
+    },
+    cancelled: {
+        label: 'Cancelled',
         bg: 'bg-rose-50',
         text: 'text-rose-600',
     },
@@ -110,10 +114,11 @@ const statusStyles = {
 const statusFilterOptions = [
     { value: 'all', label: 'Semua Status' },
     { value: 'Pending', label: 'Pending' },
-    { value: 'Assigned', label: 'Assigned' },
     { value: 'In Transit', label: 'In Transit' },
     { value: 'Delivered', label: 'Delivered' },
+    { value: 'Returned', label: 'Returned' },
     { value: 'Completed', label: 'Completed' },
+    { value: 'Cancelled', label: 'Cancelled' },
 ];
 
 const priorityFilterOptions = [
@@ -130,9 +135,44 @@ const alertFilterOptions = [
 ];
 
 const normalizeStatus = (status) => {
-    if (!status) return 'scheduled';
+    if (!status) return 'pending';
     const key = status.toString().toLowerCase();
-    return DO_STATUS_MAP[key] ?? 'scheduled';
+    return DO_STATUS_MAP[key] ?? 'pending';
+};
+
+/**
+ * Helper function to extract city name from address
+ * If the address contains a comma, take the last meaningful part (usually the city)
+ * Otherwise return the original value
+ */
+const extractCityName = (address) => {
+    if (!address || address === '-') return '-';
+
+    // If it looks like just a city name already (short, no comma), return as is
+    if (address.length <= 30 && !address.includes(',')) {
+        return address;
+    }
+
+    // Try to extract city from comma-separated address
+    const parts = address.split(',').map(p => p.trim()).filter(p => p);
+    if (parts.length >= 2) {
+        // Usually the city is the second-to-last or last part before postal code
+        // Take the last non-numeric part that's not too short
+        for (let i = parts.length - 1; i >= 0; i--) {
+            const part = parts[i];
+            // Skip if it's just a postal code (all numbers) or too short
+            if (!/^\d+$/.test(part) && part.length > 3) {
+                return part;
+            }
+        }
+    }
+
+    // Fallback: if address is too long, truncate it
+    if (address.length > 30) {
+        return address.substring(0, 27) + '...';
+    }
+
+    return address;
 };
 
 const mapDeliveryOrderFromApi = (deliveryOrder) => {
@@ -141,9 +181,14 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
     const sourceInfo = deliveryOrder.source_info ?? {};
     const customerName = deliveryOrder.customer?.customer_name ?? sourceInfo.customer_name ?? '-';
 
-    // Fix Route: Handle both Manifest (origin_city) and JobOrder (pickup_city) fields
-    const origin = sourceInfo.origin_city ?? sourceInfo.pickup_city ?? sourceInfo.origin ?? '-';
-    const destination = sourceInfo.dest_city ?? sourceInfo.delivery_city ?? sourceInfo.destination ?? '-';
+    // Fix Route: Extract city names only (not full addresses)
+    // Priority: origin_city/dest_city (already city) > pickup_city/delivery_city (may be full address)
+    const rawOrigin = sourceInfo.origin_city ?? sourceInfo.pickup_city ?? sourceInfo.origin ?? '-';
+    const rawDestination = sourceInfo.dest_city ?? sourceInfo.delivery_city ?? sourceInfo.destination ?? '-';
+
+    // Extract city names from addresses
+    const origin = extractCityName(rawOrigin);
+    const destination = extractCityName(rawDestination);
     const route = origin && destination && origin !== '-' && destination !== '-' ? `${origin} → ${destination}` : '-';
 
     // Fix Source Label
@@ -155,9 +200,12 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
     const formattedDeparture = departureDate ? new Date(departureDate).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-';
 
     // Fix Koli & Goods Info
-    // extracting weight, qty, and description separately as requested
-    const weight = sourceInfo.goods_weight ?? sourceInfo.weight ?? deliveryOrder.weight ?? '-';
-    const qty = sourceInfo.quantity ?? sourceInfo.koli ?? deliveryOrder.quantity ?? sourceInfo.goods_quantity ?? '-';
+    // For Manifest: weight = total from all JOs, qty = total koli from all JOs
+    // For Job Order: weight = goods_weight, qty = goods_volume (used as koli)
+    const weight = sourceInfo.goods_weight ?? deliveryOrder.weight ?? '-';
+    const qty = sourceInfo.koli ?? sourceInfo.quantity ?? sourceInfo.goods_volume ?? deliveryOrder.quantity ?? '-';
+    const jobOrdersCount = sourceInfo.job_orders_count ?? null;
+
     // Use goods_summary first, then sourceInfo.goods_desc
     const goodsDesc = deliveryOrder.goods_summary || sourceInfo.goods_desc || '-';
 
@@ -181,6 +229,8 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
         driver: deliveryOrder.driver_name ?? deliveryOrder.assigned_driver ?? 'Belum ditugaskan',
         vehicle: deliveryOrder.vehicle_plate ?? deliveryOrder.assigned_vehicle ?? 'Belum ditugaskan',
         route,
+        origin: origin,  // Separate field for vertical display
+        destination: destination,  // Separate field for vertical display
         eta: eta,
         departure: formattedDeparture,
         status: status,
@@ -189,6 +239,10 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
         qty: qty,
         goods_desc: goodsDesc,
         lastUpdate: deliveryOrder.updated_at ? new Date(deliveryOrder.updated_at).toLocaleString('id-ID') : '-',
+
+        // Additional fields for display logic
+        isManifest: deliveryOrder.source_type === 'MF',
+        jobOrdersCount: sourceInfo.job_orders_count ?? null,
 
         priority: (deliveryOrder.priority ?? 'normal').toLowerCase(),
         raw: deliveryOrder,
@@ -278,7 +332,7 @@ function SummaryCard({ card }) {
 }
 
 function StatusBadge({ status }) {
-    const style = statusStyles[status] ?? statusStyles.scheduled;
+    const style = statusStyles[status] ?? statusStyles.pending;
     return (
         <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold ${style.bg} ${style.text}`}>
             {style.label}
@@ -309,7 +363,8 @@ function PriorityPill({ priority }) {
 }
 
 function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
-    const isReadOnly = delivery.status === 'exception';
+    // Cancelled and Completed statuses are read-only
+    const isReadOnly = delivery.status === 'cancelled' || delivery.status === 'completed';
 
     return (
         <tr className='transition-colors hover:bg-slate-50'>
@@ -321,8 +376,11 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='flex flex-col gap-1'>
-                    <span className='font-medium text-slate-700'>{delivery.route}</span>
+                <div className='flex flex-col gap-0.5'>
+                    {/* Vertical route display: Origin ↓ Destination */}
+                    <span className='font-semibold text-slate-800'>{delivery.origin || '-'}</span>
+                    <span className='text-slate-400 text-xs'>↓</span>
+                    <span className='font-medium text-slate-700'>{delivery.destination || '-'}</span>
                     <span className='text-xs text-slate-400'>Keberangkatan: {delivery.departure}</span>
                 </div>
             </td>
@@ -344,7 +402,7 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-0.5'>
                     <p className='font-semibold text-slate-700'>
-                        {delivery.weight} Kg • {delivery.qty} Koli
+                        {delivery.weight !== '-' ? `${delivery.weight} Kg` : '- Kg'} • {delivery.qty !== '-' ? delivery.qty : '-'} Koli
                     </p>
                     <p className='text-xs text-slate-500 truncate max-w-[180px]' title={delivery.goods_desc}>
                         {delivery.goods_desc}
@@ -616,7 +674,7 @@ export default function DeliveryOrderContent() {
                 acc.total += 1;
                 if (item.backendStatus === 'Delivered' || item.backendStatus === 'Completed') acc.delivered += 1;
                 if (item.backendStatus === 'In Transit') acc.inTransit += 1;
-                if (item.backendStatus === 'Cancelled') acc.exception += 1;
+                if (item.backendStatus === 'Returned' || item.backendStatus === 'Cancelled') acc.exception += 1;
                 return acc;
             },
             { total: 0, delivered: 0, inTransit: 0, exception: 0 },
@@ -821,11 +879,11 @@ export default function DeliveryOrderContent() {
             {
                 name: 'goods_summary',
                 label: 'Ringkasan Barang',
-                type: 'textarea',
-                required: true,
-                rows: 2,
+                type: 'text',
+                required: false,
+                readOnly: true,
                 defaultValue: delivery?.raw?.goods_summary || delivery?.goods_desc || '',
-                description: 'Ringkasan muatan barang (Koli/Berat/Jenis)'
+                description: 'Data barang diambil dari sumber DO. Jika perlu diubah, silakan revisi di Job Order/Manifest.'
             },
             {
                 name: 'route_display',
@@ -885,16 +943,6 @@ export default function DeliveryOrderContent() {
                 ],
                 defaultValue: delivery?.raw?.priority ? delivery.raw.priority.charAt(0).toUpperCase() + delivery.raw.priority.slice(1) : 'Medium',
                 description: 'Prioritas pengiriman dapat diubah'
-            },
-            {
-                name: 'notes',
-                label: 'Catatan',
-                type: 'textarea',
-                required: false,
-                rows: 3,
-                defaultValue: delivery?.notes || '',
-                placeholder: 'Catatan tambahan untuk delivery order ini',
-                description: 'Catatan khusus untuk driver atau tim operasional'
             }
         ];
     };

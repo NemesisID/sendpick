@@ -23,13 +23,16 @@ class ReportSeeder extends Seeder
      */
     public function run(): void
     {
-        // Truncate existing test data
-        $this->command->warn('⚠️  Truncating existing Report test data...');
-        DB::table('job_order_assignments')->whereNotNull('assignment_id')->delete();
-        DB::table('delivery_orders')->where('do_id', 'LIKE', 'DO-%-1%')->delete(); // DO-20251001-100 series
-        DB::table('invoices')->where('invoice_id', 'LIKE', 'INV-%-01%')->delete(); // INV-20251001-0100 series
-        DB::table('job_orders')->where('job_order_id', 'LIKE', 'JO-%-01%')->delete(); // JO-20251001-0100 series
-        
+        // ✅ Skip jika sudah ada data report (untuk menghindari duplikasi)
+        $reportJobOrdersExist = DB::table('job_orders')
+            ->where('job_order_id', 'LIKE', 'JO-%-01%')
+            ->exists();
+
+        if ($reportJobOrdersExist) {
+            $this->command->info('⚠️  Report test data already exists. Skipping...');
+            return;
+        }
+
         // Ambil data reference dari tabel lain
         $customers = DB::table('customers')->pluck('customer_id')->toArray();
         $drivers = DB::table('drivers')->pluck('driver_id')->toArray();
@@ -57,7 +60,7 @@ class ReportSeeder extends Seeder
 
             $jobOrders[] = [
                 'job_order_id' => 'JO-' . $randomDate->format('Ymd') . '-' . str_pad($i + 100, 4, '0', STR_PAD_LEFT),
-                'customer_id' => $customers[array_rand($customers)],
+                'customer_id' => $customers[array_rand($customers)], // ✅ Gunakan customer yang ada
                 'order_type' => $this->getRandomStatus(['LTL', 'FTL'], [60, 40]),
                 'status' => $status,
                 'pickup_address' => 'Warehouse ' . chr(65 + rand(0, 5)) . ', Jakarta',
@@ -122,23 +125,21 @@ class ReportSeeder extends Seeder
         
         foreach ($insertedJobOrders->take(40) as $index => $job) {
             $doDate = Carbon::parse($job->ship_date);
-            $status = $this->getRandomStatus(['Assigned', 'In Transit', 'At Destination', 'Delivered', 'Failed'], [10, 15, 10, 60, 5]);
+            $status = $this->getRandomStatus(['Pending', 'In Progress', 'Delivered', 'Cancelled'], [15, 20, 60, 5]);
 
+            // ✅ Sesuaikan dengan schema delivery_orders yang benar
             $deliveryOrders[] = [
                 'do_id' => 'DO-' . $doDate->format('Ymd') . '-' . str_pad($index + 100, 3, '0', STR_PAD_LEFT),
                 'source_type' => 'JO',
                 'source_id' => $job->job_order_id,
                 'customer_id' => $job->customer_id,
-                'driver_id' => $drivers[array_rand($drivers)],
-                'vehicle_id' => $vehicles[array_rand($vehicles)],
                 'status' => $status,
-                'pickup_location' => $job->pickup_address,
-                'delivery_location' => $job->delivery_address,
-                'scheduled_pickup' => $doDate->toDateTimeString(),
-                'scheduled_delivery' => $doDate->copy()->addHours(rand(4, 8))->toDateTimeString(),
-                'actual_pickup' => $status !== 'Assigned' ? $doDate->copy()->addMinutes(rand(10, 60))->toDateTimeString() : null,
-                'actual_delivery' => $status === 'Delivered' ? $doDate->copy()->addHours(rand(5, 10))->toDateTimeString() : null,
-                'notes' => 'Sample delivery for testing',
+                'do_date' => $doDate->toDateString(),
+                'delivered_date' => $status === 'Delivered' ? $doDate->copy()->addDays(rand(1, 3))->toDateString() : null,
+                'goods_summary' => $job->goods_desc,
+                'priority' => $this->getRandomStatus(['Low', 'Normal', 'High', 'Urgent'], [10, 50, 30, 10]),
+                'temperature' => $this->getRandomStatus(['Ambient', 'Cold', 'Cool'], [70, 20, 10]),
+                'created_by' => $job->created_by,
                 'created_at' => $doDate,
                 'updated_at' => $doDate,
             ];
@@ -156,8 +157,8 @@ class ReportSeeder extends Seeder
         foreach ($deliveryOrders as $index => $do) {
             $assignments[] = [
                 'job_order_id' => $do['source_id'],
-                'driver_id' => $do['driver_id'],
-                'vehicle_id' => $do['vehicle_id'],
+                'driver_id' => $drivers[array_rand($drivers)],
+                'vehicle_id' => $vehicles[array_rand($vehicles)],
                 'status' => $do['status'] === 'Delivered' ? 'Completed' : 'Active',
                 'assigned_at' => $do['created_at'],
                 'notes' => 'Auto-assignment for ' . $do['do_id'],
@@ -195,4 +196,3 @@ class ReportSeeder extends Seeder
         return $statuses[0]; // Fallback
     }
 }
-

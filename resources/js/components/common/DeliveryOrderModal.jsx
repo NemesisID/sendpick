@@ -40,36 +40,66 @@ const DeliveryOrderModal = ({
             const fetchSourcesAndOptions = async () => {
                 setIsFetchingSources(true);
                 try {
-                    // Fetch Job Orders
+                    // First, fetch existing Delivery Orders to know which JO/Manifest are already used
+                    const doResponse = await import('../../features/orders/services/deliveryOrderService').then(module => module.fetchDeliveryOrders({ per_page: 500 }));
+                    const existingDOs = doResponse.items || [];
+
+                    // Extract source_ids that are already used
+                    const usedJobOrderIds = new Set(
+                        existingDOs
+                            .filter(d => d.source_type === 'JO')
+                            .map(d => d.source_id)
+                    );
+                    const usedManifestIds = new Set(
+                        existingDOs
+                            .filter(d => d.source_type === 'MF')
+                            .map(d => d.source_id)
+                    );
+
+                    console.log('[DeliveryOrderModal] Used Job Order IDs:', [...usedJobOrderIds]);
+                    console.log('[DeliveryOrderModal] Used Manifest IDs:', [...usedManifestIds]);
+
+                    // Fetch Job Orders and filter out those already used
                     const joResponse = await import('../../features/orders/services/jobOrderService').then(module => module.fetchJobOrders({ per_page: 100 }));
-                    const joOptions = joResponse.items.map(jo => ({
-                        value: jo.job_order_id,
-                        label: `${jo.job_order_id} - ${jo.customer?.customer_name || 'Unknown Customer'}`,
-                        details: jo // Store full details for auto-fill logic
-                    }));
+                    const joOptions = joResponse.items
+                        .filter(jo => !usedJobOrderIds.has(jo.job_order_id)) // Exclude already used
+                        .map(jo => ({
+                            value: jo.job_order_id,
+                            label: `${jo.job_order_id} - ${jo.customer?.customer_name || 'Unknown Customer'}`,
+                            details: jo // Store full details for auto-fill logic
+                        }));
                     setJobOrders(joOptions);
+                    console.log('[DeliveryOrderModal] Job Orders available (after filter):', joOptions.length, 'items');
 
-                    // Fetch Manifests
+                    // Fetch Manifests and filter out those already used
                     const mfResponse = await import('../../features/manifests/services/manifestService').then(module => module.fetchManifests({ per_page: 100 }));
-                    const mfOptions = mfResponse.items.map(mf => ({
-                        value: mf.manifest_id,
-                        label: `${mf.manifest_id} - ${mf.origin_city} → ${mf.dest_city}`
-                    }));
+                    const mfOptions = mfResponse.items
+                        .filter(mf => !usedManifestIds.has(mf.manifest_id)) // Exclude already used
+                        .map(mf => ({
+                            value: mf.manifest_id,
+                            label: mf.manifest_id,  // Only show Manifest ID, no address
+                            details: mf // Store full details for auto-fill logic (driver_id, vehicle_id, drivers, vehicles)
+                        }));
                     setManifests(mfOptions);
+                    console.log('[DeliveryOrderModal] Manifests available (after filter):', mfOptions.length, 'items');
 
-                    // Fetch Drivers
-                    const driverRes = await fetchDrivers({ per_page: 100, status: 'Active' }); // Or 'AVAILABLE'
-                    setDrivers((driverRes.items || []).map(d => ({
+                    // Fetch ALL Drivers (tanpa filter status agar semua driver tersedia)
+                    const driverRes = await fetchDrivers({ per_page: 200 });
+                    const driverOptions = (driverRes.items || []).map(d => ({
                         value: d.driver_id,
                         label: d.driver_name
-                    })));
+                    }));
+                    setDrivers(driverOptions);
+                    console.log('[DeliveryOrderModal] Drivers loaded:', driverOptions);
 
-                    // Fetch Vehicles
-                    const vehicleRes = await fetchVehicles({ per_page: 100, status: 'Active' });
-                    setVehicles((vehicleRes.items || []).map(v => ({
+                    // Fetch ALL Vehicles (tanpa filter status agar semua vehicle tersedia)
+                    const vehicleRes = await fetchVehicles({ per_page: 200 });
+                    const vehicleOptions = (vehicleRes.items || []).map(v => ({
                         value: v.vehicle_id,
                         label: `${v.plate_no} - ${v.vehicle_type?.name || v.brand || ''}`
-                    })));
+                    }));
+                    setVehicles(vehicleOptions);
+                    console.log('[DeliveryOrderModal] Vehicles loaded:', vehicleOptions);
 
                 } catch (error) {
                     console.error('Failed to fetch sources or options:', error);
@@ -91,48 +121,93 @@ const DeliveryOrderModal = ({
                 do_date: initialData?.do_date || '',
                 departure_date: initialData?.departure_date || '',
                 driver_id: initialData?.driver_id || '',
-                vehicle_id: initialData?.vehicle_id || ''
+                vehicle_id: initialData?.vehicle_id || '',
+                notes: initialData?.notes || ''
             };
             setFormData(newFormData);
             setErrors({});
         }
     }, [isOpen, initialData]);
 
-    // FTL Auto-fill Logic
+    // Auto-fill Driver & Vehicle when selecting Job Order OR Manifest
+    // Logic: Check if selected source has assigned driver/vehicle
+    // - Kondisi A (Sudah ada Driver/Vehicle): Auto-fill form
+    // - Kondisi B (Belum ada Driver/Vehicle): Form kosong, Admin pilih manual
     useEffect(() => {
-        if (formData.source_type === 'JO' && formData.source_id && jobOrders.length > 0) {
-            const selectedSource = jobOrders.find(jo => jo.value === formData.source_id);
-            if (selectedSource && selectedSource.details) {
-                const jobDetails = selectedSource.details;
-                const isFTL = jobDetails.order_type === 'FTL' || jobDetails.jobOrderType === 'FTL' || jobDetails.service_type === 'FTL';
+        // Only run when we have all the necessary data loaded
+        if (formData.source_type && formData.source_id && drivers.length > 0 && vehicles.length > 0) {
 
-                if (isFTL) {
-                    // Auto-fill for FTL
+            if (formData.source_type === 'JO' && jobOrders.length > 0) {
+                // Handle Job Order source
+                const selectedSource = jobOrders.find(jo => jo.value === formData.source_id);
+                if (selectedSource && selectedSource.details) {
+                    const jobDetails = selectedSource.details;
+
+                    // Get driver and vehicle from assignments (active assignment first)
                     const assignments = Array.isArray(jobDetails.assignments) ? jobDetails.assignments : [];
                     const activeAssignment = assignments.find(a => a.status === 'Active') || assignments[0];
 
-                    const driverId = activeAssignment?.driver_id || jobDetails.driver_id || '';
-                    const vehicleId = activeAssignment?.vehicle_id || jobDetails.vehicle_id || '';
+                    // Priority: activeAssignment > jobDetails field (for backward compatibility)
+                    let driverId = activeAssignment?.driver_id || activeAssignment?.driver?.driver_id || jobDetails.assigned_driver_id || jobDetails.driver_id || '';
+                    let vehicleId = activeAssignment?.vehicle_id || activeAssignment?.vehicle?.vehicle_id || jobDetails.assigned_vehicle_id || jobDetails.vehicle_id || '';
 
+                    // Validate that the IDs exist in the options
+                    const driverExists = drivers.some(d => d.value === driverId);
+                    const vehicleExists = vehicles.some(v => v.value === vehicleId);
+
+                    console.log('[DeliveryOrderModal] Auto-fill check for JO:', {
+                        job_order_id: formData.source_id,
+                        jobDetails: jobDetails,
+                        assignments: assignments,
+                        activeAssignment: activeAssignment,
+                        driverId: driverId,
+                        vehicleId: vehicleId,
+                        driverExists: driverExists,
+                        vehicleExists: vehicleExists
+                    });
+
+                    // Auto-fill if driver/vehicle exists in options
                     setFormData(prev => ({
                         ...prev,
-                        driver_id: driverId,
-                        vehicle_id: vehicleId
+                        driver_id: driverExists ? driverId : '',
+                        vehicle_id: vehicleExists ? vehicleId : ''
                     }));
-                } else {
-                    // LTL -> Reset to empty (Manual Input)
-                    // Only reset if they haven't been manually set? 
-                    // Requirement says: "TETAP KOSONG (Manual Input)".
-                    // It's safer to clear it on source change to avoid carrying over FTL driver to LTL
+                }
+            } else if (formData.source_type === 'MF' && manifests.length > 0) {
+                // Handle Manifest source - Manifest PASTI punya driver & vehicle
+                const selectedManifest = manifests.find(mf => mf.value === formData.source_id);
+                if (selectedManifest && selectedManifest.details) {
+                    const manifestDetails = selectedManifest.details;
+
+                    // Get driver and vehicle from manifest
+                    // Priority: drivers relation > driver_id field
+                    let driverId = manifestDetails.drivers?.driver_id || manifestDetails.driver_id || '';
+                    let vehicleId = manifestDetails.vehicles?.vehicle_id || manifestDetails.vehicle_id || '';
+
+                    // Validate that the IDs exist in the options
+                    const driverExists = drivers.some(d => d.value === driverId);
+                    const vehicleExists = vehicles.some(v => v.value === vehicleId);
+
+                    console.log('[DeliveryOrderModal] Auto-fill check for Manifest:', {
+                        manifest_id: formData.source_id,
+                        manifestDetails: manifestDetails,
+                        driverId: driverId,
+                        vehicleId: vehicleId,
+                        driverExists: driverExists,
+                        vehicleExists: vehicleExists,
+                        availableDrivers: drivers.map(d => d.value)
+                    });
+
+                    // Auto-fill driver & vehicle from Manifest (should always exist for Manifest)
                     setFormData(prev => ({
                         ...prev,
-                        driver_id: '',
-                        vehicle_id: ''
+                        driver_id: driverExists ? driverId : '',
+                        vehicle_id: vehicleExists ? vehicleId : ''
                     }));
                 }
             }
         }
-    }, [formData.source_id, formData.source_type, jobOrders]);
+    }, [formData.source_id, formData.source_type, jobOrders, manifests, drivers, vehicles]);
 
     // Handle input change
     const handleChange = (name, value) => {
@@ -193,9 +268,10 @@ const DeliveryOrderModal = ({
 
     // Render input field
     const renderField = (field) => {
-        const { name, label, type, required, options, placeholder, description, help } = field;
+        const { name, label, type, required, options, placeholder, description, help, disabled: fieldDisabled } = field;
         const value = formData[name] || '';
         const hasError = errors[name];
+        const isDisabled = isLoading || fieldDisabled;
 
         const commonProps = {
             id: name,
@@ -208,12 +284,14 @@ const DeliveryOrderModal = ({
                 placeholder:text-slate-400
                 ${hasError
                     ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500'
-                    : value
-                        ? 'border-green-300 bg-green-50/50 text-slate-900 focus:border-indigo-500'
-                        : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:bg-indigo-50/50'
+                    : isDisabled
+                        ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed'
+                        : value
+                            ? 'border-green-300 bg-green-50/50 text-slate-900 focus:border-indigo-500'
+                            : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 focus:bg-indigo-50/50'
                 }
             `,
-            disabled: isLoading
+            disabled: isDisabled
         };
 
         return (
@@ -242,6 +320,12 @@ const DeliveryOrderModal = ({
                         <input
                             {...commonProps}
                             type="date"
+                        />
+                    ) : type === 'textarea' ? (
+                        <textarea
+                            {...commonProps}
+                            rows={field.rows || 3}
+                            placeholder={placeholder}
                         />
                     ) : (
                         <input
@@ -333,35 +417,89 @@ const DeliveryOrderModal = ({
             description: 'Tanggal keberangkatan armada untuk pengiriman ini'
         });
 
-        // Check if selected source is FTL (for disabling fields)
-        let isFTL = false;
+        // Check if selected source has existing driver/vehicle assignment
+        let hasDriverAssignment = false;
+        let hasVehicleAssignment = false;
+        let isManifestSource = formData.source_type === 'MF';
+
         if (formData.source_type === 'JO' && formData.source_id) {
             const selectedSource = jobOrders.find(jo => jo.value === formData.source_id);
             if (selectedSource && selectedSource.details) {
                 const d = selectedSource.details;
-                isFTL = d.order_type === 'FTL' || d.jobOrderType === 'FTL' || d.service_type === 'FTL';
+                const assignments = Array.isArray(d.assignments) ? d.assignments : [];
+                const activeAssignment = assignments.find(a => a.status === 'Active') || assignments[0];
+
+                hasDriverAssignment = !!(activeAssignment?.driver_id || activeAssignment?.driver?.driver_id || d.assigned_driver_id || d.driver_id);
+                hasVehicleAssignment = !!(activeAssignment?.vehicle_id || activeAssignment?.vehicle?.vehicle_id || d.assigned_vehicle_id || d.vehicle_id);
+            }
+        } else if (formData.source_type === 'MF' && formData.source_id) {
+            // Manifest source - check if manifest has driver/vehicle
+            const selectedManifest = manifests.find(mf => mf.value === formData.source_id);
+            if (selectedManifest && selectedManifest.details) {
+                const m = selectedManifest.details;
+                hasDriverAssignment = !!(m.drivers?.driver_id || m.driver_id);
+                hasVehicleAssignment = !!(m.vehicles?.vehicle_id || m.vehicle_id);
             }
         }
 
-        // Add Driver & Vehicle fields (always visible, auto-filled & locked for FTL)
+        // Get description based on source type
+        const getDriverDescription = () => {
+            if (isManifestSource && hasDriverAssignment) {
+                return '🔒 Driver otomatis dari Manifest. Tidak dapat diubah.';
+            } else if (isManifestSource && !hasDriverAssignment) {
+                return '⚠️ Manifest belum memiliki driver. Silakan assign driver di Manifest terlebih dahulu.';
+            } else if (hasDriverAssignment) {
+                return '✅ Auto-fill dari Job Order. Anda bisa mengubah jika diperlukan.';
+            } else if (formData.source_type === 'JO') {
+                return '⚠️ Job Order belum memiliki driver. Silakan pilih driver secara manual.';
+            }
+            return 'Pilih driver untuk pengiriman ini';
+        };
+
+        const getVehicleDescription = () => {
+            if (isManifestSource && hasVehicleAssignment) {
+                return '🔒 Kendaraan otomatis dari Manifest. Tidak dapat diubah.';
+            } else if (isManifestSource && !hasVehicleAssignment) {
+                return '⚠️ Manifest belum memiliki kendaraan. Silakan assign kendaraan di Manifest terlebih dahulu.';
+            } else if (hasVehicleAssignment) {
+                return '✅ Auto-fill dari Job Order. Anda bisa mengubah jika diperlukan.';
+            } else if (formData.source_type === 'JO') {
+                return '⚠️ Job Order belum memiliki kendaraan. Silakan pilih kendaraan secara manual.';
+            }
+            return 'Pilih kendaraan untuk pengiriman ini';
+        };
+
+        // Add Driver & Vehicle fields
+        // For Manifest: auto-filled AND disabled (locked)
+        // For Job Order: auto-filled but editable
         fields.push({
             name: 'driver_id',
-            label: 'Assign Driver (Opsional)',
+            label: isManifestSource ? 'Driver (dari Manifest)' : 'Assign Driver (Opsional)',
             type: 'select',
             required: false,
+            disabled: isManifestSource, // Lock for Manifest
             options: [{ value: '', label: '-- Pilih Driver --' }, ...drivers],
-            disabled: isFTL,
-            description: isFTL ? 'Driver otomatis dari Job Order (FTL)' : 'Pilih driver secara manual (LTL/Manifest)'
+            description: getDriverDescription()
         });
 
         fields.push({
             name: 'vehicle_id',
-            label: 'Assign Kendaraan (Opsional)',
+            label: isManifestSource ? 'Kendaraan (dari Manifest)' : 'Assign Kendaraan (Opsional)',
             type: 'select',
             required: false,
+            disabled: isManifestSource, // Lock for Manifest
             options: [{ value: '', label: '-- Pilih Kendaraan --' }, ...vehicles],
-            disabled: isFTL,
-            description: isFTL ? 'Kendaraan otomatis dari Job Order (FTL)' : 'Pilih kendaraan secara manual'
+            description: getVehicleDescription()
+        });
+
+        // Add Notes field (Catatan Tambahan)
+        fields.push({
+            name: 'notes',
+            label: 'Catatan Tambahan',
+            type: 'textarea',
+            required: false,
+            placeholder: 'Catatan tambahan untuk delivery order ini...',
+            description: 'Catatan khusus untuk driver atau tim operasional'
         });
 
         return fields;

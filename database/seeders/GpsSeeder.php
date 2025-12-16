@@ -22,9 +22,11 @@ class GpsSeeder extends Seeder
      */
     public function run(): void
     {
-        // Truncate existing GPS test data
-        $this->command->warn('⚠️  Truncating existing GPS tracking data...');
-        DB::table('gps_tracking_logs')->truncate();
+        // ✅ Skip jika data sudah ada
+        if (DB::table('gps_tracking_logs')->count() > 0) {
+            $this->command->info('⚠️  GPS Tracking Logs already seeded. Skipping...');
+            return;
+        }
 
         // Ambil data reference drivers dan vehicles yang aktif
         $drivers = DB::table('drivers')

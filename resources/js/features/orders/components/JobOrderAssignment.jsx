@@ -204,7 +204,7 @@ function AssignmentFilter({ activeFilter, onFilterChange }) {
     );
 }
 
-export default function JobOrderAssignment({ jobOrderId, status, onAssignmentUpdate }) {
+export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0, onAssignmentUpdate }) {
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -255,9 +255,13 @@ export default function JobOrderAssignment({ jobOrderId, status, onAssignmentUpd
 
     const fetchOptions = async () => {
         try {
+            // Pass min_capacity to filter vehicles by capacity
+            // Only vehicles that can carry the job order weight will be shown
+            const vehicleParams = goodsWeight > 0 ? { min_capacity: goodsWeight } : {};
+
             const [driversData, vehiclesData] = await Promise.all([
                 getAvailableDrivers(),
-                fetchAvailableVehicles()
+                fetchAvailableVehicles(vehicleParams)
             ]);
             setDrivers(driversData);
             setVehicles(vehiclesData);

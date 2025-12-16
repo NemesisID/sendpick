@@ -31,6 +31,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                     estimatedDelivery: data.ship_date ? new Date(data.ship_date).toLocaleDateString('id-ID') : '-',
                     packages: '-', // Not in API
                     totalWeight: `${data.goods_weight} kg`,
+                    goodsWeight: data.goods_weight || 0, // Raw weight for filtering vehicles
                     totalValue: data.order_value ? `Rp ${Number(data.order_value).toLocaleString('id-ID')}` : '-',
                     driver: activeAssignment?.driver?.driver_name || '-',
                     vehicle: activeAssignment?.vehicle ?
@@ -242,6 +243,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                         <JobOrderAssignment
                             jobOrderId={jobOrder.id}
                             status={jobOrder.status}
+                            goodsWeight={jobOrder.goodsWeight}
                             onAssignmentUpdate={loadJobOrder}
                         />
                     )}

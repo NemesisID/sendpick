@@ -2,7 +2,7 @@
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import CancelConfirmModal from '../../../components/common/CancelConfirmModal';
-import DispatchConfirmModal from '../../../components/common/DispatchConfirmModal';
+import ManifestDetailModal from './ManifestDetailModal';
 import { useManifests } from '../hooks/useManifest';
 import { useManifestJobOrders } from '../hooks/useManifestJobOrders';
 import { useDrivers } from '../../drivers/hooks/useDrivers';
@@ -453,6 +453,13 @@ const TrashIcon = ({ className = 'h-4 w-4' }) => (
     </svg>
 );
 
+const EyeIcon = ({ className = 'h-4 w-4' }) => (
+    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
+        <path d='M2 12s3-6 10-6 10 6 10 6-3 6-10 6-10-6-10-6z' strokeLinecap='round' strokeLinejoin='round' />
+        <circle cx='12' cy='12' r='3' />
+    </svg>
+);
+
 function SummaryCard({ card }) {
     return (
         <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -482,20 +489,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
-    const isPending = normalizeManifestStatus(manifest.status) === 'pending';
-    const hasDriver = manifest.driverName !== 'Belum Assign';
-    const hasVehicle = !!manifest.vehiclePlate;
-    const hasItems = manifest.packages > 0;
-
-    // Logic Validasi: Disable jika Driver belum dipilih, Kendaraan belum dipilih, atau Manifest kosong
-    const canDepart = isPending && hasDriver && hasVehicle && hasItems;
-
-    let departTooltip = 'Berangkatkan Armada';
-    if (!isPending) departTooltip = 'Status bukan Pending';
-    else if (!hasDriver) departTooltip = 'Pilih Driver terlebih dahulu';
-    else if (!hasVehicle) departTooltip = 'Pilih Kendaraan terlebih dahulu';
-    else if (!hasItems) departTooltip = 'Manifest kosong (tidak ada Job Order)';
+function ManifestRow({ manifest, onEdit, onDelete, onViewDetail }) {
 
     return (
         <tr className='transition-colors hover:bg-slate-50'>
@@ -507,12 +501,14 @@ function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='flex flex-col gap-1'>
-                    {/* ✅ NEW: Use routeDisplay for dynamic route label */}
-                    <span className='font-medium text-slate-700'>{manifest.routeDisplay || `${manifest.originDisplay || '-'} --> ${manifest.destinationDisplay || '-'}`}</span>
+                <div className='flex flex-col gap-0.5'>
+                    {/* Vertical route display: Origin ↓ Destination */}
+                    <span className='font-semibold text-slate-800'>{manifest.originDisplay || '-'}</span>
+                    <span className='text-slate-400 text-xs'>↓</span>
+                    <span className='font-medium text-slate-700'>{manifest.destinationDisplay || '-'}</span>
                     {/* Show Multi-stop indicator when there are multiple Job Orders */}
                     {manifest.packages > 1 && (
-                        <span className='inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 w-fit'>
+                        <span className='inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 w-fit mt-1'>
                             Multi-stop
                         </span>
                     )}
@@ -521,7 +517,9 @@ function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
                     <p className='font-medium text-slate-700'>{manifest.totalWeight} • {manifest.packages} koli</p>
-                    <p className='text-xs text-slate-400'>{manifest.cargoSummary}</p>
+                    <p className='text-xs text-slate-400 truncate max-w-[120px]' title={manifest.cargoSummary}>
+                        {manifest.cargoSummary}
+                    </p>
                 </div>
             </td>
             <td className='px-6 py-4'>
@@ -549,15 +547,11 @@ function ManifestRow({ manifest, onEdit, onDelete, onDepart }) {
                 <div className='flex items-center gap-2'>
                     <button
                         type='button'
-                        onClick={() => onDepart(manifest)}
-                        disabled={!canDepart}
-                        className={`inline-flex items-center justify-center rounded-lg p-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 ${canDepart
-                            ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                            : 'cursor-not-allowed bg-slate-50 text-slate-300'
-                            }`}
-                        title={departTooltip}
+                        onClick={() => onViewDetail(manifest)}
+                        className='inline-flex items-center justify-center rounded-lg bg-slate-50 p-2 text-slate-600 transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/50'
+                        title='Lihat Detail Manifest'
                     >
-                        <PlayIcon className='h-4 w-4' />
+                        <EyeIcon className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
@@ -594,7 +588,7 @@ function ManifestTable({
     onAddManifest,
     onEditManifest,
     onDeleteManifest,
-    onDepartManifest,
+    onViewManifest,
     loading,
     error,
 }) {
@@ -690,7 +684,7 @@ function ManifestTable({
                                     manifest={manifest}
                                     onEdit={onEditManifest}
                                     onDelete={onDeleteManifest}
-                                    onDepart={onDepartManifest}
+                                    onViewDetail={onViewManifest}
                                 />
                             ))
                         ) : (
@@ -713,7 +707,7 @@ export default function ManifestContent() {
     const [hubFilter, setHubFilter] = useState('all');
     const [editModal, setEditModal] = useState({ isOpen: false, manifest: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, manifest: null });
-    const [departModal, setDepartModal] = useState({ isOpen: false, manifest: null });
+    const [detailModal, setDetailModal] = useState({ isOpen: false, manifestId: null });
     const [isLoading, setIsLoading] = useState(false);
 
     const {
@@ -1319,20 +1313,13 @@ export default function ManifestContent() {
             const driverId = formData.driver && formData.driver !== '' ? formData.driver : null;
             const vehicleId = formData.vehicle && formData.vehicle !== '' ? formData.vehicle : null;
 
-            console.log('📤 Preparing payload:', {
-                driver_raw: formData.driver,
-                driver_processed: driverId,
-                vehicle_raw: formData.vehicle,
-                vehicle_processed: vehicleId,
-            });
-
             const payload = {
                 origin_city: formData.origin,
                 dest_city: formData.destination,
                 cargo_summary: formData.cargoSummary || '',
                 cargo_weight: parseFloat(formData.totalWeight.replace(/[^\d]/g, '')) || 0,
                 planned_departure: formData.shipmentDate,
-                job_order_ids: formData.jobOrders,
+                job_order_ids: formData.jobOrders || [],
                 driver_id: driverId,
                 vehicle_id: vehicleId,
             };
@@ -1375,23 +1362,8 @@ export default function ManifestContent() {
         setDeleteModal({ isOpen: false, manifest: null });
     };
 
-    const handleDepartManifest = (manifest) => {
-        setDepartModal({ isOpen: true, manifest });
-    };
-
-    const handleConfirmDepart = async () => {
-        if (departModal.manifest) {
-            setIsLoading(true);
-            try {
-                // Update status to 'In Transit'
-                await updateManifest(departModal.manifest.id, { status: 'In Transit' });
-                setDepartModal({ isOpen: false, manifest: null });
-            } catch (error) {
-                console.error('Error departing manifest:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        }
+    const handleViewManifest = (manifest) => {
+        setDetailModal({ isOpen: true, manifestId: manifest.id });
     };
 
     const filteredRecords = useMemo(() => {
@@ -1430,7 +1402,7 @@ export default function ManifestContent() {
                 onAddManifest={handleAddManifest}
                 onEditManifest={handleEditManifest}
                 onDeleteManifest={handleDeleteManifest}
-                onDepartManifest={handleDepartManifest}
+                onViewManifest={handleViewManifest}
                 loading={manifestsLoading}
                 error={manifestsError}
             />
@@ -1457,15 +1429,11 @@ export default function ManifestContent() {
                 isLoading={isLoading}
             />
 
-            {/* Depart Confirmation Modal */}
-            <DispatchConfirmModal
-                isOpen={departModal.isOpen}
-                onClose={() => setDepartModal({ isOpen: false, manifest: null })}
-                onConfirm={handleConfirmDepart}
-                title='Konfirmasi Keberangkatan'
-                message={`Apakah armada untuk Manifest ini sudah siap berangkat?`}
-                manifestId={departModal.manifest?.id}
-                isLoading={isLoading}
+            {/* Manifest Detail Modal */}
+            <ManifestDetailModal
+                isOpen={detailModal.isOpen}
+                onClose={() => setDetailModal({ isOpen: false, manifestId: null })}
+                manifestId={detailModal.manifestId}
             />
         </>
     );

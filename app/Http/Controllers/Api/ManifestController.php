@@ -99,6 +99,7 @@ class ManifestController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+
         $request->validate([
             'origin_city' => 'required|string|max:255',
             'dest_city' => 'required|string|max:255',
@@ -133,15 +134,19 @@ class ManifestController extends Controller
         ]);
 
         // Attach job orders if provided
-        if ($request->filled('job_order_ids')) {
-            $manifest->jobOrders()->attach($request->job_order_ids);
+        // NOTE: Job Order status is NOT changed here - it remains as-is (e.g., 'Assigned')
+        // The Job Order status is managed separately by the Assignment process
+        $jobOrderIds = $request->job_order_ids ?? [];
+        
+        if (!empty($jobOrderIds) && is_array($jobOrderIds)) {
+            $manifest->jobOrders()->attach($jobOrderIds);
             
-            // Update status of attached job orders
-            JobOrder::whereIn('job_order_id', $request->job_order_ids)
-                ->update(['status' => 'In Manifest']);
+            \Log::info("Manifest {$manifest->manifest_id} created with " . count($jobOrderIds) . " job orders. Job Order statuses NOT changed (remain as-is).");
                 
             // Update cargo summary based on attached job orders
             $this->updateManifestCargo($manifest);
+        } else {
+            \Log::warning("Manifest {$manifest->manifest_id} created WITHOUT job orders. job_order_ids was: " . json_encode($jobOrderIds));
         }
 
         return response()->json([
@@ -226,20 +231,20 @@ class ManifestController extends Controller
         ]));
 
         // Sync Job Orders if provided
+        // NOTE: Job Order status is NOT changed here - it remains as-is
+        // The Job Order status is managed separately by the Assignment process
         if ($request->has('job_order_ids')) {
-            // Sync returns array of attached, detached, updated IDs
-            $syncResult = $manifest->jobOrders()->sync($request->job_order_ids);
+            $jobOrderIds = $request->job_order_ids ?? [];
             
-            // Update status for newly attached job orders
+            // Sync returns array of attached, detached, updated IDs
+            $syncResult = $manifest->jobOrders()->sync($jobOrderIds);
+            
             if (!empty($syncResult['attached'])) {
-                JobOrder::whereIn('job_order_id', $syncResult['attached'])
-                    ->update(['status' => 'In Manifest']);
+                \Log::info("Manifest {$manifest->manifest_id} update: Attached " . count($syncResult['attached']) . " job orders. Statuses NOT changed.");
             }
             
-            // Update status for detached job orders (revert to Assigned)
             if (!empty($syncResult['detached'])) {
-                JobOrder::whereIn('job_order_id', $syncResult['detached'])
-                    ->update(['status' => 'Assigned']);
+                \Log::info("Manifest {$manifest->manifest_id} update: Detached " . count($syncResult['detached']) . " job orders. Statuses NOT changed.");
             }
             
             // Update cargo summary based on current job orders
@@ -249,6 +254,84 @@ class ManifestController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Manifest updated successfully',
+            'data' => $manifest->refresh()->load(['createdBy', 'jobOrders.customer', 'drivers', 'vehicles'])
+        ], 200);
+    }
+
+    /**
+     * Update only the status of the specified manifest
+     * Used for status transitions like Pending -> In Transit, In Transit -> Arrived, etc.
+     * 
+     * @param Request $request
+     * @param string $manifestId
+     * @return JsonResponse
+     */
+    public function updateStatus(Request $request, string $manifestId): JsonResponse
+    {
+        $manifest = Manifests::where('manifest_id', $manifestId)->first();
+
+        if (!$manifest) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Manifest tidak ditemukan'
+            ], 404);
+        }
+
+        $request->validate([
+            'status' => 'required|in:Pending,In Transit,Arrived,Completed'
+        ]);
+
+        $oldStatus = $manifest->status;
+        $newStatus = $request->status;
+
+        // Validate status transitions
+        $validTransitions = [
+            'Pending' => ['In Transit', 'Cancelled'],
+            'In Transit' => ['Arrived', 'Cancelled'],
+            'Arrived' => ['Completed', 'Cancelled'],
+            'Completed' => [], // Cannot transition from Completed
+            'Cancelled' => [], // Cannot transition from Cancelled
+        ];
+
+        if (!in_array($newStatus, $validTransitions[$oldStatus] ?? [])) {
+            return response()->json([
+                'success' => false,
+                'message' => "Tidak dapat mengubah status dari {$oldStatus} ke {$newStatus}"
+            ], 422);
+        }
+
+        // Update status
+        $updateData = ['status' => $newStatus];
+
+        // Add timestamp fields based on status
+        if ($newStatus === 'In Transit') {
+            $updateData['departed_at'] = now();
+        } elseif ($newStatus === 'Arrived') {
+            $updateData['arrived_at'] = now();
+        } elseif ($newStatus === 'Completed') {
+            $updateData['completed_at'] = now();
+        }
+
+        $manifest->update($updateData);
+
+        // Update Job Order statuses based on manifest status
+        $jobOrderIds = $manifest->jobOrders()->pluck('job_orders.job_order_id')->toArray();
+        
+        if (!empty($jobOrderIds)) {
+            $jobOrderStatus = match($newStatus) {
+                'In Transit' => 'On Delivery',
+                'Arrived' => 'Arrived',
+                'Completed' => 'Completed',
+                default => 'In Manifest'
+            };
+            
+            JobOrder::whereIn('job_order_id', $jobOrderIds)
+                ->update(['status' => $jobOrderStatus]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Status manifest berhasil diubah dari {$oldStatus} ke {$newStatus}",
             'data' => $manifest->refresh()->load(['createdBy', 'jobOrders.customer', 'drivers', 'vehicles'])
         ], 200);
     }
@@ -328,11 +411,8 @@ class ManifestController extends Controller
             }
 
             // Attach job orders (syncWithoutDetaching untuk tidak hapus yang sudah ada)
+            // NOTE: Job Order status is NOT changed - remains as-is (e.g., 'Assigned')
             $manifest->jobOrders()->syncWithoutDetaching($request->job_order_ids);
-
-            // Update job order status ke "In Manifest"
-            JobOrder::whereIn('job_order_id', $request->job_order_ids)
-                ->update(['status' => 'In Manifest']);
 
             // Update cargo summary and weight
             $this->updateManifestCargo($manifest);
@@ -475,10 +555,11 @@ class ManifestController extends Controller
             }
 
             // ✅ Get job orders yang:
-            // 1. Status = 'Created' atau 'Assigned' (siap untuk dimasukkan ke manifest)
+            // 1. Status = 'Pending', 'Created' atau 'Assigned' (siap untuk dimasukkan ke manifest)
+            //    - 'Pending' ditambahkan untuk backward compatibility dengan data lama
             // 2. Belum masuk ke manifest manapun
             $availableJobOrders = JobOrder::with(['customer', 'assignments.driver', 'assignments.vehicle'])
-                ->whereIn('status', ['Created', 'Assigned'])
+                ->whereIn('status', ['Pending', 'Created', 'Assigned'])
                 ->whereNotIn('job_order_id', function($query) {
                     $query->select('job_order_id')
                         ->from('manifest_jobs');

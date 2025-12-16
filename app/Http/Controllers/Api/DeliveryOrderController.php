@@ -262,7 +262,7 @@ class DeliveryOrderController extends Controller
             'goods_summary' => 'required|string',
             'priority' => 'nullable|in:Low,Medium,High,Urgent',
             'temperature' => 'nullable|string|max:50',
-            'status' => 'in:Pending,Assigned,In Transit,Delivered,Completed',
+            'status' => 'in:Pending,In Transit,Delivered,Returned,Completed,Cancelled',
             'driver_id' => 'nullable|exists:drivers,driver_id',
             'vehicle_id' => 'nullable|exists:vehicles,vehicle_id'
         ]);
@@ -312,10 +312,7 @@ class DeliveryOrderController extends Controller
                                 'notes' => 'Assigned via Delivery Order Edit'
                             ]);
                             
-                            // If status is Pending, upgrade to Assigned
-                             if ($deliveryOrder->status === 'Pending') {
-                                $deliveryOrder->update(['status' => 'Assigned']);
-                            }
+                            // Keep status as-is (no auto-upgrade to Assigned)
                         }
                     }
                 }
@@ -327,10 +324,7 @@ class DeliveryOrderController extends Controller
                         'driver_id' => $driverId ?? $manifest->driver_id,
                         'vehicle_id' => $vehicleId ?? $manifest->vehicle_id
                     ]);
-                     // If status is Pending, upgrade to Assigned
-                     if ($deliveryOrder->status === 'Pending') {
-                        $deliveryOrder->update(['status' => 'Assigned']);
-                    }
+                    // Keep status as-is (no auto-upgrade to Assigned)
                 }
             }
         }
@@ -441,8 +435,7 @@ class DeliveryOrderController extends Controller
              }
         }
 
-        // Jika validasi berhasil, maka update status delivery order menjadi 'Assigned'
-        $deliveryOrder->update(['status' => 'Assigned']);
+        // Status remains as-is (Pending) - will be updated when driver starts delivery via app
 
         return response()->json([
             'success' => true,
