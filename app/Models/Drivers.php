@@ -31,7 +31,8 @@ class Drivers extends Authenticatable
         'last_lat',
         'last_lng',
         'last_location_city',
-        'delivery_count'
+        'delivery_count',
+        'fcm_token'
     ];
 
     protected $hidden = [
