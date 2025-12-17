@@ -50,7 +50,6 @@ const generateSummaryCards = (invoices = []) => {
 
     // Count by status
     const paidInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'paid').length;
-    const pendingInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'pending').length;
     const overdueInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'overdue').length;
 
     // Calculate total revenue from paid invoices
@@ -83,14 +82,6 @@ const generateSummaryCards = (invoices = []) => {
             iconBg: 'bg-emerald-100',
             iconColor: 'text-emerald-500',
             icon: <HiOutlineCheckCircle className='h-5 w-5' />,
-        },
-        {
-            title: 'Pending',
-            value: pendingInvoices.toString(),
-            description: 'Menunggu pembayaran',
-            iconBg: 'bg-amber-100',
-            iconColor: 'text-amber-500',
-            icon: <HiOutlineClock className='h-5 w-5' />,
         },
         {
             title: 'Overdue',
@@ -567,7 +558,7 @@ export default function InvoiceContent() {
                 </button>
             </div>
 
-            <section className='grid grid-cols-5 gap-4'>
+            <section className='grid grid-cols-4 gap-4'>
                 {summaryCards.map((card) => (
                     <SummaryCard key={card.title} card={card} />
                 ))}

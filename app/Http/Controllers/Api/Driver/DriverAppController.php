@@ -194,6 +194,36 @@ class DriverAppController extends Controller
 
     /**
      * ============================================
+     * FCM TOKEN MANAGEMENT
+     * ============================================
+     */
+
+    /**
+     * Update FCM Token - Simpan token untuk push notification
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function updateFcmToken(Request $request): JsonResponse
+    {
+        $request->validate([
+            'fcm_token' => 'required|string|max:500'
+        ]);
+
+        $driver = $request->user();
+        $driver->update(['fcm_token' => $request->fcm_token]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'FCM token berhasil disimpan',
+            'data' => [
+                'driver_id' => $driver->driver_id
+            ]
+        ], 200);
+    }
+
+    /**
+     * ============================================
      * JOB MANAGEMENT
      * ============================================
      */
@@ -231,8 +261,7 @@ class DriverAppController extends Controller
                     'ship_date' => $order->ship_date,
                     'status' => $order->status,
                     'order_type' => $order->order_type,
-                    'assignment_status' => $assignment->status ?? 'N/A',
-                    'qr_code_string' => $order->qr_code_string
+                    'assignment_status' => $assignment->status ?? 'N/A'
                 ];
             });
 
@@ -254,8 +283,7 @@ class DriverAppController extends Controller
                     'goods_desc' => $order->goods_desc,
                     'goods_weight' => $order->goods_weight,
                     'ship_date' => $order->ship_date,
-                    'order_type' => $order->order_type,
-                    'qr_code_string' => $order->qr_code_string
+                    'order_type' => $order->order_type
                 ];
             });
 
@@ -313,7 +341,6 @@ class DriverAppController extends Controller
                     'pickup_address' => $jobOrder->pickup_address,
                     'delivery_address' => $jobOrder->delivery_address,
                     'pickup_contact' => $jobOrder->pickup_contact,
-                    'delivery_contact' => $jobOrder->delivery_contact,
                     'goods_desc' => $jobOrder->goods_desc,
                     'goods_weight' => $jobOrder->goods_weight,
                     'goods_volume' => $jobOrder->goods_volume,
@@ -321,8 +348,7 @@ class DriverAppController extends Controller
                     'delivery_date' => $jobOrder->delivery_date,
                     'status' => $jobOrder->status,
                     'order_type' => $jobOrder->order_type,
-                    'special_instruction' => $jobOrder->special_instruction,
-                    'qr_code_string' => $jobOrder->qr_code_string
+                    'special_instruction' => $jobOrder->special_instruction
                 ],
                 'assignment' => $assignment ? [
                     'assignment_id' => $assignment->id,
@@ -379,6 +405,20 @@ class DriverAppController extends Controller
                 'success' => false,
                 'message' => 'Anda sudah memiliki 5 order aktif. Selesaikan order terlebih dahulu.'
             ], 422);
+        }
+
+        // Check if vehicle is currently in use by another active assignment
+        if ($request->vehicle_id) {
+            $vehicleInUse = Assignment::where('vehicle_id', $request->vehicle_id)
+                ->where('status', 'Active')
+                ->exists();
+
+            if ($vehicleInUse) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kendaraan ini sedang digunakan untuk job order lain yang masih aktif.'
+                ], 422);
+            }
         }
 
         DB::beginTransaction();
@@ -470,7 +510,7 @@ class DriverAppController extends Controller
     public function updateJobStatus(Request $request, string $jobOrderId): JsonResponse
     {
         $request->validate([
-            'status' => 'required|in:Processing,In Transit,Pickup Complete,At Destination,Delivered',
+            'status' => 'required|in:Processing, In Transit, Pickup Complete, Nearby, Delivered',
             'notes' => 'nullable|string|max:500'
         ]);
 
@@ -509,7 +549,7 @@ class DriverAppController extends Controller
                     'Processing' => 'Assigned',
                     'In Transit' => 'In Transit',
                     'Pickup Complete' => 'In Transit',
-                    'At Destination' => 'At Destination',
+                    'Nearby' => 'Nearby',
                     'Delivered' => 'Delivered',
                     default => $deliveryOrder->status
                 };
@@ -711,8 +751,8 @@ class DriverAppController extends Controller
             // Auto-update status based on current status
             $newStatus = match($jobOrder->status) {
                 'Assigned', 'Processing' => 'Pickup Complete',
-                'In Transit' => 'At Destination',
-                'At Destination' => 'Delivered',
+                'In Transit' => 'Nearby',
+                'Nearby' => 'Delivered',
                 default => $jobOrder->status
             };
 
@@ -729,7 +769,7 @@ class DriverAppController extends Controller
             if ($deliveryOrder) {
                 $doStatus = match($newStatus) {
                     'Pickup Complete' => 'In Transit',
-                    'At Destination' => 'At Destination',
+                    'Nearby' => 'Nearby',
                     'Delivered' => 'Delivered',
                     default => $deliveryOrder->status
                 };
@@ -913,6 +953,65 @@ class DriverAppController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats
+        ], 200);
+    }
+
+    /**
+     * Check vehicle availability - Cek apakah kendaraan tersedia atau sedang digunakan
+     * 
+     * @param Request $request
+     * @param string $vehicleId
+     * @return JsonResponse
+     */
+    public function checkVehicleAvailability(Request $request, string $vehicleId): JsonResponse
+    {
+        // Check if vehicle exists
+        $vehicle = \App\Models\Vehicles::find($vehicleId);
+        
+        if (!$vehicle) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kendaraan tidak ditemukan'
+            ], 404);
+        }
+
+        // Check if vehicle is currently in use (has active assignment)
+        $activeAssignment = Assignment::where('vehicle_id', $vehicleId)
+            ->where('status', 'Active')
+            ->with(['driver', 'jobOrder'])
+            ->first();
+
+        if ($activeAssignment) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'vehicle_id' => $vehicleId,
+                    'license_plate' => $vehicle->license_plate,
+                    'is_available' => false,
+                    'status' => 'In Use',
+                    'current_driver' => $activeAssignment->driver ? [
+                        'driver_id' => $activeAssignment->driver->driver_id,
+                        'driver_name' => $activeAssignment->driver->driver_name
+                    ] : null,
+                    'current_job_order' => $activeAssignment->jobOrder ? [
+                        'job_order_id' => $activeAssignment->jobOrder->job_order_id,
+                        'status' => $activeAssignment->jobOrder->status
+                    ] : null
+                ]
+            ], 200);
+        }
+
+        // Vehicle is available
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'vehicle_id' => $vehicleId,
+                'license_plate' => $vehicle->license_plate,
+                'is_available' => true,
+                'status' => 'Available',
+                'current_driver' => null,
+                'current_job_order' => null
+            ]
         ], 200);
     }
     /**

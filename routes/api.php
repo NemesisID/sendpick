@@ -267,6 +267,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Profile Management
         Route::get('/profile', [DriverAppController::class, 'getProfile'])->name('profile');
         Route::put('/status', [DriverAppController::class, 'updateDriverStatus'])->name('status.update');
+        Route::put('/fcm-token', [DriverAppController::class, 'updateFcmToken'])->name('fcm-token.update');
         
         // Job Management
         Route::get('/jobs', [DriverAppController::class, 'getJobs'])->name('jobs.index');
@@ -287,5 +288,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Job History & Statistics
         Route::get('/history', [DriverAppController::class, 'getJobHistory'])->name('history');
         Route::get('/history/stats', [DriverAppController::class, 'getHistoryStats'])->name('history.stats');
+        
+        // Vehicle Availability Check
+        Route::get('/vehicles/{vehicleId}/check', [DriverAppController::class, 'checkVehicleAvailability'])->name('vehicles.check');
     });
 });

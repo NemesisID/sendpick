@@ -1,1 +1,0 @@
-okee baikk", nahh sekarang saya mau melakukan testing fitur/modul dari web dashboard yg sudah saya buat atau melakukan simulasi dari projek magang saya, nahh tolong bantuannya yaa kira" nanti waktu saya melakukan simulasi dimohon koreksinya yaa apakah ada yg salah? atau mungkin bener semua?
