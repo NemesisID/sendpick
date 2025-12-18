@@ -370,6 +370,9 @@ const mapManifestFromApi = (manifest) => {
         lastUpdate: manifest.updated_at ? new Date(manifest.updated_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-',
         raw: manifest,
         cargoSummary: cargoSummary,
+        // ✅ NEW: Add isFTL flag and jobOrderCount for Multi-stop logic
+        isFTL: isFTL,
+        jobOrderCount: jobOrders.length,
     };
 };
 
@@ -508,7 +511,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function ManifestRow({ manifest, onEdit, onDelete, onViewDetail }) {
+function ManifestRow({ manifest, onEdit, onDelete, onViewDetail, onPrint }) {
 
     return (
         <tr className='transition-colors hover:bg-slate-50'>
@@ -525,8 +528,9 @@ function ManifestRow({ manifest, onEdit, onDelete, onViewDetail }) {
                     <span className='font-semibold text-slate-800'>{manifest.originDisplay || '-'}</span>
                     <span className='text-slate-400 text-xs'>↓</span>
                     <span className='font-medium text-slate-700'>{manifest.destinationDisplay || '-'}</span>
-                    {/* Show Multi-stop indicator when there are multiple Job Orders */}
-                    {manifest.packages > 1 && (
+                    {/* Show Multi-stop indicator ONLY for LTL with more than 1 Job Order */}
+                    {/* FTL is single destination, so no Multi-stop badge */}
+                    {!manifest.isFTL && manifest.jobOrderCount > 1 && (
                         <span className='inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 w-fit mt-1'>
                             Multi-stop
                         </span>
@@ -563,7 +567,20 @@ function ManifestRow({ manifest, onEdit, onDelete, onViewDetail }) {
             </td>
             <td className='px-6 py-4 text-right text-xs text-slate-400'>{manifest.lastUpdate}</td>
             <td className='px-6 py-4'>
-                <div className='flex items-center gap-2'>
+                <div className='flex items-center gap-1'>
+                    {/* Print Button */}
+                    <button
+                        type='button'
+                        onClick={() => onPrint(manifest)}
+                        className='inline-flex items-center justify-center rounded-lg bg-emerald-50 p-2 text-emerald-600 transition hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50'
+                        title='Cetak PDF'
+                    >
+                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
+                            <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
+                            <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
+                            <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
+                        </svg>
+                    </button>
                     <button
                         type='button'
                         onClick={() => onViewDetail(manifest)}
@@ -608,6 +625,8 @@ function ManifestTable({
     onEditManifest,
     onDeleteManifest,
     onViewManifest,
+    onPrint, // Print button in header
+    onPrintRow, // Print single row/manifest
     loading,
     error,
 }) {
@@ -660,9 +679,14 @@ function ManifestTable({
                         </button>
                         <button
                             type='button'
+                            onClick={onPrint}
                             className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 sm:w-auto'
                         >
-                            <DownloadIcon className='h-4 w-4' />
+                            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
+                                <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
+                                <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
+                                <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
+                            </svg>
                             Cetak Manifest
                         </button>
                     </div>
@@ -704,6 +728,7 @@ function ManifestTable({
                                     onEdit={onEditManifest}
                                     onDelete={onDeleteManifest}
                                     onViewDetail={onViewManifest}
+                                    onPrint={onPrintRow}
                                 />
                             ))
                         ) : (
@@ -1482,6 +1507,29 @@ export default function ManifestContent() {
         setDetailModal({ isOpen: true, manifestId: manifest.id });
     };
 
+    // ✅ NEW: Handle print button click in header - Opens PDF in new tab
+    const handlePrint = () => {
+        // Show instruction for printing
+        const selectedManifest = prompt(
+            '🖨️ Cetak Manifest\n\n' +
+            'Masukkan ID Manifest yang ingin dicetak (contoh: MAN-20251218-001):\n\n' +
+            'Tips: Anda juga bisa mencetak dari tombol printer di kolom Aksi.',
+            ''
+        );
+
+        if (selectedManifest && selectedManifest.trim()) {
+            // Open PDF in new tab
+            window.open(`/print/manifest/${selectedManifest.trim()}`, '_blank');
+        }
+    };
+
+    // Handle print single manifest (from row action)
+    const handlePrintSingle = (manifest) => {
+        if (manifest?.id) {
+            window.open(`/print/manifest/${manifest.id}`, '_blank');
+        }
+    };
+
     const filteredRecords = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -1519,6 +1567,8 @@ export default function ManifestContent() {
                 onEditManifest={handleEditManifest}
                 onDeleteManifest={handleDeleteManifest}
                 onViewManifest={handleViewManifest}
+                onPrint={handlePrint}
+                onPrintRow={handlePrintSingle}
                 loading={manifestsLoading}
                 error={manifestsError}
             />

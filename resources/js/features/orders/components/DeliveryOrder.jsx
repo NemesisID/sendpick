@@ -371,7 +371,7 @@ function PriorityPill({ priority }) {
     );
 }
 
-function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
+function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel, onPrint }) {
     // Cancelled and Completed statuses are read-only
     const isReadOnly = delivery.status === 'cancelled' || delivery.status === 'completed';
 
@@ -428,7 +428,23 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
             </td>
             <td className='px-6 py-4 text-right text-xs text-slate-400'>{delivery.lastUpdate}</td>
             <td className='px-6 py-4'>
-                <div className='flex items-center justify-center gap-2'>
+                <div className='flex items-center justify-center gap-1'>
+                    {/* Print Button */}
+                    <button
+                        type='button'
+                        title='Cetak PDF'
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onPrint(delivery);
+                        }}
+                        className='inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600'
+                    >
+                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
+                            <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
+                            <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
+                            <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
+                        </svg>
+                    </button>
                     <button
                         type='button'
                         title={isReadOnly ? 'Read-only' : 'Edit'}
@@ -492,7 +508,8 @@ function DeliveryOrderTable({
     onViewDetail,
     onCancel,
     onAddNew,
-    onPrint, // ✅ NEW: Print handler
+    onPrint, // Print button in header
+    onPrintRow, // Print single row/delivery
     loading,
     error,
 }) {
@@ -616,6 +633,7 @@ function DeliveryOrderTable({
                                         onEdit={onEdit}
                                         onViewDetail={onViewDetail}
                                         onCancel={onCancel}
+                                        onPrint={onPrintRow}
                                     />
                                 ))
                             ) : (
@@ -799,11 +817,27 @@ export default function DeliveryOrderContent() {
         setDeleteModal({ isOpen: false, delivery: null });
     };
 
-    // ✅ NEW: Handle print button click
+    // ✅ NEW: Handle print button click - Opens PDF in new tab
     const handlePrint = () => {
-        // Open print preview or navigation to print page
-        // For now, we'll alert - this can be extended to open a print modal
-        alert('🖨️ Fitur Cetak Delivery Order sedang dalam pengembangan.\n\nUntuk mencetak, silakan pilih DO dari tabel, lalu klik tombol "Lihat Detail" dan gunakan tombol cetak di modal detail.');
+        // Show instruction for printing
+        const selectedDO = prompt(
+            '🖨️ Cetak Delivery Order\n\n' +
+            'Masukkan ID Delivery Order yang ingin dicetak (contoh: DO-20251218-0001):\n\n' +
+            'Tips: Anda juga bisa mencetak dari tombol "Lihat Detail" di tabel.',
+            ''
+        );
+
+        if (selectedDO && selectedDO.trim()) {
+            // Open PDF in new tab
+            window.open(`/print/delivery-order/${selectedDO.trim()}`, '_blank');
+        }
+    };
+
+    // Handle print single delivery order (from row action or detail modal)
+    const handlePrintSingle = (delivery) => {
+        if (delivery?.id) {
+            window.open(`/print/delivery-order/${delivery.id}`, '_blank');
+        }
     };
 
     // Assign driver form fields    // Get delivery order form fields for creating new DO
@@ -1096,6 +1130,7 @@ export default function DeliveryOrderContent() {
                 onCancel={handleCancel}
                 onAddNew={handleAddNew}
                 onPrint={handlePrint}
+                onPrintRow={handlePrintSingle}
                 loading={loading}
                 error={error}
             />
