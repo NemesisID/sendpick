@@ -142,7 +142,7 @@ class DeliveryOrderController extends Controller
             if (!$goodsSummary) $goodsSummary = $source->goods_desc;
 
         } elseif ($request->source_type === 'MF') {
-            $source = Manifests::with('jobOrders')->where('manifest_id', $request->source_id)->first();
+            $source = Manifests::with('jobOrders.customer')->where('manifest_id', $request->source_id)->first();
             if (!$source) {
                 return response()->json([
                     'success' => false,
@@ -150,14 +150,37 @@ class DeliveryOrderController extends Controller
                 ], 404);
             }
 
-            // Auto-fill if not provided
-            if (!$goodsSummary) $goodsSummary = $source->cargo_summary;
-            
-            if (!$customerId) {
-                // Try to get customer from the first job order in the manifest
-                $firstJob = $source->jobOrders->first();
-                if ($firstJob) {
-                    $customerId = $firstJob->customer_id;
+            // ✅ NEW: Check if specific Job Order is selected (LTL scenario)
+            if ($request->filled('selected_job_order_id')) {
+                // Find the specific job order from the manifest
+                $selectedJobOrder = $source->jobOrders->firstWhere('job_order_id', $request->selected_job_order_id);
+                
+                if (!$selectedJobOrder) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Job Order yang dipilih tidak ada dalam Manifest ini'
+                    ], 422);
+                }
+
+                // Use data from the selected job order
+                if (!$customerId) $customerId = $selectedJobOrder->customer_id;
+                if (!$goodsSummary) $goodsSummary = $selectedJobOrder->goods_desc;
+
+                \Log::info('[DeliveryOrder] Created from Manifest with specific Job Order', [
+                    'manifest_id' => $request->source_id,
+                    'selected_job_order_id' => $request->selected_job_order_id,
+                    'customer_id' => $customerId,
+                    'goods_summary' => $goodsSummary
+                ]);
+            } else {
+                // Fallback: Use first job order (legacy behavior)
+                if (!$goodsSummary) $goodsSummary = $source->cargo_summary;
+                
+                if (!$customerId) {
+                    $firstJob = $source->jobOrders->first();
+                    if ($firstJob) {
+                        $customerId = $firstJob->customer_id;
+                    }
                 }
             }
         }
@@ -188,6 +211,7 @@ class DeliveryOrderController extends Controller
             'do_id' => $doId,
             'source_type' => $request->source_type,
             'source_id' => $request->source_id,
+            'selected_job_order_id' => $request->selected_job_order_id, // ✅ NEW: For LTL
             'customer_id' => $customerId,
             'status' => 'Pending',
             'do_date' => $request->do_date,

@@ -5,8 +5,8 @@ import CancelConfirmModal from '../../../components/common/CancelConfirmModal';
 import ManifestDetailModal from './ManifestDetailModal';
 import { useManifests } from '../hooks/useManifest';
 import { useManifestJobOrders } from '../hooks/useManifestJobOrders';
-import { useDrivers } from '../../drivers/hooks/useDrivers';
-import { useVehicles } from '../../vehicles/hooks/useVehicles';
+import { getAvailableDrivers } from '../../drivers/services/driverService';
+import { fetchAvailableVehicles } from '../../vehicles/services/vehicleService';
 
 const BanIcon = ({ className = 'h-4 w-4' }) => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
@@ -276,12 +276,29 @@ const mapManifestFromApi = (manifest) => {
     // If Cancelled, manifest.cargo_summary holds the snapshot.
     const cargoSummary = manifest.cargo_summary || commodity || '-';
 
-    // Fix Packages Count: Use jobOrders length as "koli" count
-    // If Cancelled, jobOrders is empty. We might want to show 0 or '-' or keep it if we had a snapshot column.
-    // The user said: "Berat: Tetap tertulis '69 Kg'". They didn't explicitly say about koli count, but implied "0 kg 0 koli" is bad.
-    // Since we don't have a 'packages_count' column in manifest, we can't easily snapshot this without schema change.
-    // For now, let's stick to jobOrders.length. If 0, it's 0.
-    const totalPackages = jobOrders.length;
+    // ✅ FIXED: Calculate Total Packages using SUM of goods_qty (Koli), NOT counting job orders
+    // This is critical for the delivery order accuracy
+    const totalPackages = jobOrders.reduce((sum, jo) => {
+        const qty = Number(jo.goods_qty || jo.quantity || jo.koli || 0);
+        return sum + qty;
+    }, 0);
+
+    // ✅ FIXED: Customer display logic for LTL
+    // If LTL with multiple unique customers, show "Multi-Customer (Mixed)"
+    const uniqueCustomers = [...new Set(jobOrders.map(jo => jo.customer?.customer_name || jo.customer_name).filter(Boolean))];
+    const isFTL = jobOrders.some(jo => jo.order_type === 'FTL');
+    let displayCustomerName = customerName;
+
+    if (!isFTL && uniqueCustomers.length > 1) {
+        displayCustomerName = 'Multi-Customer (Mixed)';
+    } else if (!isFTL && uniqueCustomers.length === 1) {
+        displayCustomerName = uniqueCustomers[0];
+    }
+
+    // ✅ NEW: Calculate Route Preview for Edit form (using existing getManifestRouteName helper)
+    const routePreview = jobOrders.length > 0
+        ? getManifestRouteName(jobOrders)
+        : `${extractCity(manifest.origin_city)} --> ${extractCity(manifest.dest_city)}`;
 
     // ✅ Extract driver_id and vehicle_id for form pre-population
     // Try from direct manifest fields first, then from relationships
@@ -313,7 +330,7 @@ const mapManifestFromApi = (manifest) => {
         jobOrders: jobOrderIds,
         // ✅ Simpan data lengkap job orders untuk referensi (termasuk order_type)
         jobOrdersData: jobOrders,
-        customer: customerName || '-',
+        customer: displayCustomerName || '-',
         // ✅ FIX: Separate raw origin/destination for form vs display for table
         // Raw values from database for form editing
         origin: manifest.origin_city || '',
@@ -327,6 +344,8 @@ const mapManifestFromApi = (manifest) => {
         routeDisplay: jobOrders.length > 0
             ? getManifestRouteForTable(jobOrders)
             : `${extractCity(manifest.origin_city)} --> ${extractCity(manifest.dest_city)}`,
+        // ✅ NEW: Route Preview for form Edit (full label with Multi-stop indicator)
+        routePreview: routePreview,
         packages: totalPackages,
         totalWeight: manifest.cargo_weight ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg` : '-',
         status: manifest.status ?? 'Pending',
@@ -641,7 +660,7 @@ function ManifestTable({
                         </button>
                         <button
                             type='button'
-                            className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-indigo-200 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 sm:w-auto'
+                            className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 sm:w-auto'
                         >
                             <DownloadIcon className='h-4 w-4' />
                             Cetak Manifest
@@ -719,8 +738,28 @@ export default function ManifestContent() {
         cancelManifest,
     } = useManifests({ per_page: 50 });
 
-    const { drivers } = useDrivers({ per_page: 100 });
-    const { vehicles } = useVehicles({ per_page: 100 });
+    // Filtered lists state
+    const [drivers, setDrivers] = useState([]);
+    const [vehicles, setVehicles] = useState([]);
+
+    // Fetch available drivers and vehicles when edit modal opens
+    useEffect(() => {
+        if (editModal.isOpen) {
+            const loadResources = async () => {
+                try {
+                    const [driversData, vehiclesData] = await Promise.all([
+                        getAvailableDrivers(),
+                        fetchAvailableVehicles({ min_capacity: 0 })
+                    ]);
+                    setDrivers(driversData);
+                    setVehicles(vehiclesData);
+                } catch (error) {
+                    console.error("Failed to load drivers/vehicles", error);
+                }
+            };
+            loadResources();
+        }
+    }, [editModal.isOpen]);
 
     // Transform API data to display format (no more fallback to dummy data)
     const manifestRecords = useMemo(() => {
@@ -1035,6 +1074,54 @@ export default function ManifestContent() {
         return { valid: true, selectedIds };
     };
 
+    // Custom handler for auto-fill Driver <-> Vehicle AND Job Orders calculation
+    const handleFieldChange = (name, value, setFormData) => {
+        // Standard field update
+        setFormData(prev => ({ ...prev, [name]: value }));
+
+        // 1. MANIFEST AUTO-FILL: Calculate combined data when Job Orders change
+        if (name === 'jobOrders') {
+            const selectedIds = Array.isArray(value) ? value : (value ? [value] : []);
+            const combinedData = calculateCombinedData(selectedIds);
+
+            if (combinedData) {
+                setFormData(prev => ({
+                    ...prev,
+                    [name]: value, // Ensure jobOrders is updated
+                    ...combinedData // Merge calculated fields (origin, dest, driver, vehicle, etc.)
+                }));
+            }
+        }
+
+        // 2. DRIVER <-> VEHICLE AUTO-FILL
+        // Auto-fill Vehicle from Driver
+        if (name === 'driver') {
+            const selectedDriver = drivers.find(d => String(d.driver_id) === String(value));
+            // Backend sends 'assigned_vehicle' object
+            if (selectedDriver?.assigned_vehicle?.vehicle_id) {
+                const vehicleId = String(selectedDriver.assigned_vehicle.vehicle_id);
+                const isInOptions = availableVehicles.some(v => v.value === vehicleId);
+
+                if (isInOptions) {
+                    setFormData(prev => ({ ...prev, vehicle: vehicleId }));
+                }
+            }
+        }
+
+        // Auto-fill Driver from Vehicle
+        if (name === 'vehicle') {
+            const selectedVehicle = vehicles.find(v => String(v.vehicle_id) === String(value));
+            if (selectedVehicle?.driver_id) {
+                const driverId = String(selectedVehicle.driver_id);
+                const isInOptions = availableDrivers.some(d => d.value === driverId);
+
+                if (isInOptions) {
+                    setFormData(prev => ({ ...prev, driver: driverId }));
+                }
+            }
+        }
+    };
+
     const manifestFields = [
         {
             name: 'jobOrders',
@@ -1080,7 +1167,16 @@ export default function ManifestContent() {
             },
             description: '💡 FTL = Eksklusif (1 item). LTL = Multi-select (hanya sesama LTL).'
         },
-        { name: 'customer', label: 'Customer', type: 'text', required: false, readOnly: true },
+        // ✅ UPDATED: Hide Customer field for LTL mode (prevents confusion with multi-customer)
+        {
+            name: 'customer',
+            label: 'Customer',
+            type: 'text',
+            required: false,
+            readOnly: true,
+            // Hide this field when LTL is selected (multi-customer scenario)
+            hidden: (formData) => isLTLSelected(formData)
+        },
         { name: 'origin', label: 'Origin', type: 'text', required: false, readOnly: true },
         { name: 'destination', label: 'Destination', type: 'text', required: false, readOnly: true },
         {
@@ -1092,7 +1188,8 @@ export default function ManifestContent() {
             description: '✨ Rute dihitung otomatis berdasarkan Job Order yang dipilih.'
         },
         { name: 'shipmentDate', label: 'Shipment Date', type: 'date', required: true },
-        { name: 'packages', label: 'Total Packages', type: 'number', required: false, readOnly: true },
+        // ✅ RENAMED: 'Total Packages' → 'Total Koli' for clarity (matches physical packages count)
+        { name: 'packages', label: 'Total Koli', type: 'number', required: false, readOnly: true },
         { name: 'totalWeight', label: 'Total Weight (kg)', type: 'text', required: false, readOnly: true },
         {
             name: 'driver',
@@ -1102,7 +1199,9 @@ export default function ManifestContent() {
             options: availableDrivers,
             // Disable if FTL (Auto-filled & Locked)
             disabled: (formData) => isFTLSelected(formData),
-            description: 'Untuk FTL, driver terisi otomatis dan terkunci.'
+            description: (formData) => isFTLSelected(formData)
+                ? 'Untuk FTL, driver terisi otomatis dan terkunci.'
+                : 'Pilih driver untuk pengiriman LTL.'
         },
         {
             name: 'vehicle',
@@ -1112,7 +1211,9 @@ export default function ManifestContent() {
             options: availableVehicles,
             // Disable if FTL (Auto-filled & Locked)
             disabled: (formData) => isFTLSelected(formData),
-            description: 'Untuk FTL, kendaraan terisi otomatis dan terkunci.'
+            description: (formData) => isFTLSelected(formData)
+                ? 'Untuk FTL, kendaraan terisi otomatis dan terkunci.'
+                : 'Pilih kendaraan untuk pengiriman LTL.'
         },
     ];
 
@@ -1150,7 +1251,17 @@ export default function ManifestContent() {
 
         // Menggabungkan customer (jika berbeda, pisahkan dengan koma)
         const uniqueCustomers = [...new Set(selectedData.map(data => data.customer_name))];
-        const customer = uniqueCustomers.join(', ');
+        // ✅ UPDATED: Customer display logic for LTL
+        let customer = uniqueCustomers.join(', ');
+
+        // Cek FTL status sebelum menentukan label Customer
+        const isFTLCheck = selectedData.some(jo =>
+            (jo.order_type === 'FTL' || jo.jobOrderType === 'FTL' || jo.service_type === 'FTL' || (jo.order_type || '').includes('FTL'))
+        );
+
+        if (!isFTLCheck && uniqueCustomers.length > 1) {
+            customer = 'Multi-Customer (Mixed)';
+        }
 
         // ✅ UPDATED: Use sorting logic for origin/destination (same as getManifestRouteName)
         // Sort by pickup time (ascending) untuk menentukan StartNode
@@ -1172,8 +1283,13 @@ export default function ManifestContent() {
         // ✅ NEW: Generate route label preview for form
         const routePreview = getManifestRouteName(selectedData);
 
-        // Menghitung total packages
-        const totalPackages = selectedData.length;
+        // Menghitung total packages (SUM of goods_qty / quantity)
+        // ✅ FIXED: Use SUM of goods_qty (koli) instead of counting job orders
+        const totalPackages = selectedData.reduce((sum, data) => {
+            // Check possible field names for quantity/koli
+            const qty = Number(data.goods_qty || data.quantity || data.koli || 0);
+            return sum + qty;
+        }, 0);
 
         // Menghitung total weight
         const totalWeightKg = selectedData.reduce((sum, data) => {
@@ -1417,6 +1533,7 @@ export default function ManifestContent() {
                 onSubmit={handleEditSubmit}
                 isLoading={isLoading}
                 calculateCombinedData={calculateCombinedData}
+                onFieldChange={handleFieldChange}
                 jobOrdersData={{}} // No longer needed as we use availableJobOrders directly
             />
 

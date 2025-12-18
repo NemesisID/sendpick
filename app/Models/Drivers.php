@@ -71,4 +71,12 @@ class Drivers extends Authenticatable
     {
         return $this->hasMany(Gps::class, 'driver_id', 'driver_id');
     }
+
+    /**
+     * Relationship: Driver has many Manifests
+     */
+    public function manifests(): HasMany
+    {
+        return $this->hasMany(Manifests::class, 'driver_id', 'driver_id');
+    }
 }

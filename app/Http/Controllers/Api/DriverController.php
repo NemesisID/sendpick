@@ -290,9 +290,21 @@ class DriverController extends Controller
         ]);
 
         // Mendapatkan daftar driver yang statusnya 'Aktif' dan tidak memiliki assignment aktif.
+        // Logic: 
+        // 1. Tidak assigned di Job Order aktif (via assignments table)
+        // 2. Tidak assigned di Manifest aktif (via manifests table)
+        
         $drivers = Drivers::where('status', 'Aktif')
             ->whereDoesntHave('assignments', function($query) {
-                $query->whereIn('status', ['Aktif', 'Siap']);
+                // Cek assignment aktif yang job ordernya belum selesai
+                $query->where('status', 'Active')
+                      ->whereHas('jobOrder', function($q) {
+                          $q->whereNotIn('status', ['Completed', 'Cancelled', 'Delivered']);
+                      });
+            })
+            ->whereDoesntHave('manifests', function($query) {
+                // Cek manifest yang belum selesai
+                $query->whereNotIn('status', ['Completed', 'Cancelled', 'Delivered']);
             });
 
         if ($request->filled('shift')) {
@@ -308,7 +320,8 @@ class DriverController extends Controller
         });
     }
 
-    $driverss = $drivers->select([
+        $driverss = $drivers->with('assignedVehicle')
+            ->select([
             'driver_id',
             'driver_name',
             'phone',

@@ -34,6 +34,10 @@ const DeliveryOrderModal = ({
     const [vehicles, setVehicles] = useState([]);
     const [isFetchingSources, setIsFetchingSources] = useState(false);
 
+    // ✅ NEW: State for Job Orders within selected Manifest (LTL scenario)
+    const [manifestJobOrders, setManifestJobOrders] = useState([]);
+    const [isFetchingManifestJOs, setIsFetchingManifestJOs] = useState(false);
+
     // Fetch available sources and options when modal opens
     useEffect(() => {
         if (isOpen) {
@@ -44,20 +48,16 @@ const DeliveryOrderModal = ({
                     const doResponse = await import('../../features/orders/services/deliveryOrderService').then(module => module.fetchDeliveryOrders({ per_page: 500 }));
                     const existingDOs = doResponse.items || [];
 
-                    // Extract source_ids that are already used
+                    // Extract source_ids that are already used (only for Job Orders)
+                    // Note: Manifests are NOT filtered because 1 Manifest can produce multiple DOs
                     const usedJobOrderIds = new Set(
                         existingDOs
                             .filter(d => d.source_type === 'JO')
                             .map(d => d.source_id)
                     );
-                    const usedManifestIds = new Set(
-                        existingDOs
-                            .filter(d => d.source_type === 'MF')
-                            .map(d => d.source_id)
-                    );
 
                     console.log('[DeliveryOrderModal] Used Job Order IDs:', [...usedJobOrderIds]);
-                    console.log('[DeliveryOrderModal] Used Manifest IDs:', [...usedManifestIds]);
+                    // Note: We no longer track usedManifestIds because 1 Manifest can produce multiple DOs
 
                     // Fetch Job Orders and filter out those already used
                     const joResponse = await import('../../features/orders/services/jobOrderService').then(module => module.fetchJobOrders({ per_page: 100 }));
@@ -71,17 +71,18 @@ const DeliveryOrderModal = ({
                     setJobOrders(joOptions);
                     console.log('[DeliveryOrderModal] Job Orders available (after filter):', joOptions.length, 'items');
 
-                    // Fetch Manifests and filter out those already used
+                    // ✅ UPDATED: Fetch ALL Manifests (don't filter by usedManifestIds)
+                    // 1 Manifest LTL can generate MULTIPLE Delivery Orders (1 per Job Order)
+                    // The filtering happens at the Job Order level, not Manifest level
                     const mfResponse = await import('../../features/manifests/services/manifestService').then(module => module.fetchManifests({ per_page: 100 }));
                     const mfOptions = mfResponse.items
-                        .filter(mf => !usedManifestIds.has(mf.manifest_id)) // Exclude already used
                         .map(mf => ({
                             value: mf.manifest_id,
-                            label: mf.manifest_id,  // Only show Manifest ID, no address
-                            details: mf // Store full details for auto-fill logic (driver_id, vehicle_id, drivers, vehicles)
+                            label: `${mf.manifest_id} (${mf.job_orders?.length || '?'} muatan)`,  // Show manifest ID with job order count
+                            details: mf // Store full details for auto-fill logic (driver_id, vehicle_id, drivers, vehicles, job_orders)
                         }));
                     setManifests(mfOptions);
-                    console.log('[DeliveryOrderModal] Manifests available (after filter):', mfOptions.length, 'items');
+                    console.log('[DeliveryOrderModal] Manifests available (all):', mfOptions.length, 'items');
 
                     // Fetch ALL Drivers (tanpa filter status agar semua driver tersedia)
                     const driverRes = await fetchDrivers({ per_page: 200 });
@@ -209,6 +210,57 @@ const DeliveryOrderModal = ({
         }
     }, [formData.source_id, formData.source_type, jobOrders, manifests, drivers, vehicles]);
 
+    // ✅ NEW: Fetch Job Orders when a Manifest is selected (for LTL scenario)
+    useEffect(() => {
+        const fetchManifestJobOrders = async () => {
+            // Only fetch if Manifest is selected
+            if (formData.source_type === 'MF' && formData.source_id) {
+                setIsFetchingManifestJOs(true);
+                try {
+                    // Find the selected manifest to get its job_orders
+                    const selectedManifest = manifests.find(mf => mf.value === formData.source_id);
+
+                    if (selectedManifest?.details?.job_orders) {
+                        // Manifest already has job_orders loaded
+                        const joOptions = selectedManifest.details.job_orders.map(jo => ({
+                            value: jo.job_order_id,
+                            label: `${jo.job_order_id} | ${jo.customer?.customer_name || jo.customer_name || 'Unknown'} | ${jo.delivery_city || jo.delivery_address?.substring(0, 30) || '-'}`,
+                            details: jo
+                        }));
+                        setManifestJobOrders(joOptions);
+                        console.log('[DeliveryOrderModal] Job Orders from Manifest (cached):', joOptions);
+                    } else {
+                        // Need to fetch manifest details with job orders
+                        const manifestService = await import('../../features/manifests/services/manifestService');
+                        const manifestDetails = await manifestService.getManifest(formData.source_id);
+
+                        if (manifestDetails?.job_orders) {
+                            const joOptions = manifestDetails.job_orders.map(jo => ({
+                                value: jo.job_order_id,
+                                label: `${jo.job_order_id} | ${jo.customer?.customer_name || jo.customer_name || 'Unknown'} | ${jo.delivery_city || jo.delivery_address?.substring(0, 30) || '-'}`,
+                                details: jo
+                            }));
+                            setManifestJobOrders(joOptions);
+                            console.log('[DeliveryOrderModal] Job Orders from Manifest (fetched):', joOptions);
+                        } else {
+                            setManifestJobOrders([]);
+                        }
+                    }
+                } catch (error) {
+                    console.error('[DeliveryOrderModal] Failed to fetch manifest job orders:', error);
+                    setManifestJobOrders([]);
+                } finally {
+                    setIsFetchingManifestJOs(false);
+                }
+            } else {
+                // Clear manifest job orders if not Manifest source
+                setManifestJobOrders([]);
+            }
+        };
+
+        fetchManifestJobOrders();
+    }, [formData.source_id, formData.source_type, manifests]);
+
     // Handle input change
     const handleChange = (name, value) => {
         setFormData(prev => {
@@ -217,6 +269,12 @@ const DeliveryOrderModal = ({
             // Reset source selection when source type changes
             if (name === 'source_type') {
                 newData.source_id = '';
+                newData.selected_job_order_id = ''; // ✅ Reset job order selection
+            }
+
+            // ✅ Reset job order selection when manifest changes
+            if (name === 'source_id' && prev.source_type === 'MF') {
+                newData.selected_job_order_id = '';
             }
 
             return newData;
@@ -243,8 +301,25 @@ const DeliveryOrderModal = ({
             newErrors.source_id = 'Sumber harus dipilih';
         }
 
+        // ✅ NEW: Require job order selection for Manifest source
+        if (formData.source_type === 'MF' && !formData.selected_job_order_id) {
+            newErrors.selected_job_order_id = 'Pilih muatan/job order dari manifest ini';
+        }
+
         if (!formData.do_date) {
             newErrors.do_date = 'Tanggal DO harus diisi';
+        }
+
+        // ✅ UPDATED: Require Driver & Vehicle for Job Order source
+        // Secara hukum dan operasional, Delivery Order (Surat Jalan) tidak bisa dianggap sah
+        // tanpa nama Supir dan Nomor Plat Kendaraan
+        if (formData.source_type === 'JO') {
+            if (!formData.driver_id) {
+                newErrors.driver_id = 'Driver harus dipilih untuk Delivery Order';
+            }
+            if (!formData.vehicle_id) {
+                newErrors.vehicle_id = 'Kendaraan harus dipilih untuk Delivery Order';
+            }
         }
 
         setErrors(newErrors);
@@ -307,7 +382,37 @@ const DeliveryOrderModal = ({
                 </label>
 
                 <div className="relative">
-                    {type === 'select' ? (
+                    {type === 'readonly_summary' ? (
+                        // ✅ NEW: Read-only summary card for Job Order verification
+                        <div className="rounded-xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div className="col-span-2">
+                                    <span className="text-slate-500 font-medium">Customer:</span>
+                                    <p className="text-slate-800 font-semibold">{field.summaryData?.customer || '-'}</p>
+                                </div>
+                                <div className="col-span-2">
+                                    <span className="text-slate-500 font-medium">Tujuan:</span>
+                                    <p className="text-slate-800 font-semibold truncate">{field.summaryData?.destination || '-'}</p>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 font-medium">Berat:</span>
+                                    <p className="text-slate-800 font-bold text-lg">{field.summaryData?.weight || 0} <span className="text-xs font-normal">Kg</span></p>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 font-medium">Koli:</span>
+                                    <p className="text-slate-800 font-bold text-lg">{field.summaryData?.koli || 0} <span className="text-xs font-normal">Koli</span></p>
+                                </div>
+                                <div>
+                                    <span className="text-slate-500 font-medium">Volume:</span>
+                                    <p className="text-slate-800 font-bold text-lg">{field.summaryData?.volume || 0} <span className="text-xs font-normal">m³</span></p>
+                                </div>
+                                <div className="col-span-2 pt-2 border-t border-amber-200">
+                                    <span className="text-slate-500 font-medium">Deskripsi Barang:</span>
+                                    <p className="text-slate-700 italic">{field.summaryData?.description || '-'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ) : type === 'select' ? (
                         <select {...commonProps}>
                             <option value="">-- Pilih {label} --</option>
                             {options?.map(option => (
@@ -399,6 +504,55 @@ const DeliveryOrderModal = ({
             });
         }
 
+        // ✅ NEW: Add Job Order Summary (Read-Only) for visual verification
+        // Menampilkan summary barang setelah memilih Job Order agar Admin bisa melakukan
+        // verifikasi visual terakhir bahwa JO yang dipilih benar-benar membawa muatan yang dimaksud
+        if (formData.source_type === 'JO' && formData.source_id) {
+            const selectedJobOrder = jobOrders.find(jo => jo.value === formData.source_id);
+            if (selectedJobOrder?.details) {
+                const jo = selectedJobOrder.details;
+                const weight = jo.weight || jo.goods_weight || 0;
+                const koli = jo.koli || jo.goods_qty || jo.quantity || 0;
+                const volume = jo.volume || jo.goods_volume || 0;
+                const description = jo.goods_desc || jo.goods_description || jo.description || jo.notes || '-';
+                const customerName = jo.customer?.customer_name || jo.customer_name || '-';
+                const deliveryAddress = jo.delivery_address || '-';
+
+                fields.push({
+                    name: 'job_order_summary',
+                    label: '📋 Summary Barang (Verifikasi)',
+                    type: 'readonly_summary',
+                    summaryData: {
+                        customer: customerName,
+                        destination: deliveryAddress,
+                        weight: weight,
+                        koli: koli,
+                        volume: volume,
+                        description: description
+                    },
+                    description: 'Data barang dari Job Order yang dipilih. Pastikan data ini sesuai sebelum menyimpan.'
+                });
+            }
+        }
+
+        // ✅ NEW: Add Job Order selection field for Manifest source (LTL scenario)
+        // This is CRITICAL for LTL - allows creating separate DO per customer/destination
+        if (formData.source_type === 'MF' && formData.source_id) {
+            fields.push({
+                name: 'selected_job_order_id',
+                label: '📦 Pilih Muatan / Job Order',
+                type: 'select',
+                required: true,
+                options: manifestJobOrders,
+                description: isFetchingManifestJOs
+                    ? '⏳ Memuat daftar muatan...'
+                    : manifestJobOrders.length > 0
+                        ? '⚠️ WAJIB dipilih untuk LTL! 1 Manifest bisa jadi beberapa Surat Jalan berdasarkan tujuan/customer.'
+                        : '❌ Manifest ini tidak memiliki Job Order',
+                help: 'Satu Manifest LTL bisa memiliki beberapa muatan dengan tujuan berbeda. Pilih muatan spesifik untuk Surat Jalan ini.'
+            });
+        }
+
         // Add date field
         fields.push({
             name: 'do_date',
@@ -471,12 +625,16 @@ const DeliveryOrderModal = ({
 
         // Add Driver & Vehicle fields
         // For Manifest: auto-filled AND disabled (locked)
-        // For Job Order: auto-filled but editable
+        // For Job Order: auto-filled but editable, and REQUIRED
+        // Secara hukum dan operasional, Delivery Order (Surat Jalan) tidak bisa dianggap sah
+        // tanpa nama Supir dan Nomor Plat Kendaraan
+        const isJobOrderSource = formData.source_type === 'JO';
+
         fields.push({
             name: 'driver_id',
-            label: isManifestSource ? 'Driver (dari Manifest)' : 'Assign Driver (Opsional)',
+            label: isManifestSource ? 'Driver (dari Manifest)' : 'Assign Driver',
             type: 'select',
-            required: false,
+            required: isJobOrderSource, // ✅ Required for Job Order source
             disabled: isManifestSource, // Lock for Manifest
             options: [{ value: '', label: '-- Pilih Driver --' }, ...drivers],
             description: getDriverDescription()
@@ -484,9 +642,9 @@ const DeliveryOrderModal = ({
 
         fields.push({
             name: 'vehicle_id',
-            label: isManifestSource ? 'Kendaraan (dari Manifest)' : 'Assign Kendaraan (Opsional)',
+            label: isManifestSource ? 'Kendaraan (dari Manifest)' : 'Assign Kendaraan',
             type: 'select',
-            required: false,
+            required: isJobOrderSource, // ✅ Required for Job Order source
             disabled: isManifestSource, // Lock for Manifest
             options: [{ value: '', label: '-- Pilih Kendaraan --' }, ...vehicles],
             description: getVehicleDescription()

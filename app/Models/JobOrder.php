@@ -24,6 +24,7 @@ class JobOrder extends Model
         'delivery_address',
         'delivery_city',
         'goods_desc',
+        'goods_qty',
         'goods_weight',
         'goods_volume',
         'ship_date',

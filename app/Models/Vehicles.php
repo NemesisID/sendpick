@@ -69,4 +69,12 @@ class Vehicles extends Model
     {
         return $this->hasMany(Gps::class, 'vehicle_id', 'vehicle_id');
     }
+
+    /**
+     * Relationship: Vehicle has many Manifests
+     */
+    public function manifests(): HasMany
+    {
+        return $this->hasMany(Manifests::class, 'vehicle_id', 'vehicle_id');
+    }
 }
