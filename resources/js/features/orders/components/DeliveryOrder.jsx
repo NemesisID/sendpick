@@ -191,19 +191,25 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
     const destination = extractCityName(rawDestination);
     const route = origin && destination && origin !== '-' && destination !== '-' ? `${origin} → ${destination}` : '-';
 
-    // Fix Source Label
+    // Fix Source Label - Enhanced for LTL-specific
     const isJobOrder = deliveryOrder.source_type === 'JO';
-    const sourceLabel = isJobOrder ? `Job Order: ${deliveryOrder.source_id}` : `Manifest: ${deliveryOrder.source_id}`;
+    const isLTLSpecific = sourceInfo.is_ltl_specific === true;
+    let sourceLabel = isJobOrder ? `Job Order: ${deliveryOrder.source_id}` : `Manifest: ${deliveryOrder.source_id}`;
+
+    // ✅ NEW: For LTL-specific DO, show which JO it's for
+    if (isLTLSpecific && sourceInfo.job_order_id) {
+        sourceLabel = `Manifest: ${deliveryOrder.source_id} → ${sourceInfo.job_order_id}`;
+    }
 
     // Fix Date Format: Use departure_date if available, otherwise fall back to do_date
     const departureDate = deliveryOrder.departure_date ?? deliveryOrder.do_date;
     const formattedDeparture = departureDate ? new Date(departureDate).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-';
 
     // Fix Koli & Goods Info
-    // For Manifest: weight = total from all JOs, qty = total koli from all JOs
-    // For Job Order: weight = goods_weight, qty = goods_volume (used as koli)
+    // ✅ FIXED: Now uses correct weight from selected JO (not total manifest weight)
     const weight = sourceInfo.goods_weight ?? deliveryOrder.weight ?? '-';
-    const qty = sourceInfo.koli ?? sourceInfo.quantity ?? sourceInfo.goods_volume ?? deliveryOrder.quantity ?? '-';
+    const qty = sourceInfo.koli ?? sourceInfo.quantity ?? deliveryOrder.quantity ?? '-';
+    const volume = sourceInfo.goods_volume ?? '-'; // ✅ NEW: Volume in m³
     const jobOrdersCount = sourceInfo.job_orders_count ?? null;
 
     // Use goods_summary first, then sourceInfo.goods_desc
@@ -223,7 +229,8 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
     return {
         id: deliveryOrder.do_id ?? deliveryOrder.id,
         manifestId: deliveryOrder.source_type === 'MF' ? deliveryOrder.source_id : '-',
-        jobOrder: deliveryOrder.source_type === 'JO' ? deliveryOrder.source_id : '-',
+        jobOrder: deliveryOrder.source_type === 'JO' ? deliveryOrder.source_id : (sourceInfo.job_order_id ?? '-'),
+        selectedJobOrderId: sourceInfo.selected_job_order_id ?? sourceInfo.job_order_id ?? null,
         sourceLabel: sourceLabel,
         customer: customerName,
         driver: deliveryOrder.driver_name ?? deliveryOrder.assigned_driver ?? 'Belum ditugaskan',
@@ -237,12 +244,14 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
         backendStatus: deliveryOrder.status ?? 'Pending',
         weight: weight,
         qty: qty,
+        volume: volume, // ✅ NEW: Volume in m³
         goods_desc: goodsDesc,
         lastUpdate: deliveryOrder.updated_at ? new Date(deliveryOrder.updated_at).toLocaleString('id-ID') : '-',
 
         // Additional fields for display logic
         isManifest: deliveryOrder.source_type === 'MF',
-        jobOrdersCount: sourceInfo.job_orders_count ?? null,
+        isLTLSpecific: isLTLSpecific, // ✅ NEW: Flag for LTL-specific DO
+        jobOrdersCount: jobOrdersCount,
 
         priority: (deliveryOrder.priority ?? 'normal').toLowerCase(),
         raw: deliveryOrder,
@@ -402,7 +411,9 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel }) {
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-0.5'>
                     <p className='font-semibold text-slate-700'>
+                        {/* ✅ UPDATED: Show Weight • Koli • Volume */}
                         {delivery.weight !== '-' ? `${delivery.weight} Kg` : '- Kg'} • {delivery.qty !== '-' ? delivery.qty : '-'} Koli
+                        {delivery.volume && delivery.volume !== '-' && ` • ${delivery.volume} m³`}
                     </p>
                     <p className='text-xs text-slate-500 truncate max-w-[180px]' title={delivery.goods_desc}>
                         {delivery.goods_desc}
@@ -481,6 +492,7 @@ function DeliveryOrderTable({
     onViewDetail,
     onCancel,
     onAddNew,
+    onPrint, // ✅ NEW: Print handler
     loading,
     error,
 }) {
@@ -533,19 +545,37 @@ function DeliveryOrderTable({
                             />
                         </div>
 
-                        {/* Add Button */}
-                        <button
-                            type='button'
-                            onClick={onAddNew}
-                            className='w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 whitespace-nowrap'
-                        >
-                            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4 flex-shrink-0'>
-                                <path d='M12 5v14' strokeLinecap='round' strokeLinejoin='round' />
-                                <path d='M5 12h14' strokeLinecap='round' strokeLinejoin='round' />
-                            </svg>
-                            <span className='hidden sm:inline'>Tambah Delivery Order</span>
-                            <span className='sm:hidden'>Tambah DO</span>
-                        </button>
+                        {/* Action Buttons */}
+                        <div className='flex flex-col sm:flex-row gap-2'>
+                            {/* Print Button */}
+                            <button
+                                type='button'
+                                onClick={onPrint}
+                                className='w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 whitespace-nowrap'
+                            >
+                                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4 flex-shrink-0'>
+                                    <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
+                                    <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
+                                    <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
+                                </svg>
+                                <span className='hidden sm:inline'>Cetak Delivery Order</span>
+                                <span className='sm:hidden'>Cetak DO</span>
+                            </button>
+
+                            {/* Add Button */}
+                            <button
+                                type='button'
+                                onClick={onAddNew}
+                                className='w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 whitespace-nowrap'
+                            >
+                                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4 flex-shrink-0'>
+                                    <path d='M12 5v14' strokeLinecap='round' strokeLinejoin='round' />
+                                    <path d='M5 12h14' strokeLinecap='round' strokeLinejoin='round' />
+                                </svg>
+                                <span className='hidden sm:inline'>Tambah Delivery Order</span>
+                                <span className='sm:hidden'>Tambah DO</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -767,6 +797,13 @@ export default function DeliveryOrderContent() {
 
     const handleDeleteClose = () => {
         setDeleteModal({ isOpen: false, delivery: null });
+    };
+
+    // ✅ NEW: Handle print button click
+    const handlePrint = () => {
+        // Open print preview or navigation to print page
+        // For now, we'll alert - this can be extended to open a print modal
+        alert('🖨️ Fitur Cetak Delivery Order sedang dalam pengembangan.\n\nUntuk mencetak, silakan pilih DO dari tabel, lalu klik tombol "Lihat Detail" dan gunakan tombol cetak di modal detail.');
     };
 
     // Assign driver form fields    // Get delivery order form fields for creating new DO
@@ -1058,6 +1095,7 @@ export default function DeliveryOrderContent() {
                 onAssignDriver={handleAssignDriver}
                 onCancel={handleCancel}
                 onAddNew={handleAddNew}
+                onPrint={handlePrint}
                 loading={loading}
                 error={error}
             />

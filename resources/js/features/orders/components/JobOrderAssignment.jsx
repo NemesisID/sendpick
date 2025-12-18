@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import EditModal from '../../../components/common/EditModal';
+import Manifest from '../../manifests/components/Manifest'
 import { getAvailableDrivers } from '../../drivers/services/driverService';
 import { fetchAvailableVehicles } from '../../vehicles/services/vehicleService';
 import { assignDriver, getAssignments } from '../services/jobOrderService';
@@ -204,7 +205,10 @@ function AssignmentFilter({ activeFilter, onFilterChange }) {
     );
 }
 
-export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0, onAssignmentUpdate }) {
+export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0, orderType, onAssignmentUpdate }) {
+    // ✅ MODIFIED: Allow viewing assignments for LTL (sourced from Manifest)
+    // if (orderType === 'LTL') { return ... } -> Removed to show list.
+
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
@@ -330,6 +334,38 @@ export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0
         }
     ], [drivers, vehicles]);
 
+    const handleFieldChange = (name, value, setFormData) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+
+        // Logic: Auto-fill Vehicle when Driver is selected
+        if (name === 'driver_id') {
+            const selectedDriver = drivers.find(d => d.driver_id === value);
+            // assigned_vehicle is loaded from backend relation
+            const assignedVehicleId = selectedDriver?.assigned_vehicle?.vehicle_id;
+
+            if (assignedVehicleId) {
+                // Only auto-fill if the vehicle is in the available list
+                const isVehicleAvailable = vehicles.some(v => v.vehicle_id === assignedVehicleId);
+                if (isVehicleAvailable) {
+                    setFormData(prev => ({ ...prev, vehicle_id: assignedVehicleId }));
+                }
+            }
+        }
+
+        // Logic: Auto-fill Driver when Vehicle is selected
+        if (name === 'vehicle_id') {
+            const selectedVehicle = vehicles.find(v => v.vehicle_id === value);
+            const assignedDriverId = selectedVehicle?.driver_id;
+
+            if (assignedDriverId) {
+                const isDriverAvailable = drivers.some(d => d.driver_id === assignedDriverId);
+                if (isDriverAvailable) {
+                    setFormData(prev => ({ ...prev, driver_id: assignedDriverId }));
+                }
+            }
+        }
+    };
+
     if (loading) {
         return (
             <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -350,16 +386,18 @@ export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0
                 </div>
                 <div className='flex items-center gap-3'>
                     <AssignmentFilter activeFilter={filter} onFilterChange={setFilter} />
-                    <button
-                        type='button'
-                        onClick={handleAddAssignment}
-                        disabled={isReadOnly}
-                        className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${isReadOnly ? 'bg-slate-400 cursor-not-allowed opacity-75' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-                        title={isReadOnly ? "Tidak dapat menambah assignment pada order yang dibatalkan" : "Add Assignment"}
-                    >
-                        <PlusIcon className='h-3 w-3' />
-                        Add Assignment
-                    </button>
+                    {orderType !== 'LTL' && (
+                        <button
+                            type='button'
+                            onClick={handleAddAssignment}
+                            disabled={isReadOnly}
+                            className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${isReadOnly ? 'bg-slate-400 cursor-not-allowed opacity-75' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                            title={isReadOnly ? "Tidak dapat menambah assignment pada order yang dibatalkan" : "Add Assignment"}
+                        >
+                            <PlusIcon className='h-3 w-3' />
+                            Add Assignment
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -391,6 +429,7 @@ export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0
                 data={{}}
                 fields={assignmentFields}
                 isLoading={isSubmitting}
+                onFieldChange={handleFieldChange}
             />
         </section >
     );

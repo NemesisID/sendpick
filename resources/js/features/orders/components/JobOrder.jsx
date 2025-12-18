@@ -352,8 +352,17 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='space-y-1'>
-                    <p className='font-medium text-slate-900'>{order.driver}</p>
-                    <p className='text-xs text-slate-400'>{order.vehicle}</p>
+                    {order.jobOrderType === 'LTL' && (!order.driver || order.driver === '-') ? (
+                        <div className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 border border-slate-200">
+                            <span>📦</span>
+                            Via Manifest
+                        </div>
+                    ) : (
+                        <>
+                            <p className='font-medium text-slate-900'>{order.driver}</p>
+                            <p className='text-xs text-slate-400'>{order.vehicle}</p>
+                        </>
+                    )}
                 </div>
             </td>
             <td className='px-6 py-4'>
@@ -552,6 +561,7 @@ export default function JobOrderContent() {
             destination: order.delivery_address ?? order.destination ?? '-',
             delivery_city: order.delivery_city ?? '',
             commodity: order.goods_desc ?? order.commodity ?? '-',
+            goods_qty: order.goods_qty ?? '', // Add goods_qty mapping
             weight: order.goods_weight != null ? `${order.goods_weight}` : order.weight ?? '',
             volume: order.goods_volume != null ? `${order.goods_volume}` : order.volume ?? '',
             items: order.goods_desc ?? order.items ?? '-',
@@ -657,6 +667,7 @@ export default function JobOrderContent() {
             delivery_city: order.delivery_city || '',
             items: order.items || order.commodity || '',
             goods_desc: order.items || order.commodity || '', // Ensure goods_desc is set
+            goods_qty: order.goods_qty || '', // Add goods_qty mapping for edit
             weight: order.weight || '',
             goods_weight: order.weight || '', // Ensure goods_weight is set
             volume: order.volume || '',
@@ -873,24 +884,35 @@ export default function JobOrderContent() {
             rows: 2
         },
         {
+            name: 'goods_qty',
+            label: 'Jumlah Koli (Qty Packages)',
+            type: 'number',
+            required: true,
+            placeholder: 'Jumlah paket/dus',
+            min: 1,
+            description: 'Wajib diisi untuk proses cross-docking'
+        },
+        {
             name: 'goods_weight',
             label: 'Berat (kg)',
             type: 'number',
             required: true,
-            placeholder: 'Berat dalam kilogram',
+            placeholder: 'Berat kotor (termasuk palet)',
             min: 0,
             step: 0.1,
-            help: formJobOrderType === 'LTL' ? 'Untuk LTL, pastikan berat akurat agar muat di truk gabungan.' : null
+            help: formJobOrderType === 'LTL' ? 'Krusial untuk LTL: Pastikan berat akurat agar tidak overload.' : null
         },
         {
             name: 'goods_volume',
             label: 'Volume (m3)',
             type: 'number',
-            required: false,
+            required: formJobOrderType === 'LTL', // Wajib untuk LTL
             placeholder: 'Estimasi volume dalam m3',
             min: 0,
             step: 0.01,
-            description: 'Opsional: Isi jika barang ringan tapi memakan tempat (CBM)'
+            description: formJobOrderType === 'LTL'
+                ? 'WAJIB untuk LTL: Barang ringan tapi besar memakan space berharga.'
+                : 'Opsional: Isi jika barang ringan tapi memakan tempat (CBM)'
         },
         {
             name: 'ship_date',

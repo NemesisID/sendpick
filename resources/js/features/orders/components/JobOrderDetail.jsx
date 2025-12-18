@@ -15,7 +15,28 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
             const data = await getJobOrder(jobOrderId);
             if (data) {
                 // Map API response to component state
-                const activeAssignment = data.assignments?.find(a => a.status === 'Active') || data.assignments?.[0];
+                const activeAssignment = data.assignments?.find(a => (a.status?.toLowerCase() === 'active')) || data.assignments?.[0];
+                const manifestInfo = data.manifest_info;
+
+                let driverDisplay = '-';
+                let vehicleDisplay = '-';
+
+                // Helper to format driver display
+                if (activeAssignment?.driver?.driver_name) {
+                    driverDisplay = activeAssignment.driver.driver_name;
+                    if (activeAssignment.is_manifest_generated && manifestInfo) {
+                        driverDisplay += ` (via Manifest)`;
+                    }
+                } else if (manifestInfo?.driver) {
+                    driverDisplay = `${manifestInfo.driver.driver_name} (via Manifest)`;
+                }
+
+                // Helper to format vehicle display
+                if (activeAssignment?.vehicle) {
+                    vehicleDisplay = `${activeAssignment.vehicle.license_plate || activeAssignment.vehicle.plate_no} - ${activeAssignment.vehicle.vehicle_type?.name || 'Unit'}`;
+                } else if (manifestInfo?.vehicle) {
+                    vehicleDisplay = `${manifestInfo.vehicle.license_plate || manifestInfo.vehicle.plate_no} - ${manifestInfo.vehicle.vehicle_type?.name || 'Unit'}`;
+                }
 
                 setJobOrder({
                     id: data.job_order_id,
@@ -33,10 +54,8 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                     totalWeight: `${data.goods_weight} kg`,
                     goodsWeight: data.goods_weight || 0, // Raw weight for filtering vehicles
                     totalValue: data.order_value ? `Rp ${Number(data.order_value).toLocaleString('id-ID')}` : '-',
-                    driver: activeAssignment?.driver?.driver_name || '-',
-                    vehicle: activeAssignment?.vehicle ?
-                        `${activeAssignment.vehicle.license_plate || activeAssignment.vehicle.plate_no || 'Unknown'} - ${activeAssignment.vehicle.vehicle_type?.name || 'Unknown Type'}`
-                        : '-',
+                    driver: driverDisplay,
+                    vehicle: vehicleDisplay,
                     volume: data.goods_volume ? `${data.goods_volume} m³` : '-',
                     notes: data.goods_desc || '-',
                     statusHistories: data.status_histories || []
@@ -189,11 +208,19 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                         </div>
                                         <div>
                                             <p className="text-sm text-slate-500">Driver</p>
-                                            <p className="font-medium text-slate-900">{jobOrder.driver}</p>
+                                            <p className={`font-medium ${jobOrder.type === 'LTL' && (jobOrder.driver === '-' || !jobOrder.driver) ? 'text-amber-600 italic' : 'text-slate-900'}`}>
+                                                {jobOrder.type === 'LTL' && (jobOrder.driver === '-' || !jobOrder.driver)
+                                                    ? 'Menunggu Planning Manifest ⏳'
+                                                    : jobOrder.driver}
+                                            </p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-slate-500">Vehicle</p>
-                                            <p className="font-medium text-slate-900">{jobOrder.vehicle}</p>
+                                            <p className={`font-medium ${jobOrder.type === 'LTL' && (jobOrder.vehicle === '-' || !jobOrder.vehicle) ? 'text-amber-600 italic' : 'text-slate-900'}`}>
+                                                {jobOrder.type === 'LTL' && (jobOrder.vehicle === '-' || !jobOrder.vehicle)
+                                                    ? 'Menunggu Planning Manifest ⏳'
+                                                    : jobOrder.vehicle}
+                                            </p>
                                         </div>
                                     </div>
                                     {jobOrder.notes && (
@@ -244,6 +271,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                             jobOrderId={jobOrder.id}
                             status={jobOrder.status}
                             goodsWeight={jobOrder.goodsWeight}
+                            orderType={jobOrder.type}
                             onAssignmentUpdate={loadJobOrder}
                         />
                     )}

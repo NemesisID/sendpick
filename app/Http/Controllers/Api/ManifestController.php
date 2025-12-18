@@ -141,7 +141,12 @@ class ManifestController extends Controller
         if (!empty($jobOrderIds) && is_array($jobOrderIds)) {
             $manifest->jobOrders()->attach($jobOrderIds);
             
-            \Log::info("Manifest {$manifest->manifest_id} created with " . count($jobOrderIds) . " job orders. Job Order statuses NOT changed (remain as-is).");
+            // ✅ Update Status Job Order menjadi 'Assigned'
+            JobOrder::whereIn('job_order_id', $jobOrderIds)
+                ->whereIn('status', ['Created', 'Pending']) // Hanya update jika status belum maju
+                ->update(['status' => 'Assigned']);
+
+            \Log::info("Manifest {$manifest->manifest_id} created with " . count($jobOrderIds) . " job orders. Status updated to Assigned.");
                 
             // Update cargo summary based on attached job orders
             $this->updateManifestCargo($manifest);
@@ -240,11 +245,18 @@ class ManifestController extends Controller
             $syncResult = $manifest->jobOrders()->sync($jobOrderIds);
             
             if (!empty($syncResult['attached'])) {
-                \Log::info("Manifest {$manifest->manifest_id} update: Attached " . count($syncResult['attached']) . " job orders. Statuses NOT changed.");
+                // ✅ Update Status Job Order yang baru di-attach menjadi 'Assigned'
+                JobOrder::whereIn('job_order_id', $syncResult['attached'])
+                    ->whereIn('status', ['Created', 'Pending'])
+                    ->update(['status' => 'Assigned']);
+
+                \Log::info("Manifest {$manifest->manifest_id} update: Attached " . count($syncResult['attached']) . " job orders. Status updated to Assigned.");
             }
             
             if (!empty($syncResult['detached'])) {
-                \Log::info("Manifest {$manifest->manifest_id} update: Detached " . count($syncResult['detached']) . " job orders. Statuses NOT changed.");
+                // Optional: Kembalikan status ke Pending jika di-detach?
+                // Untuk saat ini biarkan 'Assigned' atau handle sesuai kebutuhan bisnis
+                \Log::info("Manifest {$manifest->manifest_id} update: Detached " . count($syncResult['detached']) . " job orders.");
             }
             
             // Update cargo summary based on current job orders
@@ -411,8 +423,12 @@ class ManifestController extends Controller
             }
 
             // Attach job orders (syncWithoutDetaching untuk tidak hapus yang sudah ada)
-            // NOTE: Job Order status is NOT changed - remains as-is (e.g., 'Assigned')
             $manifest->jobOrders()->syncWithoutDetaching($request->job_order_ids);
+
+            // ✅ Update Status Job Order menjadi 'Assigned'
+            JobOrder::whereIn('job_order_id', $request->job_order_ids)
+                ->whereIn('status', ['Created', 'Pending'])
+                ->update(['status' => 'Assigned']);
 
             // Update cargo summary and weight
             $this->updateManifestCargo($manifest);
@@ -574,12 +590,17 @@ class ManifestController extends Controller
                         'customer_name' => $jobOrder->customer->customer_name ?? null,
                         'order_type' => $jobOrder->order_type,
                         'pickup_address' => $jobOrder->pickup_address,
+                        'pickup_city' => $jobOrder->pickup_city,         // ✅ Added for route calculation
                         'delivery_address' => $jobOrder->delivery_address,
+                        'delivery_city' => $jobOrder->delivery_city,     // ✅ Added for route calculation
                         'goods_desc' => $jobOrder->goods_desc,
+                        'goods_qty' => $jobOrder->goods_qty ?? 1,        // ✅ Added for Total Packages (Koli)
                         'goods_weight' => $jobOrder->goods_weight,
                         'ship_date' => $jobOrder->ship_date,
                         'order_value' => $jobOrder->order_value,
                         'status' => $jobOrder->status,
+                        'pickup_datetime' => $jobOrder->pickup_datetime ?? $jobOrder->ship_date,  // ✅ For route sorting
+                        'delivery_datetime_estimation' => $jobOrder->delivery_datetime_estimation ?? $jobOrder->ship_date,  // ✅ For route sorting
                         'assignment' => $assignment ? [
                             'driver_id' => $assignment->driver_id,
                             'driver_name' => $assignment->driver->driver_name ?? null,

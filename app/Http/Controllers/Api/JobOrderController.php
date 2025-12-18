@@ -22,7 +22,7 @@ use Carbon\Carbon;
  * Fungsi utama:
  * - Menampilkan daftar job order dengan pencarian dan filter
  * - Membuat job order baru dengan ID otomatis
- * - Assign driver dan vehicle ke job order
+ * - Assign driver dan vehicle ke job order (Jika statusnya FTL)
  * - Update status job order dengan history tracking
  * - Menghapus job order
  * - Filter berdasarkan status, customer, priority, dan tanggal
@@ -117,8 +117,18 @@ class JobOrderController extends Controller
             'delivery_address' => 'required|string',
             'delivery_city' => 'nullable|string',
             'goods_desc' => 'required|string',
+            'goods_qty' => 'required|integer|min:1',
             'goods_weight' => 'required|numeric|min:0',
-            'goods_volume' => 'nullable|numeric|min:0',
+            'goods_volume' => [
+                'nullable', 
+                'numeric', 
+                'min:0', 
+                function ($attribute, $value, $fail) use ($request) {
+                    if ($request->order_type === 'LTL' && ($value === null || $value <= 0)) {
+                        $fail('Volume wajib diisi untuk tipe order LTL.');
+                    }
+                },
+            ],
             'ship_date' => 'required|date',
             'order_value' => 'nullable|numeric|min:0'
         ]);
@@ -162,6 +172,7 @@ class JobOrderController extends Controller
             'delivery_address' => $request->delivery_address,
             'delivery_city' => $request->delivery_city,
             'goods_desc' => $request->goods_desc,
+            'goods_qty' => $request->goods_qty,
             'goods_weight' => $request->goods_weight,
             'goods_volume' => $request->goods_volume,
             'ship_date' => $request->ship_date,
@@ -194,7 +205,8 @@ class JobOrderController extends Controller
             'assignments.vehicle.vehicleType',
             'statusHistories',
             'proofOfDeliveries',
-            'manifests'
+            'manifests.drivers',   // ✅ Load Driver Manifest (Relation name is plural in Model)
+            'manifests.vehicles'   // ✅ Load Vehicle Manifest (Relation name is plural in Model)
         ])->where('job_order_id', $jobOrderId)->first();
 
         if (!$jobOrder) {
@@ -202,6 +214,42 @@ class JobOrderController extends Controller
                 'success' => false,
                 'message' => 'Job Order not found'
             ], 404);
+        }
+
+        // ✅ LOGIC BARU: Inject Manifest Data & Virtual Assignment
+        // Cari manifest aktif terbaru
+        $activeManifest = $jobOrder->manifests
+            ->whereIn('status', ['Pending', 'In Transit', 'Arrived', 'Completed'])
+            ->sortByDesc('created_at')
+            ->first();
+
+        if ($activeManifest) {
+            // 1. Inject info manifest ke root object (untuk kemudahan akses frontend)
+            $jobOrder->manifest_info = [
+                'manifest_id' => $activeManifest->manifest_id,
+                'status' => $activeManifest->status,
+                'driver' => $activeManifest->drivers,   // Relation is 'drivers'
+                'vehicle' => $activeManifest->vehicles, // Relation is 'vehicles'
+                'route' => $activeManifest->origin_city . ' -> ' . $activeManifest->dest_city
+            ];
+
+            // 2. Inject "Virtual Assignment" jika belum ada assignment manual
+            // Ini agar di tab "Assignment Management" muncul card driver manifest
+            if ($jobOrder->assignments->isEmpty() && $activeManifest->drivers) {
+                $virtualAssignment = [
+                    'assignment_id' => 'manifest-' . $activeManifest->manifest_id,
+                    'status' => 'Active', // Dianggap Active karena Manifest berjalan
+                    'role' => 'Primary Driver (Manifest)',
+                    'assigned_at' => $activeManifest->created_at,
+                    'driver' => $activeManifest->drivers,   // Relation is 'drivers'
+                    'vehicle' => $activeManifest->vehicles, // Relation is 'vehicles'
+                    'is_manifest_generated' => true,
+                    'note' => "Assigned via Manifest #{$activeManifest->manifest_id}"
+                ];
+                
+                // Push ke collection (sebagai array/object standar)
+                $jobOrder->assignments->push((object)$virtualAssignment);
+            }
         }
 
         return response()->json([
@@ -236,8 +284,29 @@ class JobOrderController extends Controller
             'delivery_address' => 'sometimes|string|max:500',
             'delivery_city' => 'nullable|string',
             'goods_desc' => 'sometimes|string',
+            'goods_qty' => 'sometimes|integer|min:1',
             'goods_weight' => 'sometimes|numeric|min:0',
-            'goods_volume' => 'nullable|numeric|min:0',
+            // Custom validation for goods_volume on update
+            'goods_volume' => [
+                'nullable', 
+                'numeric', 
+                'min:0',
+                function ($attribute, $value, $fail) use ($request, $jobOrder) {
+                    $type = $request->order_type ?? $jobOrder->order_type;
+                    // Only enforce if volume is being updated OR if type is being changed/is LTL
+                    // But typically we validate the final state.
+                    // Let's enforce if type is LTL, volume must be present/valid.
+                    if ($type === 'LTL') {
+                         // If value is passed, it must be > 0.
+                         // If value is NOT passed, we check if existing is valid? 
+                         // For update "sometimes", we usually validate only if present, but for "required_if" logic it gets tricky.
+                         // Let's stick to: if present, must be valid. Frontend handles mandatory field.
+                         if ($value !== null && $value <= 0) {
+                             $fail('Volume wajib diisi untuk tipe order LTL.');
+                         }
+                    }
+                }
+            ],
             'ship_date' => 'sometimes|date|after_or_equal:today',
             'order_value' => 'sometimes|nullable|numeric|min:0',
             'status' => 'sometimes|string',
@@ -249,7 +318,7 @@ class JobOrderController extends Controller
         // Check for changes in other fields (Audit Trail)
         $changes = [];
         $fieldsToCheck = [
-            'pickup_address', 'delivery_address', 'goods_desc', 'goods_weight', 
+            'pickup_address', 'delivery_address', 'goods_desc', 'goods_qty', 'goods_weight', 
             'goods_volume', 'ship_date', 'order_value', 'order_type'
         ];
 
@@ -525,6 +594,42 @@ class JobOrderController extends Controller
             ->where('job_order_id', $jobOrderId)
             ->orderBy('assigned_at', 'desc')
             ->get();
+
+        // ✅ INJECT VIRTUAL ASSIGNMENT FROM MANIFEST
+        // Cek apakah Job Order ini punya Manifest aktif
+        $jobOrder = JobOrder::with(['manifests.drivers', 'manifests.vehicles'])
+            ->where('job_order_id', $jobOrderId)
+            ->first();
+            
+        if ($jobOrder) {
+            $activeManifest = $jobOrder->manifests
+                ->whereIn('status', ['Pending', 'In Transit', 'Arrived', 'Completed'])
+                ->sortByDesc('created_at')
+                ->first();
+
+            // Jika ada manifest dengan driver, tambahkan sebagai "Assignment"
+            if ($activeManifest && $activeManifest->drivers) {
+                // Buat object yang strukturnya mirip dengan Assignment Model
+                $virtualAssignment = new \stdClass();
+                $virtualAssignment->assignment_id = 'manifest-' . $activeManifest->manifest_id;
+                $virtualAssignment->job_order_id = $jobOrderId;
+                $virtualAssignment->assignment_type = 'driver_assignment';
+                $virtualAssignment->status = 'active'; // Lowercase agar sesuai filter frontend
+                $virtualAssignment->assigned_at = $activeManifest->created_at;
+                $virtualAssignment->notes = "Assigned via Manifest #{$activeManifest->manifest_id}";
+                
+                // Relasi
+                $virtualAssignment->driver = $activeManifest->drivers;   // Relation is 'drivers'
+                $virtualAssignment->vehicle = $activeManifest->vehicles; // Relation is 'vehicles'
+                
+                // Tambahan field untuk Frontend
+                $virtualAssignment->created_by_name = 'System (Manifest)';
+                $virtualAssignment->created_by_role = 'System';
+
+                // Tambahkan ke paling atas list
+                $assignments->prepend($virtualAssignment);
+            }
+        }
 
         return response()->json([
             'success' => true,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
 
 const EditModal = ({
@@ -26,13 +26,28 @@ const EditModal = ({
     // State untuk toggle visibility password
     const [passwordVisibility, setPasswordVisibility] = useState({});
 
+    // Ref to track if modal was already open (prevent reset on field changes)
+    const wasOpenRef = useRef(false);
+    // Ref to track the data/initialData to detect actual data changes
+    const prevDataRef = useRef(null);
+
     // Debug logging
     console.log('🔵 EditModal - isOpen:', isOpen, '| title:', title, '| fields count:', fields.length);
 
-    // Initialize form data when modal opens or data changes
+    // Initialize form data ONLY when modal first opens or when data actually changes
+    // NOT when fields array changes (which happens when formJobOrderType changes)
     useEffect(() => {
-        if (isOpen) {
-            const sourceData = initialData || data;
+        const sourceData = initialData || data;
+        const sourceDataKey = JSON.stringify(sourceData);
+
+        // Check if this is a fresh modal open (was closed, now open)
+        const isModalJustOpened = isOpen && !wasOpenRef.current;
+
+        // Check if data actually changed (not just fields prop changing)
+        const hasDataChanged = sourceDataKey !== prevDataRef.current;
+
+        if (isOpen && (isModalJustOpened || hasDataChanged)) {
+            console.log('🔵 EditModal - Initializing form data. Just opened:', isModalJustOpened, '| Data changed:', hasDataChanged);
             const newFormData = {};
             fields.forEach(field => {
                 newFormData[field.key || field.name] = sourceData?.[field.key || field.name] || field.defaultValue || '';
@@ -40,6 +55,17 @@ const EditModal = ({
             setFormData(newFormData);
             setErrors({});
             setValidationAlert({ show: false, message: '' }); // Reset alert saat modal dibuka
+
+            // Update prev data ref
+            prevDataRef.current = sourceDataKey;
+        }
+
+        // Update wasOpen ref
+        wasOpenRef.current = isOpen;
+
+        // Reset refs when modal closes
+        if (!isOpen) {
+            prevDataRef.current = null;
         }
     }, [isOpen, data, initialData, fields]);
 
@@ -563,6 +589,14 @@ const EditModal = ({
                                 );
                             }
 
+                            // ✅ NEW: Support for dynamic hidden property (can be function)
+                            const isHidden = typeof field.hidden === 'function'
+                                ? field.hidden(formData)
+                                : field.hidden;
+                            if (isHidden) {
+                                return null; // Don't render this field at all
+                            }
+
                             const staggerClass = `field-stagger-${Math.min(index + 1, 8)}`;
                             return (
                                 <div key={fieldKey} className={`group field-wrapper ${staggerClass}`}>
@@ -599,9 +633,10 @@ const EditModal = ({
                                         </div>
                                     )}
 
+                                    {/* ✅ UPDATED: Support dynamic description (can be function) */}
                                     {field.description && (
                                         <p className="mt-2 text-xs text-slate-500 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-lg border border-blue-200">
-                                            ℹ️ {field.description}
+                                            ℹ️ {typeof field.description === 'function' ? field.description(formData) : field.description}
                                         </p>
                                     )}
 

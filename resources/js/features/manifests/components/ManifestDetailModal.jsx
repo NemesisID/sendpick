@@ -497,7 +497,7 @@ export default function ManifestDetailModal({ isOpen, onClose, manifestId }) {
                                 <button
                                     type="button"
                                     onClick={() => window.print()}
-                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-emerald-500 bg-white px-4 py-3 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50"
                                 >
                                     <PrinterIcon className="h-4 w-4" />
                                     Cetak Manifest

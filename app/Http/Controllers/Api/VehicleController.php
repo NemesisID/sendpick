@@ -307,7 +307,15 @@ class VehicleController extends Controller
             ->where('status', 'Aktif')
             ->where('condition_label', '!=', 'Rusak')
             ->whereDoesntHave('assignments', function($q) {
-                $q->where('status', 'Active');
+                // Active assignment for active JobOrders
+                $q->where('status', 'Active')
+                  ->whereHas('jobOrder', function($jo) {
+                      $jo->whereNotIn('status', ['Completed', 'Cancelled', 'Delivered']);
+                  });
+            })
+            ->whereDoesntHave('manifests', function($q) {
+                // Active assignment for active Manifests
+                $q->whereNotIn('status', ['Completed', 'Cancelled', 'Delivered']);
             });
 
         // Filter by minimum capacity if provided
@@ -320,7 +328,7 @@ class VehicleController extends Controller
         }
 
         $vehicles = $query
-            ->select('vehicle_id', 'plate_no', 'brand', 'model', 'vehicle_type_id', 'capacity_label', 'fuel_level_pct')
+            ->select('vehicle_id', 'plate_no', 'brand', 'model', 'vehicle_type_id', 'capacity_label', 'fuel_level_pct', 'driver_id')
             ->orderBy('plate_no')
             ->get()
             ->map(function ($vehicle) {
