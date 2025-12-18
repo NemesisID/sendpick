@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Delivery Order - {{ $deliveryOrder->do_id }}</title>
     <style>
+        /* Page settings for DomPDF */
+        @page {
+            margin: 15mm;
+        }
+
         /* Reset dan Base Styles */
         * {
             margin: 0;
@@ -14,77 +19,80 @@
         
         body {
             font-family: 'DejaVu Sans', Arial, sans-serif;
-            font-size: 11px;
+            font-size: 10px;
             line-height: 1.4;
             color: #333;
             background: #fff;
         }
 
-        /* Container */
+        /* Container - no extra padding since @page has margin */
         .container {
             width: 100%;
-            max-width: 210mm;
-            margin: 0 auto;
-            padding: 15mm;
+            max-width: 100%;
         }
 
         /* Header Section */
         .header {
             width: 100%;
             border-bottom: 3px solid #4F46E5;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
         }
 
         .header-table {
             width: 100%;
+            table-layout: fixed;
         }
 
         .company-info {
             text-align: left;
+            width: 55%;
         }
 
         .company-name {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
             color: #4F46E5;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .company-address {
-            font-size: 10px;
+            font-size: 9px;
             color: #666;
+            word-wrap: break-word;
         }
 
         .doc-info {
             text-align: right;
+            width: 45%;
         }
 
         .doc-title {
-            font-size: 18px;
+            font-size: 14px;
             font-weight: bold;
             color: #333;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .doc-number {
-            font-size: 14px;
+            font-size: 11px;
             font-weight: bold;
             color: #4F46E5;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
+            word-wrap: break-word;
         }
 
         .doc-date {
-            font-size: 10px;
+            font-size: 9px;
             color: #666;
         }
 
         /* Status Badge */
         .status-badge {
             display: inline-block;
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-size: 10px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 9px;
             font-weight: bold;
             text-transform: uppercase;
         }
@@ -97,31 +105,33 @@
 
         /* Info Sections */
         .info-section {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .section-title {
-            font-size: 12px;
+            font-size: 10px;
             font-weight: bold;
             color: #4F46E5;
             border-bottom: 1px solid #E5E7EB;
-            padding-bottom: 5px;
-            margin-bottom: 10px;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
             text-transform: uppercase;
         }
 
         .info-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
         }
 
         .info-table td {
-            padding: 6px 0;
+            padding: 4px 0;
             vertical-align: top;
+            word-wrap: break-word;
         }
 
         .info-label {
-            width: 140px;
+            width: 100px;
             font-weight: 600;
             color: #666;
         }
@@ -133,39 +143,42 @@
         /* Two Column Layout */
         .two-column {
             width: 100%;
+            table-layout: fixed;
         }
 
         .two-column td {
             width: 50%;
             vertical-align: top;
-            padding-right: 15px;
+            padding-right: 10px;
         }
 
         .two-column td:last-child {
             padding-right: 0;
-            padding-left: 15px;
+            padding-left: 10px;
         }
 
         /* Goods Table */
         .goods-table {
             width: 100%;
+            table-layout: fixed;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 8px;
         }
 
         .goods-table th {
             background: #4F46E5;
             color: #fff;
-            padding: 10px 8px;
+            padding: 8px 6px;
             text-align: left;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 600;
             text-transform: uppercase;
         }
 
         .goods-table td {
-            padding: 10px 8px;
+            padding: 8px 6px;
             border-bottom: 1px solid #E5E7EB;
+            word-wrap: break-word;
         }
 
         .goods-table tr:nth-child(even) {
@@ -183,65 +196,68 @@
         /* Route Section */
         .route-box {
             background: #F3F4F6;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 15px 0;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 12px 0;
         }
 
         .route-table {
             width: 100%;
+            table-layout: fixed;
         }
 
         .route-point {
-            width: 45%;
-            padding: 10px;
+            width: 44%;
+            padding: 8px;
         }
 
         .route-arrow {
-            width: 10%;
+            width: 12%;
             text-align: center;
             vertical-align: middle;
         }
 
         .route-arrow-icon {
-            font-size: 20px;
+            font-size: 16px;
             color: #4F46E5;
         }
 
         .route-label {
-            font-size: 9px;
+            font-size: 8px;
             color: #666;
             text-transform: uppercase;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
 
         .route-city {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: bold;
             color: #333;
+            word-wrap: break-word;
         }
 
         /* Signature Section */
         .signature-section {
-            margin-top: 40px;
+            margin-top: 30px;
             page-break-inside: avoid;
         }
 
         .signature-table {
             width: 100%;
+            table-layout: fixed;
         }
 
         .signature-box {
             width: 33%;
             text-align: center;
-            padding: 10px;
+            padding: 8px;
         }
 
         .signature-title {
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 600;
             color: #333;
-            margin-bottom: 60px;
+            margin-bottom: 50px;
         }
 
         .signature-line {
@@ -251,19 +267,28 @@
         }
 
         .signature-name {
-            font-size: 10px;
+            font-size: 9px;
             color: #666;
-            margin-top: 5px;
+            margin-top: 4px;
         }
 
         /* Footer */
         .footer {
-            margin-top: 30px;
-            padding-top: 15px;
+            margin-top: 25px;
+            padding-top: 12px;
             border-top: 1px solid #E5E7EB;
-            font-size: 9px;
+            font-size: 8px;
             color: #999;
             text-align: center;
+        }
+
+        /* Notes box */
+        .notes-box {
+            padding: 8px;
+            background: #F9FAFB;
+            border-radius: 4px;
+            font-size: 9px;
+            word-wrap: break-word;
         }
 
         /* Print specific styles */
@@ -297,7 +322,7 @@
                         <div class="doc-title">DELIVERY ORDER</div>
                         <div class="doc-number">{{ $deliveryOrder->do_id }}</div>
                         <div class="doc-date">Tanggal: {{ $deliveryOrder->do_date ? $deliveryOrder->do_date->format('d/m/Y') : '-' }}</div>
-                        <div style="margin-top: 8px;">
+                        <div style="margin-top: 6px;">
                             @php
                                 $statusClass = 'status-pending';
                                 $status = strtolower($deliveryOrder->status);
@@ -318,14 +343,14 @@
             <table class="route-table">
                 <tr>
                     <td class="route-point">
-                        <div class="route-label">📍 Asal</div>
+                        <div class="route-label">📍 ASAL</div>
                         <div class="route-city">{{ $sourceInfo['pickup_city'] ?? $sourceInfo['origin_city'] ?? '-' }}</div>
                     </td>
                     <td class="route-arrow">
                         <span class="route-arrow-icon">→</span>
                     </td>
                     <td class="route-point">
-                        <div class="route-label">📍 Tujuan</div>
+                        <div class="route-label">📍 TUJUAN</div>
                         <div class="route-city">{{ $sourceInfo['delivery_city'] ?? $sourceInfo['dest_city'] ?? '-' }}</div>
                     </td>
                 </tr>
@@ -398,10 +423,10 @@
             <table class="goods-table">
                 <thead>
                     <tr>
-                        <th style="width: 5%;">No</th>
-                        <th style="width: 45%;">Deskripsi Barang</th>
-                        <th style="width: 15%;" class="text-center">Koli</th>
-                        <th style="width: 17%;" class="text-right">Berat (Kg)</th>
+                        <th style="width: 6%;">No</th>
+                        <th style="width: 44%;">Deskripsi Barang</th>
+                        <th style="width: 14%;" class="text-center">Koli</th>
+                        <th style="width: 18%;" class="text-right">Berat (Kg)</th>
                         <th style="width: 18%;" class="text-right">Volume (m³)</th>
                     </tr>
                 </thead>
@@ -421,9 +446,9 @@
         @if($deliveryOrder->goods_summary)
         <div class="info-section">
             <div class="section-title">Catatan</div>
-            <p style="padding: 10px; background: #F9FAFB; border-radius: 5px;">
+            <div class="notes-box">
                 {{ $deliveryOrder->goods_summary }}
-            </p>
+            </div>
         </div>
         @endif
 
@@ -453,7 +478,7 @@
         <!-- Footer -->
         <div class="footer">
             <p>Dicetak pada: {{ $printDate }} | {{ $companyName }} - Sistem Manajemen Pengiriman</p>
-            <p style="margin-top: 5px;">Dokumen ini sah tanpa tanda tangan basah</p>
+            <p style="margin-top: 4px;">Dokumen ini sah tanpa tanda tangan basah</p>
         </div>
     </div>
 </body>
