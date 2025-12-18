@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Order - {{ $deliveryOrder->do_id }}</title>
+    <style>
+        /* Reset dan Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #333;
+            background: #fff;
+        }
+
+        /* Container */
+        .container {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 15mm;
+        }
+
+        /* Header Section */
+        .header {
+            width: 100%;
+            border-bottom: 3px solid #4F46E5;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .header-table {
+            width: 100%;
+        }
+
+        .company-info {
+            text-align: left;
+        }
+
+        .company-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #4F46E5;
+            margin-bottom: 5px;
+        }
+
+        .company-address {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .doc-info {
+            text-align: right;
+        }
+
+        .doc-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .doc-number {
+            font-size: 14px;
+            font-weight: bold;
+            color: #4F46E5;
+            margin-bottom: 5px;
+        }
+
+        .doc-date {
+            font-size: 10px;
+            color: #666;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-pending { background: #FEF3C7; color: #D97706; }
+        .status-in-transit { background: #DBEAFE; color: #2563EB; }
+        .status-delivered { background: #D1FAE5; color: #059669; }
+        .status-completed { background: #C7D2FE; color: #4F46E5; }
+        .status-cancelled { background: #FEE2E2; color: #DC2626; }
+
+        /* Info Sections */
+        .info-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #4F46E5;
+            border-bottom: 1px solid #E5E7EB;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .info-table td {
+            padding: 6px 0;
+            vertical-align: top;
+        }
+
+        .info-label {
+            width: 140px;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+        }
+
+        /* Two Column Layout */
+        .two-column {
+            width: 100%;
+        }
+
+        .two-column td {
+            width: 50%;
+            vertical-align: top;
+            padding-right: 15px;
+        }
+
+        .two-column td:last-child {
+            padding-right: 0;
+            padding-left: 15px;
+        }
+
+        /* Goods Table */
+        .goods-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .goods-table th {
+            background: #4F46E5;
+            color: #fff;
+            padding: 10px 8px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .goods-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .goods-table tr:nth-child(even) {
+            background: #F9FAFB;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        /* Route Section */
+        .route-box {
+            background: #F3F4F6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .route-table {
+            width: 100%;
+        }
+
+        .route-point {
+            width: 45%;
+            padding: 10px;
+        }
+
+        .route-arrow {
+            width: 10%;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .route-arrow-icon {
+            font-size: 20px;
+            color: #4F46E5;
+        }
+
+        .route-label {
+            font-size: 9px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .route-city {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Signature Section */
+        .signature-section {
+            margin-top: 40px;
+            page-break-inside: avoid;
+        }
+
+        .signature-table {
+            width: 100%;
+        }
+
+        .signature-box {
+            width: 33%;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .signature-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 60px;
+        }
+
+        .signature-line {
+            border-top: 1px solid #333;
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        .signature-name {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #E5E7EB;
+            font-size: 9px;
+            color: #999;
+            text-align: center;
+        }
+
+        /* Print specific styles */
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+        }
+
+        /* Page break utility */
+        .page-break {
+            page-break-after: always;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <table class="header-table">
+                <tr>
+                    <td class="company-info">
+                        <div class="company-name">{{ $companyName }}</div>
+                        <div class="company-address">
+                            {{ $companyAddress }}<br>
+                            Telp: {{ $companyPhone }}
+                        </div>
+                    </td>
+                    <td class="doc-info">
+                        <div class="doc-title">DELIVERY ORDER</div>
+                        <div class="doc-number">{{ $deliveryOrder->do_id }}</div>
+                        <div class="doc-date">Tanggal: {{ $deliveryOrder->do_date ? $deliveryOrder->do_date->format('d/m/Y') : '-' }}</div>
+                        <div style="margin-top: 8px;">
+                            @php
+                                $statusClass = 'status-pending';
+                                $status = strtolower($deliveryOrder->status);
+                                if (str_contains($status, 'transit')) $statusClass = 'status-in-transit';
+                                elseif ($status === 'delivered') $statusClass = 'status-delivered';
+                                elseif ($status === 'completed') $statusClass = 'status-completed';
+                                elseif ($status === 'cancelled') $statusClass = 'status-cancelled';
+                            @endphp
+                            <span class="status-badge {{ $statusClass }}">{{ $deliveryOrder->status }}</span>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Route Box -->
+        <div class="route-box">
+            <table class="route-table">
+                <tr>
+                    <td class="route-point">
+                        <div class="route-label">📍 Asal</div>
+                        <div class="route-city">{{ $sourceInfo['pickup_city'] ?? $sourceInfo['origin_city'] ?? '-' }}</div>
+                    </td>
+                    <td class="route-arrow">
+                        <span class="route-arrow-icon">→</span>
+                    </td>
+                    <td class="route-point">
+                        <div class="route-label">📍 Tujuan</div>
+                        <div class="route-city">{{ $sourceInfo['delivery_city'] ?? $sourceInfo['dest_city'] ?? '-' }}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Two Column Info -->
+        <table class="two-column">
+            <tr>
+                <!-- Customer Info -->
+                <td>
+                    <div class="info-section">
+                        <div class="section-title">Informasi Penerima</div>
+                        <table class="info-table">
+                            <tr>
+                                <td class="info-label">Customer</td>
+                                <td class="info-value">: {{ $sourceInfo['customer_name'] ?? $deliveryOrder->customer?->customer_name ?? '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Sumber</td>
+                                <td class="info-value">: 
+                                    @if($deliveryOrder->source_type === 'JO')
+                                        Job Order: {{ $deliveryOrder->source_id }}
+                                    @else
+                                        Manifest: {{ $deliveryOrder->source_id }}
+                                        @if(isset($sourceInfo['selected_job_order_id']))
+                                            <br><small style="color: #666;">→ {{ $sourceInfo['selected_job_order_id'] }}</small>
+                                        @endif
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Prioritas</td>
+                                <td class="info-value">: {{ ucfirst($deliveryOrder->priority ?? 'Normal') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+
+                <!-- Driver/Vehicle Info -->
+                <td>
+                    <div class="info-section">
+                        <div class="section-title">Informasi Pengiriman</div>
+                        <table class="info-table">
+                            <tr>
+                                <td class="info-label">Driver</td>
+                                <td class="info-value">: {{ $driverName }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Kendaraan</td>
+                                <td class="info-value">: {{ $vehiclePlate }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">Keberangkatan</td>
+                                <td class="info-value">: {{ $deliveryOrder->departure_date ? $deliveryOrder->departure_date->format('d/m/Y H:i') : '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="info-label">ETA</td>
+                                <td class="info-value">: {{ $deliveryOrder->eta ? $deliveryOrder->eta->format('d/m/Y H:i') : '-' }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <!-- Goods Details -->
+        <div class="info-section">
+            <div class="section-title">Detail Barang</div>
+            <table class="goods-table">
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">No</th>
+                        <th style="width: 45%;">Deskripsi Barang</th>
+                        <th style="width: 15%;" class="text-center">Koli</th>
+                        <th style="width: 17%;" class="text-right">Berat (Kg)</th>
+                        <th style="width: 18%;" class="text-right">Volume (m³)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-center">1</td>
+                        <td>{{ $sourceInfo['goods_desc'] ?? $deliveryOrder->goods_summary ?? '-' }}</td>
+                        <td class="text-center">{{ $sourceInfo['koli'] ?? $sourceInfo['quantity'] ?? '-' }}</td>
+                        <td class="text-right">{{ $sourceInfo['goods_weight'] ? number_format($sourceInfo['goods_weight'], 2) : '-' }}</td>
+                        <td class="text-right">{{ $sourceInfo['goods_volume'] ? number_format($sourceInfo['goods_volume'], 2) : '-' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Notes -->
+        @if($deliveryOrder->goods_summary)
+        <div class="info-section">
+            <div class="section-title">Catatan</div>
+            <p style="padding: 10px; background: #F9FAFB; border-radius: 5px;">
+                {{ $deliveryOrder->goods_summary }}
+            </p>
+        </div>
+        @endif
+
+        <!-- Signature Section -->
+        <div class="signature-section">
+            <table class="signature-table">
+                <tr>
+                    <td class="signature-box">
+                        <div class="signature-title">Pengirim</div>
+                        <div class="signature-line"></div>
+                        <div class="signature-name">( _________________ )</div>
+                    </td>
+                    <td class="signature-box">
+                        <div class="signature-title">Driver</div>
+                        <div class="signature-line"></div>
+                        <div class="signature-name">( {{ $driverName !== 'Belum Ditugaskan' ? $driverName : '________________' }} )</div>
+                    </td>
+                    <td class="signature-box">
+                        <div class="signature-title">Penerima</div>
+                        <div class="signature-line"></div>
+                        <div class="signature-name">( _________________ )</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Dicetak pada: {{ $printDate }} | {{ $companyName }} - Sistem Manajemen Pengiriman</p>
+            <p style="margin-top: 5px;">Dokumen ini sah tanpa tanda tangan basah</p>
+        </div>
+    </div>
+</body>
+</html>
