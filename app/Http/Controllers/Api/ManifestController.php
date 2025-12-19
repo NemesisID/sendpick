@@ -5,12 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Manifests;
 use App\Models\JobOrder;
+use App\Models\JobOrderStatusHistory;
 use App\Models\Admin;
+use App\Models\Drivers;
+use App\Models\Vehicles;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use App\Services\FirebaseNotificationService;
 
 /**
  * ManifestController - Controller untuk mengelola Manifest Pengiriman
@@ -26,6 +30,12 @@ use Illuminate\Support\Facades\DB;
  */
 class ManifestController extends Controller
 {
+    protected $firebaseService;
+
+    public function __construct(FirebaseNotificationService $firebaseService)
+    {
+        $this->firebaseService = $firebaseService;
+    }
     /**
      * Menampilkan daftar manifest dengan fitur pencarian dan filter
      * 
@@ -134,8 +144,6 @@ class ManifestController extends Controller
         ]);
 
         // Attach job orders if provided
-        // NOTE: Job Order status is NOT changed here - it remains as-is (e.g., 'Assigned')
-        // The Job Order status is managed separately by the Assignment process
         $jobOrderIds = $request->job_order_ids ?? [];
         
         if (!empty($jobOrderIds) && is_array($jobOrderIds)) {
@@ -143,8 +151,18 @@ class ManifestController extends Controller
             
             // ✅ Update Status Job Order menjadi 'Assigned'
             JobOrder::whereIn('job_order_id', $jobOrderIds)
-                ->whereIn('status', ['Created', 'Pending']) // Hanya update jika status belum maju
+                ->whereIn('status', ['Created', 'Pending'])
                 ->update(['status' => 'Assigned']);
+
+            // ✅ Create Status History for each Job Order - Added to Manifest
+            foreach ($jobOrderIds as $jobOrderId) {
+                $this->createStatusHistory(
+                    $jobOrderId,
+                    'In Manifest',
+                    "Job Order ditambahkan ke Manifest {$manifestId}",
+                    'System'
+                );
+            }
 
             \Log::info("Manifest {$manifest->manifest_id} created with " . count($jobOrderIds) . " job orders. Status updated to Assigned.");
                 
@@ -152,6 +170,26 @@ class ManifestController extends Controller
             $this->updateManifestCargo($manifest);
         } else {
             \Log::warning("Manifest {$manifest->manifest_id} created WITHOUT job orders. job_order_ids was: " . json_encode($jobOrderIds));
+        }
+
+        // ✅ Create Status History if driver/vehicle assigned
+        if ($request->driver_id || $request->vehicle_id) {
+            $this->createDriverAssignmentHistory($manifest, $jobOrderIds, $request->driver_id, $request->vehicle_id);
+            
+            // 🔔 Send Push Notification to Driver
+            if ($request->driver_id) {
+                $this->firebaseService->sendToDriver(
+                    $request->driver_id,
+                    'Tugas Baru Diassign! 🚚',
+                    "Anda telah ditugaskan untuk Manifest {$manifest->manifest_id} ke {$manifest->dest_city}",
+                    [
+                        'type' => 'manifest_assignment',
+                        'manifest_id' => $manifest->manifest_id,
+                        'origin' => $manifest->origin_city,
+                        'destination' => $manifest->dest_city
+                    ]
+                );
+            }
         }
 
         return response()->json([
@@ -209,6 +247,10 @@ class ManifestController extends Controller
             ], 404);
         }
 
+        // Store old values for comparison
+        $oldDriverId = $manifest->driver_id;
+        $oldVehicleId = $manifest->vehicle_id;
+
         $request->validate([
             'origin_city' => 'required|string|max:255',
             'dest_city' => 'required|string|max:255',
@@ -236,8 +278,7 @@ class ManifestController extends Controller
         ]));
 
         // Sync Job Orders if provided
-        // NOTE: Job Order status is NOT changed here - it remains as-is
-        // The Job Order status is managed separately by the Assignment process
+        $allJobOrderIds = [];
         if ($request->has('job_order_ids')) {
             $jobOrderIds = $request->job_order_ids ?? [];
             
@@ -250,17 +291,53 @@ class ManifestController extends Controller
                     ->whereIn('status', ['Created', 'Pending'])
                     ->update(['status' => 'Assigned']);
 
+                // ✅ Create Status History for newly attached Job Orders
+                foreach ($syncResult['attached'] as $jobOrderId) {
+                    $this->createStatusHistory(
+                        $jobOrderId,
+                        'In Manifest',
+                        "Job Order ditambahkan ke Manifest {$manifestId}",
+                        'System'
+                    );
+                }
+
                 \Log::info("Manifest {$manifest->manifest_id} update: Attached " . count($syncResult['attached']) . " job orders. Status updated to Assigned.");
             }
             
             if (!empty($syncResult['detached'])) {
-                // Optional: Kembalikan status ke Pending jika di-detach?
-                // Untuk saat ini biarkan 'Assigned' atau handle sesuai kebutuhan bisnis
                 \Log::info("Manifest {$manifest->manifest_id} update: Detached " . count($syncResult['detached']) . " job orders.");
             }
             
             // Update cargo summary based on current job orders
             $this->updateManifestCargo($manifest);
+            
+            $allJobOrderIds = $jobOrderIds;
+        } else {
+            // Get existing job order IDs if not provided in request
+            $allJobOrderIds = $manifest->jobOrders()->pluck('job_orders.job_order_id')->toArray();
+        }
+
+        // ✅ Check if driver/vehicle assignment changed
+        $driverChanged = $request->driver_id && $request->driver_id !== $oldDriverId;
+        $vehicleChanged = $request->vehicle_id && $request->vehicle_id !== $oldVehicleId;
+        
+        if (($driverChanged || $vehicleChanged) && !empty($allJobOrderIds)) {
+            $this->createDriverAssignmentHistory($manifest, $allJobOrderIds, $request->driver_id, $request->vehicle_id);
+        }
+
+        // 🔔 Send Push Notification if Driver Changed or Assigned
+        if ($driverChanged && $request->driver_id) {
+            $this->firebaseService->sendToDriver(
+                $request->driver_id,
+                'Update Tugas Manifest 🚚',
+                "Anda telah ditugaskan untuk Manifest {$manifest->manifest_id} ke {$manifest->dest_city}",
+                [
+                    'type' => 'manifest_assignment',
+                    'manifest_id' => $manifest->manifest_id,
+                    'origin' => $manifest->origin_city,
+                    'destination' => $manifest->dest_city
+                ]
+            );
         }
 
         return response()->json([
@@ -429,6 +506,16 @@ class ManifestController extends Controller
             JobOrder::whereIn('job_order_id', $request->job_order_ids)
                 ->whereIn('status', ['Created', 'Pending'])
                 ->update(['status' => 'Assigned']);
+
+            // ✅ Create Status History for each added Job Order
+            foreach ($request->job_order_ids as $jobOrderId) {
+                $this->createStatusHistory(
+                    $jobOrderId,
+                    'In Manifest',
+                    "Job Order ditambahkan ke Manifest {$manifestId}",
+                    'System'
+                );
+            }
 
             // Update cargo summary and weight
             $this->updateManifestCargo($manifest);
@@ -713,5 +800,81 @@ class ManifestController extends Controller
             'cargo_weight' => $totalWeight,
             'cargo_summary' => $cargoSummary
         ]);
+    }
+
+    /**
+     * Create a status history entry for a Job Order
+     * 
+     * @param string $jobOrderId
+     * @param string $status
+     * @param string $notes
+     * @param string $triggerType
+     * @return void
+     */
+    private function createStatusHistory(string $jobOrderId, string $status, string $notes, string $triggerType = 'System'): void
+    {
+        try {
+            JobOrderStatusHistory::create([
+                'job_order_id' => $jobOrderId,
+                'status' => $status,
+                'notes' => $notes,
+                'trigger_type' => $triggerType,
+                'changed_by' => Auth::id() ?? 'System',
+                'changed_at' => now()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("Failed to create status history for Job Order {$jobOrderId}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Create status history entries for driver/vehicle assignment on Manifest
+     * 
+     * @param Manifests $manifest
+     * @param array $jobOrderIds
+     * @param string|null $driverId
+     * @param string|null $vehicleId
+     * @return void
+     */
+    private function createDriverAssignmentHistory(Manifests $manifest, array $jobOrderIds, ?string $driverId, ?string $vehicleId): void
+    {
+        if (empty($jobOrderIds)) {
+            return;
+        }
+
+        // Get driver and vehicle names
+        $driverName = 'Belum Ditugaskan';
+        $vehiclePlate = 'Belum Ditugaskan';
+
+        if ($driverId) {
+            $driver = Drivers::find($driverId);
+            $driverName = $driver ? $driver->driver_name : $driverId;
+        }
+
+        if ($vehicleId) {
+            $vehicle = Vehicles::find($vehicleId);
+            $vehiclePlate = $vehicle ? $vehicle->plate_no : $vehicleId;
+        }
+
+        // Build notes
+        $notes = "Driver & Kendaraan ditugaskan via Manifest {$manifest->manifest_id}";
+        if ($driverId) {
+            $notes .= " - Driver: {$driverName}";
+        }
+        if ($vehicleId) {
+            $notes .= " - Kendaraan: {$vehiclePlate}";
+        }
+
+        // Create status history for each Job Order in the manifest
+        foreach ($jobOrderIds as $jobOrderId) {
+            $this->createStatusHistory(
+                $jobOrderId,
+                'Driver Assigned',
+                $notes,
+                'System'
+            );
+        }
+
+        \Log::info("Created driver assignment history for " . count($jobOrderIds) . " job orders in Manifest {$manifest->manifest_id}");
     }
 }

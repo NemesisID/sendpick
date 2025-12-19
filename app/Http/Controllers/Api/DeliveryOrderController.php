@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Services\FirebaseNotificationService;
 
 /**
  * DeliveryOrderController - Controller untuk mengelola Delivery Order (DO)
@@ -26,6 +27,12 @@ use Illuminate\Validation\Rule;
  */
 class DeliveryOrderController extends Controller
 {
+    protected $firebaseService;
+
+    public function __construct(FirebaseNotificationService $firebaseService)
+    {
+        $this->firebaseService = $firebaseService;
+    }
     /**
      * Menampilkan daftar delivery order dengan fitur pencarian dan filter
      * 
@@ -460,6 +467,18 @@ class DeliveryOrderController extends Controller
         }
 
         // Status remains as-is (Pending) - will be updated when driver starts delivery via app
+        
+        // 🔔 Send Push Notification
+        $this->firebaseService->sendToDriver(
+            $driverId,
+            'Delivery Order Baru! 📦',
+            "Anda mendapatkan tugas delivery: {$deliveryOrder->do_id}",
+            [
+                'type' => 'delivery_order_assignment',
+                'do_id' => $deliveryOrder->do_id,
+                'customer_name' => $deliveryOrder->customer->customer_name ?? 'Customer'
+            ]
+        );
 
         return response()->json([
             'success' => true,

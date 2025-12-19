@@ -1220,18 +1220,23 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle, isTransitioning }) 
                     collapsed ? 'justify-center px-3 py-6' : 'gap-3 px-6 py-8',
                 ].join(' ')}
             >
-                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600 text-base font-semibold text-white sidebar-hover-smooth ${collapsed ? 'scale-100' : 'scale-100'
+                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-white overflow-hidden sidebar-hover-smooth ${collapsed ? 'scale-100' : 'scale-100'
                     }`}>
-                    SP
+                    <img
+                        src="/build/assets/logo_sendpick.aea87447-400x150.png"
+                        alt="Sendpick Logo"
+                        className="h-8 w-auto object-contain"
+                    />
                 </div>
                 <div className='overflow-hidden' style={motionStyle('200px', 100)}>
                     <div className={`sidebar-content-slide ${collapsed ? 'translate-x-2 opacity-0' : 'translate-x-0 opacity-100'
                         }`}>
-                        <p className='text-sm font-semibold text-slate-900'>Order Management System</p>
-                        <p className='text-xs text-slate-400'>SendPick Logistics</p>
+                        <p className='text-sm font-semibold text-slate-900'>Sendpick Logistics</p>
+                        <p className='text-xs text-slate-400'>Order Management System</p>
                     </div>
                 </div>
             </div>
+
             <nav className={['sidebar-scroll flex-1 overflow-y-auto sidebar-content-slide', navPaddingClass, collapsed ? 'translate-x-0 scale-98' : 'translate-x-0 scale-100'].join(' ')}>
                 {navigationSections.map((section, sectionIndex) => (
                     <div key={section.heading} className={collapsed ? 'mb-4 flex flex-col items-center gap-2' : 'mb-6'}>

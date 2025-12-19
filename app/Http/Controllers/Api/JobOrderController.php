@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use App\Services\FirebaseNotificationService;
 
 /**
  * JobOrderController - Controller untuk mengelola Job Order (Pesanan Kerja)
@@ -31,6 +32,12 @@ use Carbon\Carbon;
  */
 class JobOrderController extends Controller
 {
+    protected $firebaseService;
+
+    public function __construct(FirebaseNotificationService $firebaseService)
+    {
+        $this->firebaseService = $firebaseService;
+    }
     /**
      * Menampilkan daftar job order dengan fitur pencarian dan filter
      * 
@@ -539,6 +546,18 @@ class JobOrderController extends Controller
 
         // ✅ Load relations
         $assignment->load(['driver', 'vehicle.vehicleType']);
+
+        // 🔔 Send Push Notification
+        $this->firebaseService->sendToDriver(
+            $request->driver_id,
+            'Tugas FTL Baru! 🚛',
+            "Anda ditugaskan untuk Job FTL {$jobOrder->job_order_id} ({$jobOrder->pickup_city} -> {$jobOrder->delivery_city})",
+            [
+                'type' => 'ftl_assignment',
+                'job_order_id' => $jobOrder->job_order_id,
+                'customer_name' => $jobOrder->customer->customer_name ?? 'Customer'
+            ]
+        );
 
         return response()->json([
             'success' => true,
