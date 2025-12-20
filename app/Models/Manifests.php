@@ -27,7 +27,9 @@ class Manifests extends Model
         'vehicle_id',
         'departed_at',
         'arrived_at',
-        'completed_at'
+        'completed_at',
+        'cancelled_at',
+        'cancellation_reason'
     ];
 
     protected $casts = [
@@ -36,7 +38,8 @@ class Manifests extends Model
         'planned_arrival' => 'datetime',
         'departed_at' => 'datetime',
         'arrived_at' => 'datetime',
-        'completed_at' => 'datetime'
+        'completed_at' => 'datetime',
+        'cancelled_at' => 'datetime'
     ];
 
     /**

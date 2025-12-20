@@ -15,13 +15,14 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
             const data = await getJobOrder(jobOrderId);
             if (data) {
                 // Map API response to component state
-                const activeAssignment = data.assignments?.find(a => (a.status?.toLowerCase() === 'active')) || data.assignments?.[0];
+                // ✅ FIXED: Only use assignment if it's Active, do NOT fallback to cancelled assignments
+                const activeAssignment = data.assignments?.find(a => a.status?.toLowerCase() === 'active');
                 const manifestInfo = data.manifest_info;
 
                 let driverDisplay = '-';
                 let vehicleDisplay = '-';
 
-                // Helper to format driver display
+                // Helper to format driver display - only if there's an active assignment
                 if (activeAssignment?.driver?.driver_name) {
                     driverDisplay = activeAssignment.driver.driver_name;
                     if (activeAssignment.is_manifest_generated && manifestInfo) {
@@ -31,7 +32,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                     driverDisplay = `${manifestInfo.driver.driver_name} (via Manifest)`;
                 }
 
-                // Helper to format vehicle display
+                // Helper to format vehicle display - only if there's an active assignment
                 if (activeAssignment?.vehicle) {
                     vehicleDisplay = `${activeAssignment.vehicle.license_plate || activeAssignment.vehicle.plate_no} - ${activeAssignment.vehicle.vehicle_type?.name || 'Unit'}`;
                 } else if (manifestInfo?.vehicle) {
@@ -58,7 +59,8 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                     vehicle: vehicleDisplay,
                     volume: data.goods_volume ? `${data.goods_volume} m³` : '-',
                     notes: data.goods_desc || '-',
-                    statusHistories: data.status_histories || []
+                    statusHistories: data.status_histories || [],
+                    manifestInfo: manifestInfo || null
                 });
             }
         } catch (err) {
@@ -272,6 +274,9 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                             status={jobOrder.status}
                             goodsWeight={jobOrder.goodsWeight}
                             orderType={jobOrder.type}
+                            manifestInfo={jobOrder.manifestInfo}
+                            driverDisplay={jobOrder.driver}
+                            vehicleDisplay={jobOrder.vehicle}
                             onAssignmentUpdate={loadJobOrder}
                         />
                     )}

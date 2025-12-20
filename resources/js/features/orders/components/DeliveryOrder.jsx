@@ -1188,7 +1188,7 @@ export default function DeliveryOrderContent() {
                 <DeliveryOrderDetailModal
                     isOpen={detailModal.isOpen}
                     onClose={handleViewDetailClose}
-                    data={detailModal.delivery}
+                    delivery={detailModal.delivery}
                 />
             )}
         </>

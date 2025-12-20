@@ -892,13 +892,13 @@ export default function ManifestContent() {
             let dName = jo.driver_name || jo.driver;
 
             // Check assignment (Singular - New Backend Structure)
-            if (jo.assignment) {
+            if (jo.assignment && jo.assignment.status === 'Active') {
                 dId = jo.assignment.driver_id || dId;
                 dName = jo.assignment.driver_name || dName;
             }
-            // Check assignments (Array - Legacy/Fallback)
+            // Check assignments (Array - Legacy/Fallback) - ONLY use Active assignments
             else if (Array.isArray(jo.assignments)) {
-                const active = jo.assignments.find(a => a.status === 'Active') || jo.assignments[0];
+                const active = jo.assignments.find(a => a.status === 'Active' || a.status === 'active');
                 if (active) {
                     dId = active.driver_id || dId;
                     dName = active.driver_name || active.driver?.driver_name || active.driver?.name || dName;
@@ -929,14 +929,14 @@ export default function ManifestContent() {
             let vId = jo.vehicle_id || jo.assigned_vehicle_id;
             let vPlate = jo.plate_no || jo.vehicle_plate || jo.vehicle;
 
-            // Check assignment (Singular - New Backend Structure)
-            if (jo.assignment) {
+            // Check assignment (Singular - New Backend Structure) - ONLY use Active
+            if (jo.assignment && jo.assignment.status === 'Active') {
                 vId = jo.assignment.vehicle_id || vId;
                 vPlate = jo.assignment.vehicle_plate || vPlate;
             }
-            // Check assignments (Array - Legacy/Fallback)
+            // Check assignments (Array - Legacy/Fallback) - ONLY use Active assignments
             else if (Array.isArray(jo.assignments)) {
-                const active = jo.assignments.find(a => a.status === 'Active') || jo.assignments[0];
+                const active = jo.assignments.find(a => a.status === 'Active' || a.status === 'active');
                 if (active) {
                     vId = active.vehicle_id || vId;
                     vPlate = active.plate_no || active.vehicle?.plate_no || active.vehicle?.plate_number || vPlate;
@@ -1365,10 +1365,10 @@ export default function ManifestContent() {
                 foundVehicleId = primaryJob.assignment.vehicle_id;
             }
 
-            // 2. Fallback: Coba ambil dari assignments array (Legacy)
+            // 2. Fallback: Coba ambil dari assignments array (Legacy) - ONLY use Active
             if (!foundDriverId && Array.isArray(primaryJob.assignments) && primaryJob.assignments.length > 0) {
-                const activeAssignment = primaryJob.assignments.find(a => a.status === 'Active') || primaryJob.assignments[0];
-                console.log('📍 Found assignments array, using:', activeAssignment);
+                const activeAssignment = primaryJob.assignments.find(a => a.status === 'Active' || a.status === 'active');
+                console.log('📍 Found assignments array, using (only Active):', activeAssignment);
                 if (activeAssignment) {
                     foundDriverId = foundDriverId || activeAssignment.driver_id;
                     foundVehicleId = foundVehicleId || activeAssignment.vehicle_id;

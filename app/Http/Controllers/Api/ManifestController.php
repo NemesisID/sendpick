@@ -718,61 +718,179 @@ class ManifestController extends Controller
     }
 
     /**
-     * Cancel the specified manifest
+     * ============================================================
+     * CANCEL MANIFEST - CANCELLATION LOGIC (BLUEPRINT)
+     * ============================================================
      * 
+     * Artinya: Armada batal berangkat (mogok, supir sakit, atau kurang muatan)
+     * 
+     * DAMPAK:
+     * - Manifest: Berubah jadi Cancelled statusnya
+     * - Job Order: JANGAN Cancelled! Ubah status mundur ke "Pending" dan set manifest_id = NULL
+     *              (Barang kembali ke gudang/Pool menunggu truk pengganti)
+     *              Data driver & armada dihilangkan/dihapus dari JO karena status berubah ke Pending
+     * - Delivery Order: Wajib Cancelled karena DO berisi data Driver & Plat Nomor dari manifest
+     *                   yang batal, dokumen itu sudah tidak valid (sampah)
+     * 
+     * @param Request $request
      * @param string $manifestId
      * @return JsonResponse
      */
-    public function cancel(string $manifestId): JsonResponse
+    public function cancel(Request $request, string $manifestId): JsonResponse
     {
         try {
-            $manifest = Manifests::where('manifest_id', $manifestId)->first();
+            $manifest = Manifests::with(['jobOrders', 'drivers', 'vehicles'])->where('manifest_id', $manifestId)->first();
 
             if (!$manifest) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Manifest not found'
+                    'message' => 'Manifest tidak ditemukan'
                 ], 404);
             }
 
             if ($manifest->status === 'Cancelled') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Manifest is already cancelled'
+                    'message' => 'Manifest sudah dibatalkan sebelumnya'
                 ], 422);
             }
+
+            // Get cancellation reason from request
+            $cancellationReason = $request->input('cancellation_reason', 'Armada batal berangkat');
 
             // Get all job order IDs currently in this manifest
             $jobOrderIds = $manifest->jobOrders()->pluck('job_orders.job_order_id')->toArray();
 
-            // Detach all job orders
-            $manifest->jobOrders()->detach();
+            // ============================================================
+            // 1. CANCEL DELIVERY ORDERS yang terkait dengan Manifest ini (Hangus Otomatis)
+            // ============================================================
+            $cancelledDOs = [];
 
-            // Revert status of detached job orders to 'Assigned' (or 'Created' if no other assignments? Assuming 'Assigned' is safe)
-            if (!empty($jobOrderIds)) {
-                JobOrder::whereIn('job_order_id', $jobOrderIds)
-                    ->update(['status' => 'Assigned']);
+            // 1a. Cancel DO dengan source_type = 'MF' dan source_id = manifestId
+            $manifestDOs = \App\Models\DeliveryOrder::where('source_type', 'MF')
+                ->where('source_id', $manifestId)
+                ->where('status', '!=', 'Cancelled')
+                ->get();
+
+            foreach ($manifestDOs as $do) {
+                $do->update([
+                    'status' => 'Cancelled',
+                    'cancelled_at' => now(),
+                    'cancellation_reason' => "Manifest {$manifestId} dibatalkan: {$cancellationReason}"
+                ]);
+                $cancelledDOs[] = $do->do_id;
+                \Log::info("[CANCEL MANIFEST] Cancelled DO (MF source): {$do->do_id}");
             }
 
-            // Update manifest status to Cancelled
-            // Keep cargo_weight and cargo_summary as snapshot
+            // 1b. Cancel DO dengan source_type = 'MF' dan selected_job_order_id dari JO dalam manifest ini (LTL)
+            if (!empty($jobOrderIds)) {
+                $ltlDOs = \App\Models\DeliveryOrder::where('source_type', 'MF')
+                    ->whereIn('selected_job_order_id', $jobOrderIds)
+                    ->where('status', '!=', 'Cancelled')
+                    ->get();
+
+                foreach ($ltlDOs as $do) {
+                    $do->update([
+                        'status' => 'Cancelled',
+                        'cancelled_at' => now(),
+                        'cancellation_reason' => "Manifest {$manifestId} dibatalkan (LTL): {$cancellationReason}"
+                    ]);
+                    if (!in_array($do->do_id, $cancelledDOs)) {
+                        $cancelledDOs[] = $do->do_id;
+                    }
+                    \Log::info("[CANCEL MANIFEST] Cancelled DO (LTL selected JO): {$do->do_id}");
+                }
+            }
+
+            // ============================================================
+            // 2. RESET JOB ORDERS ke status "Pending" (Reset & Cari Truk Baru)
+            // ============================================================
+            $resetJobOrders = [];
+
+            if (!empty($jobOrderIds)) {
+                foreach ($jobOrderIds as $jobOrderId) {
+                    $jobOrder = JobOrder::where('job_order_id', $jobOrderId)->first();
+                    
+                    if ($jobOrder && $jobOrder->status !== 'Cancelled') {
+                        // Reset status ke Pending
+                        $jobOrder->update(['status' => 'Pending']);
+
+                        // Create status history
+                        $this->createStatusHistory(
+                            $jobOrderId,
+                            'Pending',
+                            "Manifest {$manifestId} dibatalkan. Job Order dikembalikan ke antrian untuk dijadwalkan ulang.",
+                            'System'
+                        );
+
+                        $resetJobOrders[] = $jobOrderId;
+                    }
+                }
+
+                // Deactivate/Cancel all assignments for these job orders
+                // (Hapus data driver & armada karena manifest batal)
+                \App\Models\Assignment::whereIn('job_order_id', $jobOrderIds)
+                    ->where('status', 'Active')
+                    ->update(['status' => 'Cancelled']);
+            }
+
+            // ============================================================
+            // 3. DETACH ALL JOB ORDERS dari Manifest
+            // ============================================================
+            $manifest->jobOrders()->detach();
+
+            // ============================================================
+            // 4. UPDATE MANIFEST STATUS ke Cancelled
+            // ============================================================
             $manifest->update([
                 'status' => 'Cancelled',
+                'cancelled_at' => now(),
+                'cancellation_reason' => $cancellationReason,
+                // Keep cargo_weight and cargo_summary as snapshot (untuk audit)
+            ]);
+
+            \Log::info("[CANCEL MANIFEST] Manifest {$manifestId} dibatalkan", [
+                'reset_job_orders' => $resetJobOrders,
+                'cancelled_dos' => $cancelledDOs,
+                'reason' => $cancellationReason
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Manifest cancelled successfully. Job orders have been released.',
-                'data' => $manifest
+                'message' => "Manifest berhasil dibatalkan. {$this->formatCancelSummary(count($resetJobOrders), count($cancelledDOs))}",
+                'data' => [
+                    'manifest_id' => $manifestId,
+                    'status' => 'Cancelled',
+                    'cancelled_at' => now()->toISOString(),
+                    'cancellation_reason' => $cancellationReason,
+                    'reset_job_orders' => $resetJobOrders,
+                    'cancelled_delivery_orders' => $cancelledDOs
+                ]
             ], 200);
 
         } catch (\Exception $e) {
+            \Log::error("[CANCEL MANIFEST] Error: " . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to cancel manifest',
+                'message' => 'Gagal membatalkan Manifest',
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Helper: Format cancel summary message
+     */
+    private function formatCancelSummary(int $joCount, int $doCount): string
+    {
+        $parts = [];
+        if ($joCount > 0) {
+            $parts[] = "{$joCount} Job Order dikembalikan ke antrian";
+        }
+        if ($doCount > 0) {
+            $parts[] = "{$doCount} Delivery Order dibatalkan";
+        }
+        return implode(', ', $parts) . '.';
     }
 
     /**

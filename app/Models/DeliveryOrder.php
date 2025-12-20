@@ -26,7 +26,9 @@ class DeliveryOrder extends Model
         'goods_summary',
         'priority',
         'temperature',
-        'created_by'
+        'created_by',
+        'cancelled_at',
+        'cancellation_reason'
     ];
 
     /**
@@ -40,7 +42,8 @@ class DeliveryOrder extends Model
         'do_date' => 'date',
         'departure_date' => 'datetime',
         'eta' => 'datetime',
-        'delivered_date' => 'date'
+        'delivered_date' => 'date',
+        'cancelled_at' => 'datetime'
     ];
 
     /**

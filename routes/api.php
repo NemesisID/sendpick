@@ -150,6 +150,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Route::patch('/job-orders/{jobOrderId}/status', [JobOrderController::class, 'updateStatus'])->name('api.job-orders.update-status')->withoutMiddleware('auth:sanctum');
     // 3. Mendapatkan semua data assignment untuk job order tertentu
     Route::get('/job-orders/{jobOrderId}/assignments', [JobOrderController::class, 'getAssignments'])->name('api.job-orders.assignments')->withoutMiddleware('auth:sanctum');
+    // 4. Membatalkan job order (Cancel Job Order - Blueprint Cancellation Logic)
+    Route::post('/job-orders/{jobOrderId}/cancel', [JobOrderController::class, 'cancel'])->name('api.job-orders.cancel')->withoutMiddleware('auth:sanctum');
 
     // Job Orders (apiResource)
     Route::apiResource('job-orders', JobOrderController::class)

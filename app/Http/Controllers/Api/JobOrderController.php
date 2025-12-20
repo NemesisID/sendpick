@@ -449,6 +449,189 @@ class JobOrderController extends Controller
     }
 
     /**
+     * ============================================================
+     * CANCEL JOB ORDER - CANCELLATION LOGIC (BLUEPRINT)
+     * ============================================================
+     * 
+     * Artinya: Customer membatalkan pesanan atau ada kesalahan fatal
+     * 
+     * DAMPAK:
+     * - Job Order: Berubah jadi Cancelled statusnya
+     * - Delivery Order: Wajib ikut Cancelled (tidak mungkin kirim barang yang dibatalkan)
+     * - Manifest: Status tidak berubah (JO dikeluarkan dari list, kapasitas truk kembali kosong)
+     * 
+     * GUARD/VALIDASI:
+     * 🛑 DILARANG Cancel Job Order jika Manifest sudah status "In Transit"
+     * Solusi: Gunakan fitur "Return" (Retur Barang), bukan "Cancel"
+     * 
+     * @param Request $request
+     * @param string $jobOrderId
+     * @return JsonResponse
+     */
+    public function cancel(Request $request, string $jobOrderId): JsonResponse
+    {
+        try {
+            $jobOrder = JobOrder::with(['manifests', 'assignments'])->where('job_order_id', $jobOrderId)->first();
+
+            if (!$jobOrder) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job Order tidak ditemukan'
+                ], 404);
+            }
+
+            // Sudah di-cancel sebelumnya
+            if ($jobOrder->status === 'Cancelled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job Order sudah dibatalkan sebelumnya'
+                ], 422);
+            }
+
+            // ============================================================
+            // 🛑 GUARD: DILARANG Cancel jika Manifest sudah "In Transit"
+            // ============================================================
+            $manifestInTransit = $jobOrder->manifests()
+                ->where('status', 'In Transit')
+                ->first();
+
+            if ($manifestInTransit) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak dapat membatalkan Job Order karena Manifest sudah dalam status "In Transit". Gunakan fitur Return (Retur Barang) setelah barang tiba di tujuan.',
+                    'manifest_id' => $manifestInTransit->manifest_id,
+                    'manifest_status' => $manifestInTransit->status
+                ], 422);
+            }
+
+            $cancellationReason = $request->input('cancellation_reason', 'Dibatalkan oleh Admin');
+
+            // ============================================================
+            // 1. CANCEL JOB ORDER
+            // ============================================================
+            $jobOrder->update([
+                'status' => 'Cancelled',
+                'cancelled_at' => now(),
+                'cancellation_reason' => $cancellationReason
+            ]);
+
+            // Create status history
+            $this->createStatusHistory(
+                $jobOrderId,
+                'Cancelled',
+                Auth::user()->name ?? 'Admin',
+                "Reason: {$cancellationReason}",
+                'user'
+            );
+
+            // ============================================================
+            // 2. CANCEL DELIVERY ORDER yang terkait (Hangus Otomatis)
+            // ============================================================
+            $cancelledDOs = [];
+
+            // Cari DO dengan source_type = 'JO' dan source_id = job_order_id
+            $directDOs = \App\Models\DeliveryOrder::where('source_type', 'JO')
+                ->where('source_id', $jobOrderId)
+                ->where('status', '!=', 'Cancelled')
+                ->get();
+
+            foreach ($directDOs as $do) {
+                $do->update([
+                    'status' => 'Cancelled',
+                    'cancelled_at' => now(),
+                    'cancellation_reason' => "Job Order {$jobOrderId} dibatalkan"
+                ]);
+                $cancelledDOs[] = $do->do_id;
+            }
+
+            // Cari DO dengan source_type = 'MF' dan selected_job_order_id = job_order_id (LTL)
+            $ltlDOs = \App\Models\DeliveryOrder::where('source_type', 'MF')
+                ->where('selected_job_order_id', $jobOrderId)
+                ->where('status', '!=', 'Cancelled')
+                ->get();
+
+            foreach ($ltlDOs as $do) {
+                $do->update([
+                    'status' => 'Cancelled',
+                    'cancelled_at' => now(),
+                    'cancellation_reason' => "Job Order {$jobOrderId} (LTL) dibatalkan"
+                ]);
+                $cancelledDOs[] = $do->do_id;
+            }
+
+            // ============================================================
+            // 3. KELUARKAN JO DARI MANIFEST (Hanya kurangi muatan, tidak cancel)
+            // ============================================================
+            $detachedFromManifests = [];
+
+            $manifests = $jobOrder->manifests()->get();
+            foreach ($manifests as $manifest) {
+                // Detach JO dari manifest
+                $manifest->jobOrders()->detach($jobOrderId);
+
+                // Re-calculate cargo weight dan summary
+                $remainingJobs = $manifest->jobOrders()->get();
+                $totalWeight = $remainingJobs->sum('goods_weight');
+                $totalKoli = $remainingJobs->sum('goods_qty');
+                
+                $cargoSummary = $remainingJobs->count() . ' packages';
+                if ($remainingJobs->count() > 0) {
+                    $descriptions = $remainingJobs->pluck('goods_desc')->unique()->take(3);
+                    $cargoSummary .= ': ' . $descriptions->implode(', ');
+                    if ($remainingJobs->count() > 3) {
+                        $cargoSummary .= ', etc.';
+                    }
+                }
+
+                $manifest->update([
+                    'cargo_weight' => $totalWeight,
+                    'cargo_summary' => $cargoSummary
+                ]);
+
+                $detachedFromManifests[] = [
+                    'manifest_id' => $manifest->manifest_id,
+                    'remaining_jobs' => $remainingJobs->count(),
+                    'remaining_weight' => $totalWeight
+                ];
+            }
+
+            // ============================================================
+            // 4. DEACTIVATE ASSIGNMENTS (Optional cleanup)
+            // ============================================================
+            Assignment::where('job_order_id', $jobOrderId)
+                ->where('status', 'Active')
+                ->update(['status' => 'Cancelled']);
+
+            \Log::info("[CANCEL JO] Job Order {$jobOrderId} dibatalkan", [
+                'cancelled_dos' => $cancelledDOs,
+                'detached_manifests' => $detachedFromManifests,
+                'reason' => $cancellationReason
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Job Order berhasil dibatalkan',
+                'data' => [
+                    'job_order_id' => $jobOrderId,
+                    'status' => 'Cancelled',
+                    'cancelled_at' => now()->toISOString(),
+                    'cancellation_reason' => $cancellationReason,
+                    'cancelled_delivery_orders' => $cancelledDOs,
+                    'detached_from_manifests' => $detachedFromManifests
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error("[CANCEL JO] Error: " . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membatalkan Job Order',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Store assignment driver and vehicle to job order
      * 
      * @param Request $request

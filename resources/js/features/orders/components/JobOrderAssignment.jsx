@@ -205,9 +205,50 @@ function AssignmentFilter({ activeFilter, onFilterChange }) {
     );
 }
 
-export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0, orderType, onAssignmentUpdate }) {
-    // ✅ MODIFIED: Allow viewing assignments for LTL (sourced from Manifest)
-    // if (orderType === 'LTL') { return ... } -> Removed to show list.
+export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0, orderType, manifestInfo, driverDisplay, vehicleDisplay, onAssignmentUpdate }) {
+    // ✅ Check if this is an LTL order with no assignment (pending)
+    const isLTLPending = orderType === 'LTL' && (!manifestInfo?.driver && (driverDisplay === '-' || driverDisplay === 'Menunggu Planning Manifest ⏳' || !driverDisplay));
+
+    // ✅ If LTL and pending, show locked assignment message
+    if (isLTLPending) {
+        return (
+            <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+                <div className='flex flex-col items-center justify-center py-12 text-center'>
+                    {/* Info Icon */}
+                    <div className='mx-auto h-16 w-16 rounded-full bg-slate-100 flex items-center justify-center mb-6'>
+                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-8 w-8 text-indigo-500'>
+                            <circle cx='12' cy='12' r='10' />
+                            <path d='M12 16v-4' strokeLinecap='round' strokeLinejoin='round' />
+                            <circle cx='12' cy='8' r='0.5' fill='currentColor' />
+                        </svg>
+                    </div>
+
+                    {/* Title */}
+                    <div className='flex items-center gap-2 mb-3'>
+                        <span className='text-lg'>ℹ️</span>
+                        <h3 className='text-xl font-semibold text-slate-900'>Assignment Terkunci</h3>
+                    </div>
+
+                    {/* Description */}
+                    <p className='text-slate-600 max-w-md leading-relaxed mb-6'>
+                        Order ini bertipe <span className='font-bold text-indigo-600'>LTL</span>.
+                        Penugasan Driver dan Armada untuk tipe LTL dilakukan melalui modul Manifest / Packing List (konsolidasi), bukan secara langsung per order. Data driver & Armada akan muncul di sini setelah penugasan di modul Manifest.
+                    </p>
+
+                    {/* CTA Button */}
+                    <a
+                        href="/manifest"
+                        className='inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
+                    >
+                        <span>📦</span>
+                        Pergi ke Manifest
+                    </a>
+                </div>
+            </section>
+        );
+    }
+
+    // ✅ For LTL that is already assigned OR for FTL orders, show the normal Assignment History UI
 
     const [assignments, setAssignments] = useState([]);
     const [loading, setLoading] = useState(true);
