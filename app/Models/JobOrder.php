@@ -30,7 +30,9 @@ class JobOrder extends Model
         'ship_date',
         'order_value',
         'created_by',
-        'completed_at'
+        'completed_at',
+        'cancelled_at',
+        'cancellation_reason'
     ];
 
     protected $casts = [
@@ -38,7 +40,8 @@ class JobOrder extends Model
         'goods_volume' => 'decimal:2',
         'order_value' => 'decimal:2',
         'ship_date' => 'date',
-        'completed_at' => 'datetime'
+        'completed_at' => 'datetime',
+        'cancelled_at' => 'datetime'
     ];
 
     /**

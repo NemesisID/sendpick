@@ -97,9 +97,15 @@ export async function completeDeliveryOrder(doId) {
     }
 }
 
-export async function cancelDeliveryOrder(doId) {
+/**
+ * Cancel Delivery Order dengan cascading effects (JO reset ke Pending, Manifest recalculate)
+ * ✅ Mengikuti route: POST /delivery-orders/{doId}/cancel
+ */
+export async function cancelDeliveryOrder(doId, cancellationReason = 'Salah cetak/revisi dokumen') {
     try {
-        const response = await api.post(`/delivery-orders/${doId}/cancel`);
+        const response = await api.post(`/delivery-orders/${doId}/cancel`, {
+            cancellation_reason: cancellationReason
+        });
         return {
             success: true,
             data: response.data?.data,

@@ -107,9 +107,15 @@ export async function removeJobOrders(manifestId, jobOrderIds = []) {
     }
 }
 
-export async function cancelManifest(manifestId) {
+/**
+ * Cancel Manifest dengan cascading effects (JO reset ke Pending, DO cancel)
+ * ✅ Mengikuti route: POST /manifests/{manifestId}/cancel
+ */
+export async function cancelManifest(manifestId, cancellationReason = 'Armada batal berangkat') {
     try {
-        const response = await api.post(`/manifests/${manifestId}/cancel`);
+        const response = await api.post(`/manifests/${manifestId}/cancel`, {
+            cancellation_reason: cancellationReason
+        });
         return {
             success: true,
             data: response.data?.data,

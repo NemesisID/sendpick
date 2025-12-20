@@ -556,37 +556,186 @@ class DeliveryOrderController extends Controller
     }
 
     /**
-     * Cancel delivery order
-     * Mengubah status menjadi 'Cancelled'
+     * ============================================================
+     * CANCEL DELIVERY ORDER - CANCELLATION LOGIC (BLUEPRINT)
+     * ============================================================
      * 
+     * Artinya: Salah cetak surat jalan, salah input tanggal, atau revisi dokumen
+     * 
+     * DAMPAK:
+     * - Delivery Order: Berubah jadi Cancelled statusnya
+     * - Job Order: Kembalikan status ke "Pending" dan set delivery_order_id = NULL
+     *              (Agar Admin bisa membuatkan DO baru yang benar)
+     *              Data driver & armada dihilangkan karena status berubah ke Pending
+     * - Manifest: Status tidak berubah. Hanya re-calculate (hitung ulang) total koli/berat
+     * 
+     * @param Request $request
      * @param string $doId
      * @return JsonResponse
      */
-    public function cancel(string $doId): JsonResponse
+    public function cancel(Request $request, string $doId): JsonResponse
     {
-        $deliveryOrder = DeliveryOrder::where('do_id', $doId)->first();
+        try {
+            $deliveryOrder = DeliveryOrder::where('do_id', $doId)->first();
 
-        if (!$deliveryOrder) {
+            if (!$deliveryOrder) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Delivery Order tidak ditemukan'
+                ], 404);
+            }
+
+            if ($deliveryOrder->status === 'Cancelled') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Delivery Order sudah dibatalkan sebelumnya'
+                ], 422);
+            }
+
+            // Tidak boleh cancel DO yang sudah In Transit atau Delivered
+            if (in_array($deliveryOrder->status, ['In Transit', 'Delivered', 'Completed'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Tidak dapat membatalkan Delivery Order dengan status '{$deliveryOrder->status}'. " .
+                                 "Gunakan fitur Return jika perlu mengembalikan barang."
+                ], 422);
+            }
+
+            $cancellationReason = $request->input('cancellation_reason', 'Salah cetak/revisi dokumen');
+
+            // ============================================================
+            // 1. CANCEL DELIVERY ORDER
+            // ============================================================
+            $deliveryOrder->update([
+                'status' => 'Cancelled',
+                'cancelled_at' => now(),
+                'cancellation_reason' => $cancellationReason
+            ]);
+
+            // ============================================================
+            // 2. RESET JOB ORDER ke status "Pending" (Reset & Buat DO Baru)
+            // ============================================================
+            $resetJobOrders = [];
+            $recalculatedManifest = null;
+
+            if ($deliveryOrder->source_type === 'JO') {
+                // Source adalah Job Order langsung (FTL)
+                $jobOrder = JobOrder::where('job_order_id', $deliveryOrder->source_id)->first();
+                
+                if ($jobOrder && $jobOrder->status !== 'Cancelled') {
+                    $jobOrder->update(['status' => 'Pending']);
+                    
+                    // Deactivate assignments (hapus data driver & armada)
+                    \App\Models\Assignment::where('job_order_id', $jobOrder->job_order_id)
+                        ->where('status', 'Active')
+                        ->update(['status' => 'Cancelled']);
+
+                    // Create status history
+                    \App\Models\JobOrderStatusHistory::create([
+                        'job_order_id' => $jobOrder->job_order_id,
+                        'status' => 'Pending',
+                        'notes' => "Delivery Order {$doId} dibatalkan. Job Order dikembalikan ke antrian untuk dicetak ulang surat jalannya.",
+                        'trigger_type' => 'System',
+                        'changed_by' => Auth::id() ?? 'System',
+                        'changed_at' => now()
+                    ]);
+
+                    $resetJobOrders[] = $jobOrder->job_order_id;
+                }
+
+            } elseif ($deliveryOrder->source_type === 'MF') {
+                // Source adalah Manifest (LTL/multi-stop)
+                
+                // Check if specific Job Order was selected (LTL scenario)
+                if ($deliveryOrder->selected_job_order_id) {
+                    $specificJO = JobOrder::where('job_order_id', $deliveryOrder->selected_job_order_id)->first();
+                    
+                    if ($specificJO && $specificJO->status !== 'Cancelled') {
+                        $specificJO->update(['status' => 'Pending']);
+
+                        // Deactivate assignments
+                        \App\Models\Assignment::where('job_order_id', $specificJO->job_order_id)
+                            ->where('status', 'Active')
+                            ->update(['status' => 'Cancelled']);
+
+                        \App\Models\JobOrderStatusHistory::create([
+                            'job_order_id' => $specificJO->job_order_id,
+                            'status' => 'Pending',
+                            'notes' => "Delivery Order {$doId} (LTL) dibatalkan. Job Order dikembalikan ke antrian.",
+                            'trigger_type' => 'System',
+                            'changed_by' => Auth::id() ?? 'System',
+                            'changed_at' => now()
+                        ]);
+
+                        $resetJobOrders[] = $specificJO->job_order_id;
+                    }
+                }
+
+                // ============================================================
+                // 3. RE-CALCULATE MANIFEST (Hanya kurangi muatan, tidak cancel)
+                // ============================================================
+                $manifest = Manifests::with('jobOrders')->where('manifest_id', $deliveryOrder->source_id)->first();
+                
+                if ($manifest) {
+                    // Re-calculate cargo from remaining active job orders (exclude cancelled ones)
+                    $activeJobOrders = $manifest->jobOrders()
+                        ->where('status', '!=', 'Cancelled')
+                        ->get();
+                    
+                    $totalWeight = $activeJobOrders->sum('goods_weight');
+                    $totalKoli = $activeJobOrders->sum('goods_qty');
+                    
+                    $cargoSummary = $activeJobOrders->count() . ' packages';
+                    if ($activeJobOrders->count() > 0) {
+                        $descriptions = $activeJobOrders->pluck('goods_desc')->unique()->take(3);
+                        $cargoSummary .= ': ' . $descriptions->implode(', ');
+                        if ($activeJobOrders->count() > 3) {
+                            $cargoSummary .= ', etc.';
+                        }
+                    }
+
+                    $manifest->update([
+                        'cargo_weight' => $totalWeight,
+                        'cargo_summary' => $cargoSummary
+                    ]);
+
+                    $recalculatedManifest = [
+                        'manifest_id' => $manifest->manifest_id,
+                        'active_jobs' => $activeJobOrders->count(),
+                        'total_weight' => $totalWeight,
+                        'total_koli' => $totalKoli
+                    ];
+                }
+            }
+
+            \Log::info("[CANCEL DO] Delivery Order {$doId} dibatalkan", [
+                'source_type' => $deliveryOrder->source_type,
+                'source_id' => $deliveryOrder->source_id,
+                'reset_job_orders' => $resetJobOrders,
+                'recalculated_manifest' => $recalculatedManifest,
+                'reason' => $cancellationReason
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Delivery Order berhasil dibatalkan. Job Order dikembalikan ke antrian untuk dicetak ulang.',
+                'data' => [
+                    'do_id' => $doId,
+                    'status' => 'Cancelled',
+                    'cancelled_at' => now()->toISOString(),
+                    'cancellation_reason' => $cancellationReason,
+                    'reset_job_orders' => $resetJobOrders,
+                    'recalculated_manifest' => $recalculatedManifest
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error("[CANCEL DO] Error: " . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Delivery Order tidak ditemukan'
-            ], 404);
+                'message' => 'Gagal membatalkan Delivery Order',
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        if ($deliveryOrder->status === 'Cancelled') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Delivery Order sudah dibatalkan'
-            ], 422);
-        }
-
-        // Update status menjadi 'Cancelled'
-        $deliveryOrder->update(['status' => 'Cancelled']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Delivery Order berhasil dibatalkan',
-            'data' => $deliveryOrder
-        ], 200);
     }
 }

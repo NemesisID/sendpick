@@ -3,7 +3,7 @@ import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import JobOrderDetail from './JobOrderDetail';
-import { fetchJobOrders, createJobOrder, updateJobOrder } from '../services/jobOrderService';
+import { fetchJobOrders, createJobOrder, updateJobOrder, cancelJobOrder } from '../services/jobOrderService';
 import { fetchCustomers } from '../../customers/services/customerService';
 
 const summaryCards = [
@@ -529,22 +529,26 @@ export default function JobOrderContent() {
         }
 
         const assignments = Array.isArray(order.assignments) ? order.assignments : [];
-        // ✅ Find the active assignment (or fallback to first if none active)
-        const activeAssignment = assignments.find(a => a.status === 'Active') || assignments[0] || {};
+        // ✅ FIXED: Only use assignment if it's Active, do NOT fallback to cancelled assignments
+        const activeAssignment = assignments.find(a => a.status === 'Active' || a.status === 'active');
 
-        const driverName =
-            activeAssignment?.driver?.driver_name ??
-            activeAssignment?.driver?.name ??
-            activeAssignment?.driver_name ??
-            '-';
+        // Only show driver/vehicle if there's an ACTIVE assignment
+        // If no active assignment, show '-' (menunggu assignment)
+        const driverName = activeAssignment
+            ? (activeAssignment?.driver?.driver_name ??
+                activeAssignment?.driver?.name ??
+                activeAssignment?.driver_name ??
+                '-')
+            : '-';
 
-        const vehicleName =
-            activeAssignment?.vehicle?.plate_number ??
-            activeAssignment?.vehicle?.vehicle_name ??
-            activeAssignment?.vehicle?.registration_number ??
-            activeAssignment?.vehicle?.license_plate ??
-            activeAssignment?.vehicle?.plate_no ?? // Add plate_no check
-            '-';
+        const vehicleName = activeAssignment
+            ? (activeAssignment?.vehicle?.plate_number ??
+                activeAssignment?.vehicle?.vehicle_name ??
+                activeAssignment?.vehicle?.registration_number ??
+                activeAssignment?.vehicle?.license_plate ??
+                activeAssignment?.vehicle?.plate_no ??
+                '-')
+            : '-';
 
         const shipDate = order.ship_date ?? order.startDate ?? order.created_at ?? '';
         const endDate = order.delivery_date ?? order.endDate ?? order.completed_at ?? '';
@@ -692,11 +696,9 @@ export default function JobOrderContent() {
     const handleCancelConfirm = async (formData) => {
         setIsLoading(true);
         try {
-            await updateJobOrder(deleteModal.order.id, {
-                status: 'Cancelled',
-                cancellation_reason: formData.cancellation_reason
-            });
-            console.log('Order cancelled successfully:', deleteModal.order.id);
+            // ✅ FIXED: Use cancelJobOrder for cascading effects (DO cancel, Manifest detach)
+            await cancelJobOrder(deleteModal.order.id, formData.cancellation_reason || 'Dibatalkan oleh Admin');
+            console.log('Order cancelled successfully with cascading effects:', deleteModal.order.id);
             setDeleteModal({ isOpen: false, order: null });
             loadJobOrders();
         } catch (error) {

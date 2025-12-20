@@ -1,273 +1,795 @@
-# Dokumentasi API Web Dashboard
+# 💻 SendPick Web Dashboard - API Documentation
 
-Dokumentasi ini menyediakan referensi lengkap untuk endpoint API yang digunakan oleh Web Dashboard.
+Base URL: `https://your-domain.com/api`
 
-## URL Dasar (Base URL)
-Semua request harus diawali dengan prefix `/api`.
-Contoh: `http://localhost:8000/api/dashboard`
+## 🔐 Authentication
 
-## Otentikasi
-Sebagian besar endpoint memerlukan otentikasi menggunakan Bearer Token (Laravel Sanctum).
-Sertakan token pada header `Authorization`:
-`Authorization: Bearer <token-anda>`
+Semua endpoint (kecuali Login) memerlukan **Bearer Token** di header request.
 
-### 1. Login
-*   **Endpoint**: `POST /auth/login`
-*   **Deskripsi**: Melakukan otentikasi user dan mendapatkan akses token.
-*   **Akses**: Public
+`Authorization: Bearer <token>`
 
-**Request Body:**
-| Parameter | Tipe | Wajib | Deskripsi |
+Token didapatkan dari response login.
+
+## 📋 Daftar Endpoint
+
+| No | Method | Endpoint | Deskripsi |
 | :--- | :--- | :--- | :--- |
-| `email` | string | Ya | Alamat email pengguna |
-| `password` | string | Ya | Kata sandi pengguna |
+| 1 | POST | `/auth/login` | Login admin/user |
+| 2 | POST | `/auth/logout` | Logout |
+| 3 | GET | `/auth/saya` | Get profil user login |
+| 4 | GET | `/dashboard` | Get statistik dashboard utama |
+| 5 | GET | `/job-orders` | Get daftar job order |
+| 6 | POST | `/job-orders` | Buat job order baru |
+| 7 | GET | `/job-orders/{id}` | Get detail job order |
+| 8 | POST | `/job-orders/{id}/assignments` | Assign driver & kendaraan |
+| 9 | POST | `/job-orders/{id}/cancel` | Batalkan job order |
+| 10 | GET | `/manifests` | Get daftar manifest |
+| 11 | POST | `/manifests` | Buat manifest baru |
+| 12 | POST | `/manifests/{id}/add-job-orders` | Tambah job ke manifest |
+| 13 | POST | `/manifests/{id}/remove-job-orders` | Hapus job dari manifest |
+| 14 | PATCH | `/manifests/{id}/status` | Update status manifest |
+| 15 | POST | `/manifests/{id}/cancel` | Batalkan manifest |
+| 16 | GET | `/delivery-orders` | Get daftar delivery order |
+| 17 | POST | `/delivery-orders/{id}/assign-driver` | Assign driver ke DO (Direct) |
+| 18 | POST | `/delivery-orders/{id}/complete` | Selesaikan delivery order |
+| 19 | POST | `/delivery-orders/{id}/cancel` | Batalkan delivery order |
+| 20 | GET | `/invoices` | Get daftar invoice |
+| 21 | POST | `/invoices` | Buat invoice baru |
+| 22 | POST | `/invoices/{id}/record-payment` | Catat pembayaran |
+| 23 | GET | `/gps/current` | Get lokasi driver realtime |
+| 24 | GET | `/drivers` | Get daftar driver |
+| 25 | GET | `/vehicles` | Get daftar kendaraan |
+| 26 | GET | `/customers` | Get daftar customer |
+| 27 | GET | `/reports/sales` | Get laporan penjualan |
 
-**Respon (Sukses 200):**
+---
+
+## 1️⃣ Login
+
+Otentikasi user (Admin/Staff) untuk mendapatkan access token.
+
+### Request
+
+`POST /api/auth/login`  
+`Content-Type: application/json`
+
+**Body:**
+
 ```json
 {
-    "status": true,
-    "message": "User Logged In Successfully",
-    "token": "1|laravel_sanctum_token...",
+  "email": "admin@sendpick.com",
+  "password": "password"
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Login berhasil",
+  "data": {
     "user": {
-        "id": 1,
-        "name": "Nama Admin",
-        "email": "admin@example.com",
-        "role": "admin"
-    }
+      "id": 1,
+      "name": "Super Admin",
+      "email": "admin@sendpick.com",
+      "role": "super_admin"
+    },
+    "token": "1|abc123xyz...",
+    "token_type": "Bearer"
+  }
 }
 ```
 
-### 2. Dapatkan Profil Saya
-*   **Endpoint**: `GET /auth/saya`
-*   **Deskripsi**: Mendapatkan detail pengguna yang sedang login.
-*   **Akses**: Protected (Butuh Token)
+### Response Error
 
-### 3. Logout
-*   **Endpoint**: `POST /auth/logout`
-*   **Deskripsi**: Menghapus token yang sedang aktif (keluar dari sesi).
-*   **Akses**: Protected
+| Status Code | Response |
+| :--- | :--- |
+| 401 | `{"success": false, "message": "Email atau password salah"}` |
 
 ---
 
-## Analitik Dashboard
-Endpoint untuk tampilan utama dashboard.
+## 2️⃣ Logout
 
-### 1. Ringkasan Dashboard
-*   **Endpoint**: `GET /dashboard`
-*   **Deskripsi**: Mengambil data gabungan untuk dashboard, termasuk kartu KPI, grafik, dan aktivitas terbaru.
-*   **Akses**: Protected
+Menghapus token autentikasi.
 
-**Parameter Query:**
-| Parameter | Tipe | Wajib | Default | Deskripsi |
-| :--- | :--- | :--- | :--- | :--- |
-| `time_frame` | string | Tidak | `month` | Filter data berdasarkan `day` (hari), `week` (minggu), `month` (bulan), atau `year` (tahun). |
+### Request
 
-**Respon (Sukses 200):**
+`POST /api/auth/logout`  
+`Authorization: Bearer <token>`
+
+### Response Success (200)
+
 ```json
 {
-    "success": true,
-    "data": {
-        "kpi_cards": {
-            "total_orders": { "value": 150, "growth": 12.5 },
-            "otif_rate": 95.5,
-            "active_deliveries": 12,
-            "fleet_status": { "available_vehicles": 8, "total_vehicles": 10, ... }
-        },
-        "charts": {
-            "orders_trend": [ { "period": "Jan-01", "orders": 5 }, ... ],
-            "delivery_status": [ { "status": "Delivered", "count": 100 }, ... ],
-            "vehicle_utilization": [ { "status": "Available", "count": 5, "percentage": 50 }, ... ]
-        },
-        "widgets": {
-            "recent_activities": [ ... ],
-            "todays_assignments": [ ... ]
-        }
-    }
+  "success": true,
+  "message": "Logout berhasil"
 }
 ```
 
 ---
 
-## Job Orders (Pesanan Kerja)
-Manajemen Job Order.
+## 3️⃣ Get Profile (Saya)
 
-### 1. Daftar Job Order
-*   **Endpoint**: `GET /job-orders`
-*   **Deskripsi**: Mendapatkan daftar job order dengan opsi filter dan pagination.
-*   **Akses**: Protected
+Mendapatkan data user yang sedang login.
 
-**Parameter Query:**
-| Parameter | Tipe | Deskripsi |
+### Request
+`GET /api/auth/saya`  
+`Authorization: Bearer <token>`
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "Super Admin",
+    "email": "admin@sendpick.com",
+    "role": "super_admin"
+  }
+}
+```
+
+---
+
+## 4️⃣ Dashboard Stats
+
+Mendapatkan ringkasan statistik untuk halaman utama dashboard.
+
+### Request
+`GET /api/dashboard`  
+`Authorization: Bearer <token>`
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "metrics": {
+      "total_orders": 150,
+      "active_manifests": 12,
+      "pending_deliveries": 8,
+      "revenue_month": 45000000
+    },
+    "charts": {
+      "orders_trend": [ ... ],
+      "revenue_trend": [ ... ]
+    }
+  }
+}
+```
+
+---
+
+## 5️⃣ Get Job Orders
+
+Mendapatkan daftar Job Order dengan filter.
+
+### Request
+`GET /api/job-orders`  
+`Authorization: Bearer <token>`
+
+**Query Parameters (Optional):**
+
+| Parameter | Type | Deskripsi |
 | :--- | :--- | :--- |
-| `search` | string | Cari berdasarkan ID, deskripsi, alamat, atau nama pelanggan |
-| `status` | string | Filter berdasarkan status (Created, Assigned, Pickup, Delivery, Completed, Cancelled) |
-| `customer_id` | string | Filter berdasarkan pelanggan tertentu |
-| `order_type` | string | Filter berdasarkan LTL atau FTL |
-| `start_date` | date | Filter berdasarkan tanggal pengiriman mulai (YYYY-MM-DD) |
-| `end_date` | date | Filter berdasarkan tanggal pengiriman akhir (YYYY-MM-DD) |
-| `per_page` | int | Item per halaman (default: 15) |
+| `status` | string | Filter status (Pending, Assigned, ...)|
+| `customer_id` | int | Filter by customer |
+| `date_from` | date | Filter tanggal awal |
+| `date_to` | date | Filter tanggal akhir |
 
-### 2. Buat Job Order Baru
-*   **Endpoint**: `POST /job-orders`
-*   **Deskripsi**: Membuat job order baru.
-*   **Akses**: Protected
+### Response Success (200)
 
-**Request Body:**
-| Parameter | Tipe | Wajib | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `customer_id` | string | Ya | ID Pelanggan |
-| `order_type` | string | Ya | `LTL` atau `FTL` |
-| `pickup_address` | string | Ya | Alamat lengkap penjemputan |
-| `pickup_city` | string | Tidak | Nama kota penjemputan |
-| `delivery_address` | string | Ya | Alamat lengkap pengiriman |
-| `delivery_city` | string | Tidak | Nama kota pengiriman |
-| `goods_desc` | string | Ya | Deskripsi barang |
-| `goods_weight` | number | Ya | Berat dalam kg |
-| `goods_volume` | number | Tidak | Volume dalam m3 |
-| `ship_date` | date | Ya | Jadwal tanggal pengiriman |
-| `order_value` | number | Tidak | Nilai barang/pesanan |
-
-### 3. Detail Job Order
-*   **Endpoint**: `GET /job-orders/{jobOrderId}`
-*   **Deskripsi**: Mendapatkan informasi detail dari job order tertentu, termasuk penugasan dan riwayat.
-*   **Akses**: Protected
-
-### 4. Update Job Order
-*   **Endpoint**: `PUT /job-orders/{jobOrderId}`
-*   **Deskripsi**: Memperbarui detail job order tertentu.
-*   **Akses**: Protected
-*   **Catatan**: Kirim hanya field yang ingin diperbarui.
-
-### 5. Penugasan Driver & Kendaraan (Assign)
-*   **Endpoint**: `POST /job-orders/{jobOrderId}/assignments`
-*   **Deskripsi**: Menugaskan driver dan kendaraan ke job order. Penugasan aktif sebelumnya pada order ini akan dibatalkan.
-*   **Akses**: Protected
-
-**Request Body:**
-| Parameter | Tipe | Wajib | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `driver_id` | string | Ya | ID Driver |
-| `vehicle_id` | string | Ya | ID Kendaraan |
-| `status` | string | Ya | Harus `Active` atau `Standby` |
-| `notes` | string | Tidak | Catatan tambahan untuk penugasan |
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "job_order_id": "JO-2024-001",
+      "customer_name": "PT Maju Jaya",
+      "pickup_address": "Jakarta",
+      "delivery_address": "Bandung",
+      "status": "Pending",
+      "goods_desc": "Elektronik",
+      "weight": 100
+    }
+  ],
+  "links": { ... },
+  "meta": { ... }
+}
+```
 
 ---
 
-## Manifest
-Manajemen Manifest (Pengelompokan Job Order untuk transportasi).
+## 6️⃣ Create Job Order
 
-### 1. Daftar Manifest
-*   **Endpoint**: `GET /manifests`
-*   **Deskripsi**: Mendapatkan daftar manifest dengan pagination.
-*   **Akses**: Protected
+Membuat Job Order baru.
 
-**Parameter Query:**
-| Parameter | Tipe | Deskripsi |
-| :--- | :--- | :--- |
-| `search` | string | Cari berdasarkan ID, kota, atau ringkasan muatan |
-| `status` | string | Filter status (Pending, In Transit, Arrived, Completed) |
-| `origin_city` | string | Filter kota asal |
-| `dest_city` | string | Filter kota tujuan |
+### Request
+`POST /api/job-orders`  
+`Authorization: Bearer <token>`  
+`Content-Type: application/json`
 
-### 2. Buat Manifest
-*   **Endpoint**: `POST /manifests`
-*   **Deskripsi**: Membuat manifest baru.
-*   **Akses**: Protected
+**Body:**
 
-**Request Body:**
-| Parameter | Tipe | Wajib | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `origin_city` | string | Ya | Kota Asal |
-| `dest_city` | string | Ya | Kota Tujuan |
-| `planned_departure` | date | Tidak | Rencana waktu keberangkatan |
-| `job_order_ids` | array | Tidak | Array ID Job Order untuk dilampirkan sejak awal |
-| `driver_id` | string | Tidak | ID Driver yang ditugaskan |
-| `vehicle_id` | string | Tidak | ID Kendaraan yang ditugaskan |
+```json
+{
+  "customer_id": 1,
+  "order_type": "LTL",
+  "pickup_address": "Jl. Raya No 1",
+  "pickup_city": "Jakarta",
+  "delivery_address": "Jl. Baru No 2",
+  "delivery_city": "Bandung",
+  "goods_desc": "Sparepart",
+  "goods_weight": 50,
+  "goods_volume": 0.5,
+  "ship_date": "2024-12-20",
+  "order_value": 1000000
+}
+```
 
-### 3. Job Order yang Tersedia untuk Manifest
-*   **Endpoint**: `GET /manifests/{manifestId}/available-job-orders`
-*   **Deskripsi**: Mendapatkan daftar Job Order yang siap (Created/Assigned) dan BELUM masuk ke manifest manapun.
-*   **Akses**: Protected
-*   **Catatan**: Gunakan `available-job-orders` dengan ID dummy (misal: `new`) jika sedang membuat manifest baru.
+**Field Wajib:** `customer_id`, `order_type`, `pickup_address`, `delivery_address`, `goods_desc`, `goods_weight`, `ship_date`.
 
-### 4. Tambah Job Order ke Manifest
-*   **Endpoint**: `POST /manifests/{manifestId}/add-job-orders`
-*   **Deskripsi**: Menambahkan job order tertentu ke manifest yang sudah ada.
-*   **Akses**: Protected
+### Response Success (201)
 
-**Request Body:**
-| Parameter | Tipe | Wajib | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `job_order_ids` | array | Ya | Daftar ID Job Order yang akan ditambahkan |
-
-### 5. Hapus Job Order dari Manifest
-*   **Endpoint**: `POST /manifests/{manifestId}/remove-job-orders`
-*   **Deskripsi**: Menghapus job order dari manifest (mengembalikan statusnya menjadi 'Assigned').
-*   **Akses**: Protected
-
-**Request Body:**
-| Parameter | Tipe | Wajib | Deskripsi |
-| :--- | :--- | :--- | :--- |
-| `job_order_ids` | array | Ya | Daftar ID Job Order yang akan dihapus |
-
-### 6. Batalkan Manifest
-*   **Endpoint**: `POST /manifests/{manifestId}/cancel`
-*   **Deskripsi**: Membatalkan manifest dan melepaskan semua job order di dalamnya.
-*   **Akses**: Protected
+```json
+{
+  "success": true,
+  "message": "Job Order berhasil dibuat",
+  "data": {
+    "job_order_id": "JO-2024-002",
+    "status": "Pending"
+  }
+}
+```
 
 ---
 
-## Delivery Orders (Pesanan Pengiriman)
-Manajemen Delivery Order (DO).
+## 7️⃣ Get Job Order Detail
 
-### 1. Daftar Delivery Order
-*   **Endpoint**: `GET /delivery-orders`
-*   **Akses**: Protected
+Mendapatkan detail lengkap satu Job Order.
 
-### 2. Assign Driver ke DO
-*   **Endpoint**: `POST /delivery-orders/{doId}/assign-driver`
-*   **Deskripsi**: Menugaskan driver/kendaraan langsung ke Delivery Order.
-*   **Akses**: Protected
+### Request
+`GET /api/job-orders/{jobOrderId}`  
+`Authorization: Bearer <token>`
 
-### 3. Selesaikan Delivery Order
-*   **Endpoint**: `POST /delivery-orders/{doId}/complete`
-*   **Deskripsi**: Menandai DO sebagai terkirim/selesai.
-*   **Akses**: Protected
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "job_order_id": "JO-2024-001",
+    "customer": { "id": 1, "name": "PT Maju Jaya" },
+    "pickup_info": { "address": "...", "contact": "..." },
+    "delivery_info": { "address": "...", "contact": "..." },
+    "cargo_info": { "desc": "...", "weight": 100 },
+    "status": "Assigned",
+    "assignment": {
+      "driver_name": "Budi",
+      "vehicle_plate": "B 1234 XX"
+    },
+    "history": [ ... ]
+  }
+}
+```
 
 ---
 
-## (Master Data):
+## 8️⃣ Assign Job Order
 
-### Drivers (Pengemudi)
-*   **GET /drivers**: Daftar semua driver.
-*   **POST /drivers**: Buat driver baru.
-*   **GET /drivers/{id}**: Detail driver.
-*   **PUT /drivers/{id}**: Update driver.
-*   **GET /drivers/available**: Dapatkan driver yang tidak sedang bertugas.
+Menugaskan Driver dan Kendaraan ke Job Order.
 
-### Vehicles (Kendaraan)
-*   **GET /vehicles**: Daftar semua kendaraan.
-*   **POST /vehicles**: Buat kendaraan baru.
-*   **GET /vehicles/{id}**: Detail kendaraan.
-*   **PUT /vehicles/{id}**: Update kendaraan.
-*   **GET /vehicles/available**: Dapatkan kendaraan yang tersedia.
+### Request
+`POST /api/job-orders/{jobOrderId}/assignments`  
+`Authorization: Bearer <token>`  
+`Content-Type: application/json`
 
-### Customers (Pelanggan)
-*   **GET /customers**: Daftar semua pelanggan.
-*   **POST /customers**: Buat pelanggan baru.
-*   **GET /customers/{id}**: Detail pelanggan.
-*   **PUT /customers/{id}**: Update pelanggan.
+**Body:**
 
-### Invoices (Faktur)
-*   **GET /invoices**: Daftar semua invoice.
-*   **POST /invoices**: Buat invoice baru.
-*   **GET /invoices/available-sources**: Dapatkan sumber (Job Order/DO) yang siap ditagihkan.
-*   **POST /invoices/{id}/record-payment**: Mencatat pembayaran untuk invoice.
+```json
+{
+  "driver_id": "DRV-001",
+  "vehicle_id": "VH-001",
+  "status": "Active",
+  "notes": "Urgent delivery"
+}
+```
 
-## Laporan (Read-Only)
-*   **GET /reports/sales**: Analitik Penjualan.
-*   **GET /reports/financial**: Analitik Keuangan.
-*   **GET /reports/operational**: Analitik Operasional.
-*   **GET /reports/customer-analytics**: Wawasan Pelanggan.
+### Response Success (200)
 
-Setiap endpoint laporan menerima parameter query opsional `start_date` dan `end_date`.
+```json
+{
+  "success": true,
+  "message": "Driver berhasil ditugaskan",
+  "data": {
+    "assignment_id": 123,
+    "status": "Active"
+  }
+}
+```
+
+---
+
+## 9️⃣ Cancel Job Order
+
+Membatalkan Job Order. Status DO terkait akan ikut Cancelled.
+
+### Request
+`POST /api/job-orders/{jobOrderId}/cancel`  
+`Authorization: Bearer <token>`  
+`Content-Type: application/json`
+
+**Body:**
+
+```json
+{
+  "reason": "Customer request cancel"
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Job Order berhasil dibatalkan",
+  "data": { "status": "Cancelled" }
+}
+```
+
+---
+
+## 🔟 Get Manifests
+
+Mendapatkan daftar Manifest.
+
+### Request
+`GET /api/manifests`  
+`Authorization: Bearer <token>`
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "manifest_id": "MNF-2024-001",
+      "origin_city": "Jakarta",
+      "dest_city": "Surabaya",
+      "status": "In Transit",
+      "driver_name": "Budi",
+      "total_weight": 2500
+    }
+  ]
+}
+```
+
+---
+
+## 1️⃣1️⃣ Create Manifest
+
+Membuat Manifest baru.
+
+### Request
+`POST /api/manifests`  
+`Authorization: Bearer <token>`  
+`Content-Type: application/json`
+
+**Body:**
+
+```json
+{
+  "origin_city": "Jakarta",
+  "dest_city": "Surabaya",
+  "planned_departure": "2024-12-21 08:00:00",
+  "driver_id": "DRV-001",
+  "vehicle_id": "VH-101",
+  "job_order_ids": ["JO-001", "JO-002"] 
+}
+```
+*Note: `job_order_ids`, `driver_id`, `vehicle_id` opsional saat create.*
+
+### Response Success (201)
+
+```json
+{
+  "success": true,
+  "message": "Manifest berhasil dibuat",
+  "data": { "manifest_id": "MNF-2024-002" }
+}
+```
+
+---
+
+## 1️⃣2️⃣ Add Jobs to Manifest
+
+Menambahkan Job Order ke Manifest yang sudah ada.
+
+### Request
+`POST /api/manifests/{manifestId}/add-job-orders`  
+`Authorization: Bearer <token>`  
+`Content-Type: application/json`
+
+**Body:**
+
+```json
+{
+  "job_order_ids": ["JO-003", "JO-004"]
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "2 Job Order berhasil ditambahkan ke Manifest"
+}
+```
+
+---
+
+## 1️⃣3️⃣ Remove Jobs from Manifest
+
+Menghapus Job Order dari Manifest. Status Job kembali ke `Pending`/`Assigned`.
+
+### Request
+`POST /api/manifests/{manifestId}/remove-job-orders`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "job_order_ids": ["JO-003"]
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Job Order berhasil dihapus dari Manifest"
+}
+```
+
+---
+
+## 1️⃣4️⃣ Update Manifest Status
+
+Mengupdate status perjalanan Manifest.
+
+### Request
+`PATCH /api/manifests/{manifestId}/status`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "status": "In Transit"
+}
+```
+*Values: `Pending`, `In Transit`, `Arrived`, `Completed`.*
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Status Manifest diperbarui"
+}
+```
+
+---
+
+## 1️⃣5️⃣ Cancel Manifest
+
+Membatalkan Manifest. Job order di dalamnya akan dilepas.
+
+### Request
+`POST /api/manifests/{manifestId}/cancel`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "reason": "Truk rusak"
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Manifest berhasil dibatalkan"
+}
+```
+
+---
+
+## 1️⃣6️⃣ Get Delivery Orders
+
+Mendapatkan daftar Delivery Order.
+
+### Request
+`GET /api/delivery-orders`  
+`Authorization: Bearer <token>`
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "do_id": "DO-2024-001",
+      "job_order_id": "JO-2024-001",
+      "status": "In Transit",
+      "driver_name": "Budi"
+    }
+  ]
+}
+```
+
+---
+
+## 1️⃣7️⃣ Assign Driver to DO
+
+Assign driver langsung ke DO (biasanya untuk last-mile non-manifest).
+
+### Request
+`POST /api/delivery-orders/{doId}/assign-driver`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "driver_id": "DRV-002",
+  "vehicle_id": "VH-005"
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Driver berhasil di-assign ke DO"
+}
+```
+
+---
+
+## 1️⃣8️⃣ Complete Delivery Order
+
+Menandai DO selesai (dokumen kembali).
+
+### Request
+`POST /api/delivery-orders/{doId}/complete`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "notes": "Dokumen lengkap"
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Delivery Order selesai"
+}
+```
+
+---
+
+## 1️⃣9️⃣ Cancel Delivery Order
+
+Membatalkan DO.
+
+### Request
+`POST /api/delivery-orders/{doId}/cancel`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "reason": "Salah alamat"
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Delivery Order dibatalkan"
+}
+```
+
+---
+
+## 2️⃣0️⃣ Get Invoices
+
+Mendapatkan daftar Invoice.
+
+### Request
+`GET /api/invoices`  
+`Authorization: Bearer <token>`
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "invoice_id": "INV-2024-001",
+      "customer_name": "PT Maju Jaya",
+      "amount": 1500000,
+      "status": "Unpaid",
+      "due_date": "2024-12-31"
+    }
+  ]
+}
+```
+
+---
+
+## 2️⃣1️⃣ Create Invoice
+
+Membuat Invoice baru dari Job Order atau DO.
+
+### Request
+`POST /api/invoices`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "customer_id": 1,
+  "source_type": "job_order", 
+  "source_ids": ["JO-001", "JO-002"],
+  "due_date": "2025-01-15",
+  "notes": "Tagihan Desember"
+}
+```
+
+### Response Success (201)
+
+```json
+{
+  "success": true,
+  "message": "Invoice berhasil dibuat",
+  "data": { "invoice_id": "INV-2024-005" }
+}
+```
+
+---
+
+## 2️⃣2️⃣ Record Payment
+
+Mencatat pembayaran invoice.
+
+### Request
+`POST /api/invoices/{invoiceId}/record-payment`  
+`Authorization: Bearer <token>`
+
+**Body:**
+
+```json
+{
+  "amount_paid": 1500000,
+  "payment_method": "Bank Transfer",
+  "payment_date": "2024-12-20",
+  "notes": "Lunas"
+}
+```
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "message": "Pembayaran berhasil dicatat"
+}
+```
+
+---
+
+## 2️⃣3️⃣ GPS Current Location
+
+Mendapatkan lokasi realtime semua driver aktif.
+
+### Request
+`GET /api/gps/current`  
+`Authorization: Bearer <token>`
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "driver_id": "DRV-001",
+      "driver_name": "Budi",
+      "lat": -6.200000,
+      "lng": 106.816666,
+      "last_updated": "2 mins ago"
+    }
+  ]
+}
+```
+
+---
+
+## 2️⃣4️⃣ Get Drivers (Master)
+
+Mendapatkan daftar driver.
+
+### Request
+`GET /api/drivers`  
+`Authorization: Bearer <token>`
+
+---
+
+## 2️⃣5️⃣ Get Vehicles (Master)
+
+Mendapatkan daftar kendaraan.
+
+### Request
+`GET /api/vehicles`  
+`Authorization: Bearer <token>`
+
+---
+
+## 2️⃣6️⃣ Get Customers (Master)
+
+Mendapatkan daftar customer.
+
+### Request
+`GET /api/customers`  
+`Authorization: Bearer <token>`
+
+---
+
+## 2️⃣7️⃣ Get Reports
+
+Endpoint untuk laporan (Sales, Financial, Operational).
+
+### Request
+`GET /api/reports/sales`  
+`GET /api/reports/financial`  
+`GET /api/reports/operational`  
+`Authorization: Bearer <token>`  
+
+Query Params: `?start_date=2024-01-01&end_date=2024-01-31`
+
+### Response Success (200)
+
+```json
+{
+  "success": true,
+  "data": {
+    "total_revenue": 500000000,
+    "transaction_count": 50,
+    "details": [...]
+  }
+}
+```

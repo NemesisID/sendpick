@@ -91,3 +91,23 @@ export async function getAssignments(jobOrderId) {
         throw error;
     }
 }
+
+/**
+ * Cancel Job Order dengan cascading effects (DO cancel, detach dari Manifest)
+ * ✅ Mengikuti route: POST /job-orders/{id}/cancel
+ */
+export async function cancelJobOrder(jobOrderId, cancellationReason = 'Dibatalkan oleh Admin') {
+    try {
+        const response = await api.post(`/job-orders/${jobOrderId}/cancel`, {
+            cancellation_reason: cancellationReason
+        });
+        return {
+            success: true,
+            data: response.data?.data,
+            message: response.data?.message
+        };
+    } catch (error) {
+        console.error(`❌ Cancel job order ${jobOrderId} failed:`, error.response?.data);
+        throw error;
+    }
+}
