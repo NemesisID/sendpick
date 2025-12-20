@@ -12,8 +12,10 @@ use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * InvoiceController - Controller untuk mengelola Invoice/Tagihan
@@ -30,6 +32,33 @@ use Carbon\Carbon;
 class InvoiceController extends Controller
 {
     /**
+     * Generate PDF for the specified invoice
+     * 
+     * @param string $invoiceId
+     * @return \Illuminate\Http\Response
+     */
+    public function generatePdf(string $invoiceId)
+    {
+        $invoice = Invoices::with(['customer', 'payments', 'createdBy'])
+            ->where('invoice_id', $invoiceId)
+            ->first();
+
+        if (!$invoice) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invoice not found'
+            ], 404);
+        }
+
+        $pdf = Pdf::loadView('pdf.invoice', compact('invoice'));
+        
+        // Define filename
+        $fileName = 'Invoice-' . $invoice->invoice_id . '.pdf';
+
+        return $pdf->download($fileName);
+    }
+
+    /**
      * Display a listing of invoices
      * 
      * @param Request $request
@@ -37,7 +66,7 @@ class InvoiceController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Invoices::with(['customer', 'createdBy', 'lastPayment']);
+        $query = Invoices::with(['customer', 'createdBy', 'lastPayment', 'payments']);
 
         // Search functionality
         if ($request->filled('search')) {
@@ -265,17 +294,43 @@ class InvoiceController extends Controller
         $taxAmount = $subtotal * ($taxRate / 100);
         $totalAmount = $subtotal + $taxAmount;
 
-        $invoice->update([
-            'customer_id' => $request->customer_id,
-            'invoice_date' => $request->invoice_date,
-            'due_date' => $request->due_date,
-            'subtotal' => $subtotal,
-            'tax_rate' => $taxRate,
-            'tax_amount' => $taxAmount,
-            'total_amount' => $totalAmount,
-            'status' => $request->status ?? $invoice->status,
-            'notes' => $request->notes
-        ]);
+        // PROTECTION: If there are existing payments, prevent lowering total below paid amount
+        $paidAmount = $invoice->paid_amount ?? 0;
+        if ($paidAmount > 0 && $totalAmount < $paidAmount) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak dapat mengubah total tagihan menjadi lebih rendah dari jumlah yang sudah dibayar',
+                'details' => [
+                    'paid_amount' => $paidAmount,
+                    'new_total_amount' => $totalAmount,
+                    'minimum_allowed' => $paidAmount
+                ]
+            ], 422);
+        }
+
+        // If there are existing payments, only allow updating non-financial fields
+        // to prevent any manipulation of amounts
+        if ($paidAmount > 0) {
+            // Only update non-financial fields
+            $invoice->update([
+                'invoice_date' => $request->invoice_date,
+                'due_date' => $request->due_date,
+                'notes' => $request->notes
+            ]);
+        } else {
+            // No payments yet, allow full update
+            $invoice->update([
+                'customer_id' => $request->customer_id,
+                'invoice_date' => $request->invoice_date,
+                'due_date' => $request->due_date,
+                'subtotal' => $subtotal,
+                'tax_rate' => $taxRate,
+                'tax_amount' => $taxAmount,
+                'total_amount' => $totalAmount,
+                'status' => $request->status ?? $invoice->status,
+                'notes' => $request->notes
+            ]);
+        }
 
         return response()->json([
             'success' => true,
@@ -320,6 +375,9 @@ class InvoiceController extends Controller
     /**
      * Cancel the specified invoice
      * 
+     * DOMINO EFFECT: When cancelled, the linked Job Order/Manifest/DO is "released"
+     * so it can be selected again for a new invoice.
+     * 
      * @param Request $request
      * @param string $invoiceId
      * @return JsonResponse
@@ -344,17 +402,29 @@ class InvoiceController extends Controller
         }
 
         $reason = $request->input('reason');
-        $updateData = ['status' => 'Cancelled'];
+        
+        // Store the source info before clearing it (for audit trail in notes)
+        $sourceInfo = "Original source: {$invoice->source_type}-{$invoice->source_id}";
+        
+        $updateData = [
+            'status' => 'Cancelled',
+            // Clear source relationship to "release" the Job Order/Manifest/DO
+            'source_type' => null,
+            'source_id' => null,
+        ];
         
         if ($reason) {
-            $updateData['cancellation_note'] = $reason;
+            // Include original source info in cancellation note for audit
+            $updateData['cancellation_note'] = $reason . "\n\n[{$sourceInfo}]";
+        } else {
+            $updateData['cancellation_note'] = "[{$sourceInfo}]";
         }
 
         $invoice->update($updateData);
 
         return response()->json([
             'success' => true,
-            'message' => 'Invoice cancelled successfully',
+            'message' => 'Invoice cancelled successfully. Job Order has been released and can be used for new invoices.',
             'data' => $invoice
         ], 200);
     }
@@ -469,30 +539,59 @@ class InvoiceController extends Controller
     public function getStats(Request $request): JsonResponse
     {
         // 1. This Month Paid: Sum of payments made in current month
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
+        $startOfMonth = Carbon::now()->startOfMonth()->toDateString();
+        $endOfMonth = Carbon::now()->endOfMonth()->toDateString();
         
+        // Try using Eloquent first
         $thisMonthPaid = Payment::whereBetween('payment_date', [$startOfMonth, $endOfMonth])
             ->sum('amount');
+        
+        // If no payments table data, fall back to invoices.paid_amount
+        // for invoices that were paid this month
+        if ($thisMonthPaid == 0) {
+            $thisMonthPaid = Invoices::whereBetween('payment_date', [$startOfMonth, $endOfMonth])
+                ->sum('paid_amount');
+        }
 
-        // 2. Outstanding: Total unpaid amount (Total - Paid) for non-cancelled invoices
-        // We calculate this by summing (total_amount - paid_amount) for all active invoices
-        $outstanding = Invoices::where('status', '!=', 'Cancelled')
+        // 2. Outstanding: Total unpaid amount for non-cancelled, non-paid invoices
+        // Using PHP calculation for reliability
+        $activeInvoices = Invoices::where('status', '!=', 'Cancelled')
             ->where('status', '!=', 'Paid')
-            ->sum(DB::raw('total_amount - paid_amount'));
+            ->get(['total_amount', 'paid_amount']);
+        
+        $outstanding = $activeInvoices->sum(function ($invoice) {
+            $total = floatval($invoice->total_amount ?? 0);
+            $paid = floatval($invoice->paid_amount ?? 0);
+            return max(0, $total - $paid); // Prevent negative values
+        });
 
-        // 3. Overdue Amount: Total unpaid amount for overdue invoices
-        $overdueAmount = Invoices::where('status', '!=', 'Cancelled')
+        // 3. Overdue Amount: Same as outstanding but only for overdue invoices
+        $overdueInvoices = Invoices::where('status', '!=', 'Cancelled')
             ->where('status', '!=', 'Paid')
             ->where('due_date', '<', Carbon::now()->toDateString())
-            ->sum(DB::raw('total_amount - paid_amount'));
+            ->get(['total_amount', 'paid_amount']);
+        
+        $overdueAmount = $overdueInvoices->sum(function ($invoice) {
+            $total = floatval($invoice->total_amount ?? 0);
+            $paid = floatval($invoice->paid_amount ?? 0);
+            return max(0, $total - $paid);
+        });
 
-        // 4. Average Payment Time: Average days between invoice_date and payment_date for Paid invoices
-        // We only consider fully paid invoices
-        $avgPaymentTime = Invoices::where('status', 'Paid')
+        // 4. Average Payment Time: Average days between invoice_date and payment_date
+        $paidInvoices = Invoices::where('status', 'Paid')
             ->whereNotNull('payment_date')
-            ->select(DB::raw('AVG(DATE_PART(\'day\', payment_date::timestamp - invoice_date::timestamp)) as avg_days'))
-            ->value('avg_days');
+            ->whereNotNull('invoice_date')
+            ->get(['invoice_date', 'payment_date']);
+        
+        $avgPaymentTime = 0;
+        if ($paidInvoices->count() > 0) {
+            $totalDays = $paidInvoices->sum(function ($invoice) {
+                $invoiceDate = Carbon::parse($invoice->invoice_date);
+                $paymentDate = Carbon::parse($invoice->payment_date);
+                return $paymentDate->diffInDays($invoiceDate);
+            });
+            $avgPaymentTime = $totalDays / $paidInvoices->count();
+        }
 
         return response()->json([
             'success' => true,
@@ -515,12 +614,14 @@ class InvoiceController extends Controller
     {
         $sources = [];
 
-        // Get Job Orders without invoices
+        // Get Job Orders without ACTIVE invoices (exclude cancelled invoices)
         $jobOrders = JobOrder::with('customer')
             ->whereNotIn('job_order_id', function($query) {
                 $query->select('source_id')
                     ->from('invoices')
-                    ->where('source_type', 'JO');
+                    ->where('source_type', 'JO')
+                    ->where('status', '!=', 'Cancelled') // Only exclude if invoice is NOT cancelled
+                    ->whereNotNull('source_id'); // Also check source_id is not null
             })
             ->where('status', '!=', 'Cancelled')
             ->select('job_order_id as id', 'customer_id', 'goods_desc', 'order_value')
@@ -532,11 +633,13 @@ class InvoiceController extends Controller
                 return $jo;
             });
 
-        // Get Manifests without invoices
+        // Get Manifests without ACTIVE invoices
         $manifests = Manifests::whereNotIn('manifest_id', function($query) {
                 $query->select('source_id')
                     ->from('invoices')
-                    ->where('source_type', 'MF');
+                    ->where('source_type', 'MF')
+                    ->where('status', '!=', 'Cancelled')
+                    ->whereNotNull('source_id');
             })
             ->where('status', 'Completed')
             ->select('manifest_id as id', 'origin_city', 'dest_city', 'cargo_weight')
@@ -548,12 +651,14 @@ class InvoiceController extends Controller
                 return $mf;
             });
 
-        // Get Delivery Orders without invoices
+        // Get Delivery Orders without ACTIVE invoices
         $deliveryOrders = DeliveryOrder::with('customer')
             ->whereNotIn('do_id', function($query) {
                 $query->select('source_id')
                     ->from('invoices')
-                    ->where('source_type', 'DO');
+                    ->where('source_type', 'DO')
+                    ->where('status', '!=', 'Cancelled')
+                    ->whereNotNull('source_id');
             })
             ->where('status', 'Delivered')
             ->select('do_id as id', 'customer_id', 'goods_summary')

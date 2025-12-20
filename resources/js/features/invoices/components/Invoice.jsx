@@ -315,7 +315,7 @@ function InvoiceTable({ invoices, onEdit, onCancel, onRecordPayment, onViewDetai
 
 import { fetchInvoiceStats } from '../services/invoiceService';
 
-function PaymentTracking() {
+function PaymentTracking({ refreshTrigger = 0 }) {
     const [stats, setStats] = useState({
         this_month_paid: 0,
         outstanding: 0,
@@ -326,6 +326,7 @@ function PaymentTracking() {
 
     useEffect(() => {
         const loadStats = async () => {
+            setLoading(true);
             try {
                 const data = await fetchInvoiceStats();
                 if (data) {
@@ -339,7 +340,7 @@ function PaymentTracking() {
         };
 
         loadStats();
-    }, []);
+    }, [refreshTrigger]); // Refresh when trigger changes
 
     const highlights = [
         {
@@ -434,6 +435,10 @@ export default function InvoiceContent() {
     const [invoiceToRecordPayment, setInvoiceToRecordPayment] = useState(null);
     const [invoiceToView, setInvoiceToView] = useState(null);
 
+    // Trigger to refresh PaymentTracking stats after actions
+    const [statsRefreshTrigger, setStatsRefreshTrigger] = useState(0);
+    const triggerStatsRefresh = () => setStatsRefreshTrigger(prev => prev + 1);
+
     // Update params when filters change
     useEffect(() => {
         const params = {};
@@ -456,9 +461,13 @@ export default function InvoiceContent() {
             // Ensure numeric values
             total_amount: parseFloat(inv.total_amount),
             paid_amount: parseFloat(inv.paid_amount),
+            // Include all payments for detail modal
+            payments: inv.payments || [],
+            days_overdue: inv.days_overdue || 0,
             last_payment: inv.last_payment ? {
                 payment_date: inv.last_payment.payment_date,
-                payment_method: inv.last_payment.payment_method
+                payment_method: inv.last_payment.payment_method,
+                amount: inv.last_payment.amount
             } : null
         }));
     }, [invoices]);
@@ -498,6 +507,7 @@ export default function InvoiceContent() {
         try {
             await cancelInvoice(invoiceId, reason);
             setIsCancelModalOpen(false);
+            triggerStatsRefresh(); // Refresh PaymentTracking stats
         } catch (error) {
             console.error('Failed to cancel invoice:', error);
             alert('Gagal membatalkan invoice');
@@ -522,6 +532,7 @@ export default function InvoiceContent() {
                 payment_notes: paymentData.notes
             });
             setIsRecordPaymentModalOpen(false);
+            triggerStatsRefresh(); // Refresh PaymentTracking stats
         } catch (error) {
             console.error('Failed to record payment:', error);
             alert('Gagal mencatat pembayaran');
@@ -536,6 +547,7 @@ export default function InvoiceContent() {
                 await createInvoice(formData);
             }
             setIsModalOpen(false);
+            triggerStatsRefresh(); // Refresh PaymentTracking stats
         } catch (error) {
             console.error('Failed to save invoice:', error);
             alert('Gagal menyimpan invoice');
@@ -601,7 +613,7 @@ export default function InvoiceContent() {
                 onViewDetail={handleViewDetail}
                 loading={loading}
             />
-            <PaymentTracking />
+            <PaymentTracking refreshTrigger={statsRefreshTrigger} />
 
             <InvoiceFormModal
                 isOpen={isModalOpen}

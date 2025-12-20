@@ -406,9 +406,9 @@ const viewConfigs = {
         getContent: () => <DeliveryOrderContent />,
     },
     invoices: {
-        title: 'Invoices',
-        subtitle: 'Kelola tagihan, pembayaran, dan status penagihan',
-        actionButton: { label: 'Buat Invoice', icon: navigationIcons.receipt },
+        // title: 'Invoices',
+        // subtitle: 'Kelola tagihan, pembayaran, dan status penagihan',
+        // actionButton: { label: 'Buat Invoice', icon: navigationIcons.receipt },
         getContent: () => <InvoiceContent />,
     },
     vehicleList: {

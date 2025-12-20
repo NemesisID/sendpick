@@ -89,6 +89,45 @@ class ManifestController extends Controller
         $perPage = $request->get('per_page', 15);
         $manifests = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
+        // ============================================================
+        // ✅ AGREGASI OTOMATIS: Recalculate cargo dari Job Orders
+        // ============================================================
+        // Setiap kali Manifest di-load, hitung ulang cargo_weight dan cargo_summary
+        // dari Job Orders yang terikat untuk memastikan data selalu akurat
+        $manifestItems = $manifests->getCollection()->map(function ($manifest) {
+            $jobOrders = $manifest->jobOrders;
+            
+            if ($jobOrders->isNotEmpty()) {
+                // Hitung total dari SEMUA Job Orders (termasuk Cancelled untuk audit)
+                $totalWeight = $jobOrders->sum('goods_weight');
+                $totalKoli = $jobOrders->sum('goods_qty');
+                
+                // Buat cargo summary
+                $cargoSummary = $jobOrders->count() . ' packages';
+                if ($jobOrders->count() > 0) {
+                    $descriptions = $jobOrders->pluck('goods_desc')->unique()->take(3);
+                    $cargoSummary .= ': ' . $descriptions->implode(', ');
+                    if ($jobOrders->count() > 3) {
+                        $cargoSummary .= ', etc.';
+                    }
+                }
+                
+                // Update manifest object (in-memory, untuk response)
+                $manifest->cargo_weight = $totalWeight;
+                $manifest->cargo_summary = $cargoSummary;
+                
+                // ✅ OPTIONAL: Update database jika berbeda (untuk data consistency)
+                if ($manifest->isDirty(['cargo_weight', 'cargo_summary'])) {
+                    $manifest->saveQuietly(); // saveQuietly to avoid triggering observers
+                }
+            }
+            
+            return $manifest;
+        });
+
+        // Replace collection with updated data
+        $manifests->setCollection($manifestItems);
+
         return response()->json([
             'success' => true,
             'data' => $manifests->items(),
@@ -669,33 +708,40 @@ class ManifestController extends Controller
                 })
                 ->get()
                 ->map(function($jobOrder) {
-                    // ✅ Ambil assignment pertama (yang aktif)
+                // ✅ Ambil assignment yang berstatus 'Active' (prioritas untuk auto-fill)
+                $assignment = $jobOrder->assignments->firstWhere('status', 'Active');
+                
+                // Fallback: Jika tidak ada Active, coba ambil yang pertama (untuk backward compatibility)
+                if (!$assignment) {
                     $assignment = $jobOrder->assignments->first();
+                }
 
-                    return [
-                        'job_order_id' => $jobOrder->job_order_id,
-                        'customer_name' => $jobOrder->customer->customer_name ?? null,
-                        'order_type' => $jobOrder->order_type,
-                        'pickup_address' => $jobOrder->pickup_address,
-                        'pickup_city' => $jobOrder->pickup_city,         // ✅ Added for route calculation
-                        'delivery_address' => $jobOrder->delivery_address,
-                        'delivery_city' => $jobOrder->delivery_city,     // ✅ Added for route calculation
-                        'goods_desc' => $jobOrder->goods_desc,
-                        'goods_qty' => $jobOrder->goods_qty ?? 1,        // ✅ Added for Total Packages (Koli)
-                        'goods_weight' => $jobOrder->goods_weight,
-                        'ship_date' => $jobOrder->ship_date,
-                        'order_value' => $jobOrder->order_value,
-                        'status' => $jobOrder->status,
-                        'pickup_datetime' => $jobOrder->pickup_datetime ?? $jobOrder->ship_date,  // ✅ For route sorting
-                        'delivery_datetime_estimation' => $jobOrder->delivery_datetime_estimation ?? $jobOrder->ship_date,  // ✅ For route sorting
-                        'assignment' => $assignment ? [
-                            'driver_id' => $assignment->driver_id,
-                            'driver_name' => $assignment->driver->driver_name ?? null,
-                            'vehicle_id' => $assignment->vehicle_id,
-                            'vehicle_plate' => $assignment->vehicle->license_plate ?? null,
-                        ] : null,
-                    ];
-                });
+                return [
+                    'job_order_id' => $jobOrder->job_order_id,
+                    'customer_name' => $jobOrder->customer->customer_name ?? null,
+                    'order_type' => $jobOrder->order_type,
+                    'pickup_address' => $jobOrder->pickup_address,
+                    'pickup_city' => $jobOrder->pickup_city,         // ✅ Added for route calculation
+                    'delivery_address' => $jobOrder->delivery_address,
+                    'delivery_city' => $jobOrder->delivery_city,     // ✅ Added for route calculation
+                    'goods_desc' => $jobOrder->goods_desc,
+                    'goods_qty' => $jobOrder->goods_qty ?? 1,        // ✅ Added for Total Packages (Koli)
+                    'goods_weight' => $jobOrder->goods_weight,
+                    'ship_date' => $jobOrder->ship_date,
+                    'order_value' => $jobOrder->order_value,
+                    'status' => $jobOrder->status,
+                    'pickup_datetime' => $jobOrder->pickup_datetime ?? $jobOrder->ship_date,  // ✅ For route sorting
+                    'delivery_datetime_estimation' => $jobOrder->delivery_datetime_estimation ?? $jobOrder->ship_date,  // ✅ For route sorting
+                    // ✅ FIXED: Include assignment data with correct field names for auto-fill
+                    'assignment' => $assignment ? [
+                        'driver_id' => $assignment->driver_id,
+                        'driver_name' => $assignment->driver->driver_name ?? null,
+                        'vehicle_id' => $assignment->vehicle_id,
+                        'vehicle_plate' => $assignment->vehicle->plate_no ?? null,  // ✅ FIXED: Use plate_no, not license_plate
+                        'status' => $assignment->status,  // ✅ Include status for frontend filtering
+                    ] : null,
+                ];
+            });
 
             return response()->json([
                 'success' => true,
@@ -799,6 +845,27 @@ class ManifestController extends Controller
                         $cancelledDOs[] = $do->do_id;
                     }
                     \Log::info("[CANCEL MANIFEST] Cancelled DO (LTL selected JO): {$do->do_id}");
+                }
+            }
+
+            // ✅ 1c. NEW: Cancel DO dengan source_type = 'JO' dimana Job Order-nya ada dalam manifest ini
+            // Ini untuk kasus dimana DO dibuat langsung dari Job Order (FTL) yang kemudian dimasukkan ke Manifest
+            if (!empty($jobOrderIds)) {
+                $joDOs = \App\Models\DeliveryOrder::where('source_type', 'JO')
+                    ->whereIn('source_id', $jobOrderIds)
+                    ->where('status', '!=', 'Cancelled')
+                    ->get();
+
+                foreach ($joDOs as $do) {
+                    $do->update([
+                        'status' => 'Cancelled',
+                        'cancelled_at' => now(),
+                        'cancellation_reason' => "Manifest {$manifestId} dibatalkan (JO dalam Manifest): {$cancellationReason}"
+                    ]);
+                    if (!in_array($do->do_id, $cancelledDOs)) {
+                        $cancelledDOs[] = $do->do_id;
+                    }
+                    \Log::info("[CANCEL MANIFEST] Cancelled DO (JO source in Manifest): {$do->do_id}");
                 }
             }
 

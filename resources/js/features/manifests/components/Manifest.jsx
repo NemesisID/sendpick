@@ -271,16 +271,32 @@ const mapManifestFromApi = (manifest) => {
         customerName = manifest.cargo_summary;
     }
 
-    // Cargo Summary should be commodity
-    const commodity = jobOrders.map(jo => jo.commodity).filter(Boolean).join(', ');
-    // If Cancelled, manifest.cargo_summary holds the snapshot.
-    const cargoSummary = manifest.cargo_summary || commodity || '-';
+    // Cargo Summary should be calculated from Job Orders
+    const commodity = jobOrders.map(jo => jo.commodity || jo.goods_desc).filter(Boolean).join(', ');
 
-    // ✅ FIXED: Calculate Total Packages using SUM of goods_qty (Koli), NOT counting job orders
-    // This is critical for the delivery order accuracy
+    // ✅ FIXED: Calculate cargoSummary from Job Orders, not from database
+    // This ensures consistency between displayed koli/berat and the summary text
+    const cargoSummary = jobOrders.length > 0
+        ? `${jobOrders.length} packages${commodity ? ': ' + commodity.substring(0, 50) : ''}`
+        : (manifest.cargo_summary || '-');
+
+    // ✅ FIXED: Calculate cargo from ALL Job Orders (including Cancelled)
+    // Manifest menunjukkan TOTAL rencana muatan (termasuk yang dibatalkan) untuk audit
+    // Ini sesuai dengan kebutuhan bisnis: Manifest adalah "wadah" yang menunjukkan rencana pengiriman
+
+    // Filter untuk menentukan apakah ada Job Order aktif (untuk driver assignment)
+    const activeJobOrders = jobOrders.filter(jo => jo.status !== 'Cancelled');
+
+    // ✅ Calculate Total Packages (Koli) from ALL Job Orders
     const totalPackages = jobOrders.reduce((sum, jo) => {
         const qty = Number(jo.goods_qty || jo.quantity || jo.koli || 0);
         return sum + qty;
+    }, 0);
+
+    // ✅ Calculate Total Weight from ALL Job Orders
+    const totalWeight = jobOrders.reduce((sum, jo) => {
+        const weight = Number(jo.goods_weight || jo.weight || 0);
+        return sum + weight;
     }, 0);
 
     // ✅ FIXED: Customer display logic for LTL
@@ -347,7 +363,12 @@ const mapManifestFromApi = (manifest) => {
         // ✅ NEW: Route Preview for form Edit (full label with Multi-stop indicator)
         routePreview: routePreview,
         packages: totalPackages,
-        totalWeight: manifest.cargo_weight ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg` : '-',
+        // ✅ FIXED: Use frontend-calculated totalWeight from ALL Job Orders
+        // Fallback to database cargo_weight if jobOrders array is empty (for data consistency)
+        totalWeightValue: totalWeight,
+        totalWeight: jobOrders.length > 0
+            ? `${totalWeight.toLocaleString('id-ID')} kg`
+            : (manifest.cargo_weight ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg` : '-'),
         status: manifest.status ?? 'Pending',
         hub: (manifest.origin_city ?? '').toLowerCase().includes('jakarta')
             ? 'jakarta'
@@ -1359,8 +1380,10 @@ export default function ManifestContent() {
             console.log('🔍 FTL Detected, attempting auto-fill for:', primaryJob);
 
             // 1. Coba ambil dari assignment (Singular - Priority from Backend)
-            if (primaryJob.assignment) {
-                console.log('📍 Found assignment object:', primaryJob.assignment);
+            // ✅ FIXED: Only use Active assignments for auto-fill
+            if (primaryJob.assignment &&
+                (primaryJob.assignment.status === 'Active' || !primaryJob.assignment.status)) {
+                console.log('📍 Found Active assignment object:', primaryJob.assignment);
                 foundDriverId = primaryJob.assignment.driver_id;
                 foundVehicleId = primaryJob.assignment.vehicle_id;
             }
