@@ -560,38 +560,62 @@ class JobOrderController extends Controller
             }
 
             // ============================================================
-            // 3. KELUARKAN JO DARI MANIFEST (Hanya kurangi muatan, tidak cancel)
+            // 3. RE-CALCULATE MANIFEST CARGO (JANGAN DETACH JO dari Manifest)
             // ============================================================
-            $detachedFromManifests = [];
+            // Job Order yang di-cancel TETAP terikat ke Manifest untuk audit trail
+            // Cargo dihitung dari SEMUA Job Order (termasuk Cancelled) untuk total rencana muatan
+            $updatedManifests = [];
 
             $manifests = $jobOrder->manifests()->get();
             foreach ($manifests as $manifest) {
-                // Detach JO dari manifest
-                $manifest->jobOrders()->detach($jobOrderId);
+                // ✅ FIXED: JANGAN DETACH Job Order dari Manifest
+                // Job Order tetap terikat untuk keperluan audit/tracking
+                // $manifest->jobOrders()->detach($jobOrderId); // REMOVED
 
-                // Re-calculate cargo weight dan summary
-                $remainingJobs = $manifest->jobOrders()->get();
-                $totalWeight = $remainingJobs->sum('goods_weight');
-                $totalKoli = $remainingJobs->sum('goods_qty');
+                // ✅ FIXED: Re-calculate cargo dari SEMUA Job Order (termasuk Cancelled)
+                // Manifest menampilkan TOTAL rencana muatan untuk audit
+                $allJobs = $manifest->jobOrders()->get();
                 
-                $cargoSummary = $remainingJobs->count() . ' packages';
-                if ($remainingJobs->count() > 0) {
-                    $descriptions = $remainingJobs->pluck('goods_desc')->unique()->take(3);
+                // Juga hitung Job Order aktif untuk keperluan driver assignment
+                $activeJobs = $manifest->jobOrders()
+                    ->where('status', '!=', 'Cancelled')
+                    ->get();
+                
+                $totalWeight = $allJobs->sum('goods_weight');
+                $totalKoli = $allJobs->sum('goods_qty');
+                
+                $cargoSummary = $allJobs->count() . ' packages';
+                if ($allJobs->count() > 0) {
+                    $descriptions = $allJobs->pluck('goods_desc')->unique()->take(3);
                     $cargoSummary .= ': ' . $descriptions->implode(', ');
-                    if ($remainingJobs->count() > 3) {
+                    if ($allJobs->count() > 3) {
                         $cargoSummary .= ', etc.';
                     }
                 }
 
-                $manifest->update([
-                    'cargo_weight' => $totalWeight,
-                    'cargo_summary' => $cargoSummary
-                ]);
+                // ✅ Jika tidak ada Job Order AKTIF, kosongkan driver & vehicle
+                // Agar driver tersebut kembali tersedia untuk Manifest lain
+                if ($activeJobs->count() === 0) {
+                    $manifest->update([
+                        'cargo_weight' => $totalWeight,
+                        'cargo_summary' => $cargoSummary,
+                        'driver_id' => null,   // ✅ Lepaskan driver
+                        'vehicle_id' => null   // ✅ Lepaskan vehicle
+                    ]);
+                    \Log::info("[CANCEL JO] Manifest {$manifest->manifest_id} has 0 ACTIVE Job Orders. Weight: {$totalWeight} kg. Driver & Vehicle released.");
+                } else {
+                    $manifest->update([
+                        'cargo_weight' => $totalWeight,
+                        'cargo_summary' => $cargoSummary
+                    ]);
+                }
 
-                $detachedFromManifests[] = [
+                $updatedManifests[] = [
                     'manifest_id' => $manifest->manifest_id,
-                    'remaining_jobs' => $remainingJobs->count(),
-                    'remaining_weight' => $totalWeight
+                    'total_jobs' => $allJobs->count(),
+                    'active_jobs' => $activeJobs->count(),
+                    'total_weight' => $totalWeight,
+                    'driver_released' => $activeJobs->count() === 0
                 ];
             }
 
@@ -604,7 +628,7 @@ class JobOrderController extends Controller
 
             \Log::info("[CANCEL JO] Job Order {$jobOrderId} dibatalkan", [
                 'cancelled_dos' => $cancelledDOs,
-                'detached_manifests' => $detachedFromManifests,
+                'updated_manifests' => $updatedManifests,
                 'reason' => $cancellationReason
             ]);
 
@@ -617,7 +641,7 @@ class JobOrderController extends Controller
                     'cancelled_at' => now()->toISOString(),
                     'cancellation_reason' => $cancellationReason,
                     'cancelled_delivery_orders' => $cancelledDOs,
-                    'detached_from_manifests' => $detachedFromManifests
+                    'updated_manifests' => $updatedManifests
                 ]
             ], 200);
 

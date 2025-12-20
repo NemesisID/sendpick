@@ -155,21 +155,99 @@ Migration menambahkan kolom berikut ke tabel:
 - `resources/js/features/orders/components/JobOrderDetail.jsx` - `loadJobOrder()`
 - `resources/js/features/manifests/components/Manifest.jsx` - `availableDrivers`, `availableVehicles`, `calculateCombinedData()`
 
-### Delivery Order Tidak Ter-cancel
-**Penyebab**: Query hanya mencari DO dengan `source_id = manifestId`, tapi tidak mencari DO yang memiliki `selected_job_order_id` terkait (LTL scenario).
+### Delivery Order Tidak Ter-cancel saat Cancel Manifest
+**Penyebab**: Query hanya mencari DO dengan `source_type = 'MF'`, tapi tidak mencari DO dengan `source_type = 'JO'` dimana Job Order-nya ada dalam Manifest yang dibatalkan.
 
-**Solusi**: Backend sekarang mencari DO dalam 2 cara:
+**Solusi (2025-12-20)**: Backend sekarang mencari DO dalam 3 cara:
 1. `source_type = 'MF' AND source_id = manifestId`
 2. `source_type = 'MF' AND selected_job_order_id IN (job_order_ids dari manifest)`
+3. ✅ **NEW**: `source_type = 'JO' AND source_id IN (job_order_ids dari manifest)` - untuk kasus FTL dimana DO dibuat dari Job Order langsung
 
 **Files yang diperbaiki**:
 - `app/Http/Controllers/Api/ManifestController.php` - `cancel()` method
+
+### Muatan Manifest Tidak Berkurang saat Cancel DO
+**Penyebab**: Cancel DO hanya melakukan re-calculate berdasarkan status Job Order, tapi TIDAK men-detach Job Order dari Manifest.
+
+**Solusi (2025-12-20)**: Backend sekarang DETACH Job Order dari Manifest ketika DO dibatalkan, lalu re-calculate cargo:
+1. Detach Job Order terkait (`selected_job_order_id`) dari pivot table `manifest_jobs`
+2. Re-calculate `cargo_weight` dan `cargo_summary` dari remaining Job Orders
+
+**Files yang diperbaiki**:
+- `app/Http/Controllers/Api/DeliveryOrderController.php` - `cancel()` method
+
+### Driver Masih Menempel di Manifest setelah Cancel Job Order
+**Penyebab**: Cancel Job Order men-detach JO dari Manifest dan re-calculate cargo, tapi TIDAK me-NULL-kan `driver_id` dan `vehicle_id` di Manifest. Akibatnya:
+1. Driver tetap dianggap "sibuk" dan tidak tersedia untuk Manifest lain
+2. Manifest menampilkan data driver padahal muatannya sudah 0 kg
+
+**Solusi (2025-12-20)**: 
+- Backend sekarang **TIDAK men-detach Job Order** dari Manifest saat cancel
+- Job Order tetap terikat ke Manifest untuk keperluan audit trail
+- Cargo dihitung **HANYA dari Job Order AKTIF** (bukan Cancelled)
+- Jika `activeJobs.count() === 0` → Set `driver_id = NULL` dan `vehicle_id = NULL`
+- Driver dan Vehicle kembali tersedia untuk ditugaskan ke Manifest lain
+
+**Files yang diperbaiki**:
+- `app/Http/Controllers/Api/JobOrderController.php` - `cancel()` method
+
+### Berat & Koli Manifest Menjadi 0 kg setelah Cancel Job Order
+**Penyebab**: Frontend menggunakan `manifest.cargo_weight` dari database yang sudah diupdate menjadi 0, padahal Job Order masih ada di Manifest.
+
+**Solusi (2025-12-20)**: 
+- Frontend sekarang menghitung berat & koli **langsung dari Job Orders yang AKTIF**
+- Filter `jobOrders.filter(jo => jo.status !== 'Cancelled')` sebelum kalkulasi
+- `totalWeight` dan `totalPackages` dihitung dari SEMUA jobOrders (termasuk Cancelled)
+- Fallback ke `manifest.cargo_weight` jika tidak ada jobOrders (backward compatibility)
+
+**Files yang diperbaiki**:
+- `resources/js/features/manifests/components/Manifest.jsx` - `mapManifestFromApi()`
+
+### Observer untuk Auto-Recalculate (BARU)
+**Implementasi Observer** pada model JobOrder untuk memastikan Manifest cargo selalu ter-update ketika Job Order berubah.
+
+**Cara Kerja**:
+- Setiap kali Job Order di-update (status, berat, koli, dll), Observer akan:
+  1. Mencari semua Manifest yang terkait dengan Job Order
+  2. Recalculate `cargo_weight` dan `cargo_summary` dari SEMUA Job Order (termasuk Cancelled)
+  3. Jika tidak ada Job Order aktif, kosongkan `driver_id` dan `vehicle_id`
+
+**Files yang ditambahkan**:
+- `app/Observers/JobOrderObserver.php` - Observer class
+- `app/Models/JobOrder.php` - Registered Observer di `booted()` method
+
+### Artisan Commands untuk Perbaikan Data
+Untuk memperbaiki data Manifest yang sudah ada:
+
+```bash
+# Recalculate cargo dari semua Manifest
+php artisan manifest:recalculate-cargo
+
+# Cek dulu tanpa membuat perubahan
+php artisan manifest:recalculate-cargo --dry-run
+
+# Untuk manifest tertentu saja
+php artisan manifest:recalculate-cargo --manifest=MF-20251220-AAJKSV
+
+# Re-attach Job Order yang ter-detach (berdasarkan kecocokan rute)
+php artisan manifest:reattach-jobs --dry-run
+php artisan manifest:reattach-jobs
+```
+
+**Files yang ditambahkan**:
+- `app/Console/Commands/RecalculateManifestCargo.php`
+- `app/Console/Commands/ReattachCancelledJobOrders.php`
 
 ---
 
 ## 6. Kesimpulan
 
-- **Cancel JO** = Mematikan Order (Stop Proses)
+- **Cancel JO** = Mematikan Order (Stop Proses) - Job Order tetap terikat ke Manifest untuk audit
 - **Cancel Manifest/DO** = Mereset Order (Mundur satu langkah untuk diperbaiki/dijadwalkan ulang)
+- **Manifest Cargo** = Menampilkan TOTAL berat dari SEMUA Job Order (termasuk yang dibatalkan)
+
+**Catatan Penting**:
+- Untuk data lama dimana Job Order sudah ter-detach dari Manifest, gunakan Edit Manifest untuk re-attach Job Order
+- Jalankan `php artisan manifest:recalculate-cargo` setelah perbaikan data
 
 Gunakan logika ini, maka data di sistem akan rapi dan sesuai dengan operasional logistik dunia nyata! 🚀

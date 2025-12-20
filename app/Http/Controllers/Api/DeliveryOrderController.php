@@ -672,24 +672,30 @@ class DeliveryOrderController extends Controller
                 }
 
                 // ============================================================
-                // 3. RE-CALCULATE MANIFEST (Hanya kurangi muatan, tidak cancel)
+                // 3. DETACH JOB ORDER FROM MANIFEST & RE-CALCULATE
                 // ============================================================
                 $manifest = Manifests::with('jobOrders')->where('manifest_id', $deliveryOrder->source_id)->first();
                 
                 if ($manifest) {
-                    // Re-calculate cargo from remaining active job orders (exclude cancelled ones)
-                    $activeJobOrders = $manifest->jobOrders()
-                        ->where('status', '!=', 'Cancelled')
-                        ->get();
+                    // ✅ FIXED: DETACH the Job Order yang terkait dengan DO ini dari Manifest
+                    // Ini akan mengurangi jumlah muatan di Manifest
+                    if ($deliveryOrder->selected_job_order_id) {
+                        // Detach specific Job Order (LTL scenario)
+                        $manifest->jobOrders()->detach($deliveryOrder->selected_job_order_id);
+                        \Log::info("[CANCEL DO] Detached Job Order {$deliveryOrder->selected_job_order_id} from Manifest {$manifest->manifest_id}");
+                    }
+
+                    // Re-calculate cargo from remaining job orders in manifest
+                    $remainingJobOrders = $manifest->jobOrders()->get();
                     
-                    $totalWeight = $activeJobOrders->sum('goods_weight');
-                    $totalKoli = $activeJobOrders->sum('goods_qty');
+                    $totalWeight = $remainingJobOrders->sum('goods_weight');
+                    $totalKoli = $remainingJobOrders->sum('goods_qty');
                     
-                    $cargoSummary = $activeJobOrders->count() . ' packages';
-                    if ($activeJobOrders->count() > 0) {
-                        $descriptions = $activeJobOrders->pluck('goods_desc')->unique()->take(3);
+                    $cargoSummary = $remainingJobOrders->count() . ' packages';
+                    if ($remainingJobOrders->count() > 0) {
+                        $descriptions = $remainingJobOrders->pluck('goods_desc')->unique()->take(3);
                         $cargoSummary .= ': ' . $descriptions->implode(', ');
-                        if ($activeJobOrders->count() > 3) {
+                        if ($remainingJobOrders->count() > 3) {
                             $cargoSummary .= ', etc.';
                         }
                     }
@@ -701,7 +707,7 @@ class DeliveryOrderController extends Controller
 
                     $recalculatedManifest = [
                         'manifest_id' => $manifest->manifest_id,
-                        'active_jobs' => $activeJobOrders->count(),
+                        'active_jobs' => $remainingJobOrders->count(),
                         'total_weight' => $totalWeight,
                         'total_koli' => $totalKoli
                     ];

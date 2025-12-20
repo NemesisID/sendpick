@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Observers\JobOrderObserver;
 
 class JobOrder extends Model
 {
@@ -13,6 +14,14 @@ class JobOrder extends Model
     protected $primaryKey = 'job_order_id';
     public $incrementing = false;
     protected $keyType = 'string';
+
+    /**
+     * Boot the model and register observers
+     */
+    protected static function booted(): void
+    {
+        static::observe(JobOrderObserver::class);
+    }
     
     protected $fillable = [
         'job_order_id',

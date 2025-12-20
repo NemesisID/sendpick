@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HiOutlinePlus, HiOutlineTrash } from 'react-icons/hi';
+import { HiOutlinePlus, HiOutlineTrash, HiOutlineLockClosed, HiOutlineExclamation } from 'react-icons/hi';
 import EditModal from '../../../components/common/EditModal';
 import { fetchAvailableSources } from '../services/invoiceService';
 
@@ -7,6 +7,10 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
     const isEditMode = !!initialData;
     const [availableSources, setAvailableSources] = useState([]);
     const [loadingSources, setLoadingSources] = useState(false);
+
+    // Check if there are any payments made - if so, lock price editing
+    const hasPaidAmount = isEditMode && parseFloat(initialData?.paid_amount || 0) > 0;
+    const paidAmount = parseFloat(initialData?.paid_amount || 0);
 
     const [formData, setFormData] = useState({
         source_type: '',
@@ -106,12 +110,20 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
     };
 
     const handleItemChange = (index, field, value) => {
+        // If already has payments, don't allow changing qty or price
+        if (hasPaidAmount && (field === 'qty' || field === 'price')) {
+            return;
+        }
+
         const newItems = [...formData.items];
         newItems[index][field] = value;
         setFormData({ ...formData, items: newItems });
     };
 
     const addItem = () => {
+        // If already has payments, don't allow adding items
+        if (hasPaidAmount) return;
+
         setFormData({
             ...formData,
             items: [...formData.items, { description: '', qty: 1, price: 0 }]
@@ -119,6 +131,9 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
     };
 
     const removeItem = (index) => {
+        // If already has payments, don't allow removing items
+        if (hasPaidAmount) return;
+
         const newItems = formData.items.filter((_, i) => i !== index);
         setFormData({ ...formData, items: newItems });
     };
@@ -157,6 +172,16 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
         onSubmit(payload);
     };
 
+    // Format currency for display
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(value);
+    };
+
     return (
         <EditModal
             isOpen={isOpen}
@@ -165,6 +190,25 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
             size="2xl"
         >
             <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Warning Banner for Locked Fields */}
+                {hasPaidAmount && (
+                    <div className="flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-200 p-4">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600 shrink-0">
+                            <HiOutlineExclamation className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold text-amber-800">
+                                Perhatian: Invoice ini sudah memiliki pembayaran
+                            </p>
+                            <p className="text-xs text-amber-700 mt-1">
+                                Pembayaran yang sudah masuk: <strong>{formatCurrency(paidAmount)}</strong>.
+                                Field <strong>Harga Satuan</strong>, <strong>Qty</strong>, dan <strong>Tax Rate</strong> dikunci
+                                untuk mencegah total tagihan berubah menjadi lebih rendah dari jumlah yang sudah dibayar.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Order & Customer Section */}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div>
@@ -243,11 +287,22 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                     <div className="mb-3 flex items-center justify-between">
                         <label className="text-sm font-semibold text-slate-700">
                             Rincian Item / Biaya <span className="text-rose-500">*</span>
+                            {hasPaidAmount && (
+                                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                    <HiOutlineLockClosed className="h-3 w-3" />
+                                    Terkunci
+                                </span>
+                            )}
                         </label>
                         <button
                             type="button"
                             onClick={addItem}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100"
+                            disabled={hasPaidAmount}
+                            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${hasPaidAmount
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                                }`}
+                            title={hasPaidAmount ? 'Tidak dapat menambah item karena sudah ada pembayaran' : 'Tambah item baru'}
                         >
                             <HiOutlinePlus className="h-4 w-4" />
                             Tambah Item
@@ -266,7 +321,7 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                         className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                     />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 relative">
                                     <input
                                         type="number"
                                         min="1"
@@ -274,10 +329,17 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                         onChange={(e) => handleItemChange(index, 'qty', parseInt(e.target.value) || 0)}
                                         placeholder="Qty"
                                         required
-                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                        disabled={hasPaidAmount}
+                                        className={`w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 ${hasPaidAmount
+                                                ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
+                                                : 'border-slate-200 text-slate-700 focus:border-indigo-500 focus:ring-indigo-500/20'
+                                            }`}
                                     />
+                                    {hasPaidAmount && (
+                                        <HiOutlineLockClosed className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
+                                    )}
                                 </div>
-                                <div className="flex-[2]">
+                                <div className="flex-[2] relative">
                                     <input
                                         type="number"
                                         min="0"
@@ -285,10 +347,17 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                         onChange={(e) => handleItemChange(index, 'price', parseInt(e.target.value) || 0)}
                                         placeholder="Harga Satuan"
                                         required
-                                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                        disabled={hasPaidAmount}
+                                        className={`w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 ${hasPaidAmount
+                                                ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
+                                                : 'border-slate-200 text-slate-700 focus:border-indigo-500 focus:ring-indigo-500/20'
+                                            }`}
                                     />
+                                    {hasPaidAmount && (
+                                        <HiOutlineLockClosed className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500" />
+                                    )}
                                 </div>
-                                {formData.items.length > 1 && (
+                                {formData.items.length > 1 && !hasPaidAmount && (
                                     <button
                                         type="button"
                                         onClick={() => removeItem(index)}
@@ -323,7 +392,12 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                 <span className="font-medium">Rp {calculateSubtotal().toLocaleString('id-ID')}</span>
                             </div>
                             <div className="flex items-center justify-between gap-4">
-                                <span className="text-sm text-slate-600">Tax Rate (%)</span>
+                                <span className="text-sm text-slate-600 flex items-center gap-1">
+                                    Tax Rate (%)
+                                    {hasPaidAmount && (
+                                        <HiOutlineLockClosed className="h-3 w-3 text-amber-500" />
+                                    )}
+                                </span>
                                 <input
                                     type="number"
                                     min="0"
@@ -331,7 +405,11 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                     step="0.01"
                                     value={formData.taxRate}
                                     onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })}
-                                    className="w-20 rounded-lg border border-slate-200 px-3 py-1.5 text-right text-sm text-slate-700 focus:border-indigo-500 focus:outline-none"
+                                    disabled={hasPaidAmount}
+                                    className={`w-20 rounded-lg border px-3 py-1.5 text-right text-sm focus:outline-none ${hasPaidAmount
+                                            ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
+                                            : 'border-slate-200 text-slate-700 focus:border-indigo-500'
+                                        }`}
                                 />
                             </div>
                             <div className="flex justify-between text-sm text-slate-600">
@@ -344,6 +422,20 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                     <span>Rp {calculateTotal().toLocaleString('id-ID', { maximumFractionDigits: 0 })}</span>
                                 </div>
                             </div>
+
+                            {/* Show paid amount info if exists */}
+                            {hasPaidAmount && (
+                                <div className="border-t border-slate-200 pt-3 space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-emerald-600 font-medium">Sudah Dibayar</span>
+                                        <span className="font-semibold text-emerald-600">{formatCurrency(paidAmount)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-rose-600 font-medium">Sisa Tagihan</span>
+                                        <span className="font-semibold text-rose-600">{formatCurrency(calculateTotal() - paidAmount)}</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

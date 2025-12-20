@@ -23,17 +23,14 @@ const RecordPaymentModal = ({
             // Set default date to today
             const today = new Date().toISOString().split('T')[0];
 
-            // Calculate remaining amount if possible, otherwise empty
-            // Assuming invoice.total is a string like "Rp 2.750.000"
-            let remainingAmount = '';
-            if (invoice.total) {
-                const totalStr = invoice.total.replace(/[^0-9]/g, '');
-                remainingAmount = totalStr;
-            }
+            // Calculate remaining amount (total - paid)
+            const totalAmount = parseFloat(invoice.total_amount) || 0;
+            const paidAmount = parseFloat(invoice.paid_amount) || 0;
+            const remainingAmount = totalAmount - paidAmount;
 
             setFormData({
                 paymentDate: today,
-                amount: remainingAmount,
+                amount: remainingAmount > 0 ? remainingAmount.toString() : '',
                 paymentMethod: 'transfer',
                 proofFile: null
             });
@@ -111,13 +108,25 @@ const RecordPaymentModal = ({
             title="Catat Pembayaran"
         >
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="flex items-center gap-4 rounded-xl bg-indigo-50 p-4 border border-indigo-100">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
-                        <HiOutlineCash className="h-6 w-6" />
+                <div className="rounded-xl bg-indigo-50 p-4 border border-indigo-100">
+                    <div className="flex items-center gap-4 mb-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600">
+                            <HiOutlineCash className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-indigo-600 font-medium">Total Tagihan</p>
+                            <p className="text-xl font-bold text-indigo-900">{formatCurrency(invoice?.total_amount) || 'Rp 0'}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p className="text-sm text-indigo-600 font-medium">Total Tagihan</p>
-                        <p className="text-lg font-bold text-indigo-900">{invoice?.total || 'Rp 0'}</p>
+                    <div className="flex gap-4 pt-3 border-t border-indigo-200">
+                        <div className="flex-1">
+                            <p className="text-xs text-emerald-600 font-medium">Sudah Dibayar</p>
+                            <p className="text-sm font-semibold text-emerald-700">{formatCurrency(invoice?.paid_amount) || 'Rp 0'}</p>
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-xs text-rose-600 font-medium">Sisa Tagihan</p>
+                            <p className="text-sm font-semibold text-rose-700">{formatCurrency((parseFloat(invoice?.total_amount) || 0) - (parseFloat(invoice?.paid_amount) || 0))}</p>
+                        </div>
                     </div>
                 </div>
 
@@ -133,8 +142,8 @@ const RecordPaymentModal = ({
                             value={formData.paymentDate}
                             onChange={handleChange}
                             className={`w-full rounded-xl border px-4 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 ${errors.paymentDate
-                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                                    : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'
+                                ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                                : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'
                                 }`}
                         />
                         {errors.paymentDate && (
@@ -156,8 +165,8 @@ const RecordPaymentModal = ({
                                 onChange={handleChange}
                                 placeholder="0"
                                 className={`w-full rounded-xl border pl-10 pr-4 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 ${errors.amount
-                                        ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                                        : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'
+                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                                    : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'
                                     }`}
                             />
                         </div>
@@ -179,8 +188,8 @@ const RecordPaymentModal = ({
                             value={formData.paymentMethod}
                             onChange={handleChange}
                             className={`w-full rounded-xl border px-4 py-2.5 text-sm transition-colors focus:outline-none focus:ring-2 ${errors.paymentMethod
-                                    ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                                    : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'
+                                ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
+                                : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-200'
                                 }`}
                         >
                             <option value="transfer">Transfer Bank</option>

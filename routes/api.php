@@ -215,6 +215,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/invoices/{invoiceId}/cancel', [InvoiceController::class, 'cancel'])->name('api.invoices.cancel')->withoutMiddleware('auth:sanctum');
     // 4. Mendapatkan statistik invoice
     Route::get('/invoices/stats', [InvoiceController::class, 'getStats'])->name('api.invoices.stats')->withoutMiddleware('auth:sanctum'); // ada
+    // 5. Generate PDF invoice
+    Route::get('/invoices/{invoiceId}/pdf', [InvoiceController::class, 'generatePdf'])->name('api.invoices.pdf')->withoutMiddleware('auth:sanctum');
 
     // Invoices (apiResource)
     Route::apiResource('invoices', InvoiceController::class)
@@ -254,13 +256,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/customer-analytics/export', [ReportController::class, 'exportCustomerAnalytics'])->name('api.reports.customer-analytics.export');
 
 
+
     // ============================================
     // DRIVER MOBILE APP ROUTES
     // ============================================
     // Prefix: /api/driver
     // Authentication: Sanctum Bearer Token
     // Platform: Mobile App (Android/iOS)
-    
+
     Route::prefix('driver')->name('driver.')->group(function () {
         // Authentication
         Route::post('/login', [DriverAppController::class, 'login'])->withoutMiddleware('auth:sanctum')->name('login');
