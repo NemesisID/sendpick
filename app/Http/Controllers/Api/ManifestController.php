@@ -909,11 +909,16 @@ class ManifestController extends Controller
             // ============================================================
             // 4. UPDATE MANIFEST STATUS ke Cancelled
             // ============================================================
+            // ✅ Reset cargo_weight ke 0 dan cargo_summary ke "0 packages"
+            // Manifest adalah "wadah/kontainer" - jika semua Job Order dikembalikan,
+            // maka truk harus terlihat KOSONG (0 Koli, 0 Berat, 0 Packages)
+            // Driver & Armada TETAP dipertahankan untuk keperluan audit
             $manifest->update([
                 'status' => 'Cancelled',
                 'cancelled_at' => now(),
                 'cancellation_reason' => $cancellationReason,
-                // Keep cargo_weight and cargo_summary as snapshot (untuk audit)
+                'cargo_weight' => 0,           // Reset berat ke 0
+                'cargo_summary' => '0 packages' // Reset packages ke 0
             ]);
 
             \Log::info("[CANCEL MANIFEST] Manifest {$manifestId} dibatalkan", [

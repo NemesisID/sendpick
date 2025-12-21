@@ -136,13 +136,27 @@ class ProfileController extends Controller
                 $admin->address = $request->address;
             }
 
-            if ($request->has('photo')) {
+            if ($request->hasFile('photo')) {
+                // Delete old photo if exists
+                if ($admin->photo && str_contains($admin->photo, '/storage/')) {
+                    $oldPath = str_replace('/storage/', '', $admin->photo);
+                    if (Storage::disk('public')->exists($oldPath)) {
+                        Storage::disk('public')->delete($oldPath);
+                    }
+                }
+
+                $path = $request->file('photo')->store('profile-photos', 'public');
+                $admin->photo = '/storage/' . $path;
+            } elseif ($request->filled('photo') && is_string($request->photo)) {
+                // Fallback for string input (if not file upload)
                 $admin->photo = $request->photo;
             }
 
             // ✅ Update password if provided
             if ($request->filled('new_password')) {
                 // Verify current password
+                // Note: Frontend must send 'current_password' for this to work securely.
+                // If it's missing, validation at 113 might fail if we require it with new_password.
                 if (!Hash::check($request->current_password, $admin->password)) {
                     return response()->json([
                         'success' => false,
@@ -183,66 +197,16 @@ class ProfileController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat mengambil profile ',
-                'error' => $e->getMessage(),           // ← DETAIL ERROR
-                'line' => $e->getLine(),               // ← LINE NUMBER
-                'file' => $e->getFile() 
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors()
             ], 422);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat mengambil profile:',
-                'error' => $e->getMessage(),           // ← DETAIL ERROR
-                'line' => $e->getLine(),               // ← LINE NUMBER
-                'file' => $e->getFile() 
+                'message' => 'Terjadi kesalahan saat memperbarui profile',
+                'error' => $e->getMessage()
             ], 500);
         }
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => [
-                'required',
-                'email',
-                Rule::unique('admin', 'email')->ignore($admin->user_id, 'user_id')
-            ],
-            'current_password' => 'required_with:new_password|string',
-            'new_password' => [
-                'nullable',
-                'confirmed',
-                Password::min(8)->letters()->mixedCase()->numbers()
-            ]
-        ]);
-
-        // Update basic information
-        $admin->name = $request->name;
-        $admin->email = $request->email;
-
-        // Update password if provided
-        if ($request->filled('new_password')) {
-            // Verify current password
-            if (!Hash::check($request->current_password, $admin->password)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Current password is incorrect'
-                ], 422);
-            }
-
-            $admin->password = Hash::make($request->new_password);
-        }
-
-        $admin->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Profile updated successfully',
-            'data' => [
-                'user_id' => $admin->user_id,
-                'name' => $admin->name,
-                'email' => $admin->email,
-                'roles' => $admin->roles()->get(['id', 'name', 'description']),
-                'updated_at' => $admin->updated_at
-            ]
-        ], 200);
     }
 }

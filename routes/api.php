@@ -244,10 +244,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard.index');
 
     // Reports - Read-Only endpoints untuk analytics
-    Route::get('/reports/sales', [ReportController::class, 'sales'])->name('api.reports.sales');
-    Route::get('/reports/financial', [ReportController::class, 'financial'])->name('api.reports.financial');
-    Route::get('/reports/operational', [ReportController::class, 'operational'])->name('api.reports.operational');
-    Route::get('/reports/customer-analytics', [ReportController::class, 'customerAnalytics'])->name('api.reports.customer-analytics');
+    Route::get('/reports/sales', [ReportController::class, 'sales'])->name('api.reports.sales')->withoutMiddleware('auth:sanctum');
+    Route::get('/reports/financial', [ReportController::class, 'financial'])->name('api.reports.financial')->withoutMiddleware('auth:sanctum');
+    Route::get('/reports/operational', [ReportController::class, 'operational'])->name('api.reports.operational')->withoutMiddleware('auth:sanctum');
+    Route::get('/reports/customer-analytics', [ReportController::class, 'customerAnalytics'])->name('api.reports.customer-analytics')->withoutMiddleware('auth:sanctum');
     
     // Reports Export - Endpoints untuk export file (Excel/CSV)
     Route::get('/reports/sales/export', [ReportController::class, 'exportSales'])->name('api.reports.sales.export');
@@ -262,7 +262,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ============================================
     // Prefix: /api/driver
     // Authentication: Sanctum Bearer Token
-    // Platform: Mobile App (Android/iOS)
+    // Platform: Mobile App Flutter (Android/iOS)
 
     Route::prefix('driver')->name('driver.')->group(function () {
         // Authentication

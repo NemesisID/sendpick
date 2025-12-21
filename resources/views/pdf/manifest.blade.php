@@ -368,6 +368,7 @@
             <table class="header-table">
                 <tr>
                     <td class="company-info">
+                        <img src="{{ public_path('build/assets/logo_sendpick.aea87447-400x150.png') }}" alt="Logo" style="height: 40px; margin-bottom: 10px;">
                         <div class="company-name">{{ $companyName }}</div>
                         <div class="company-address">
                             {{ $companyAddress }}<br>

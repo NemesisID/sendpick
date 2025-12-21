@@ -271,30 +271,35 @@ const mapManifestFromApi = (manifest) => {
         customerName = manifest.cargo_summary;
     }
 
+    // ✅ CHECK: If manifest is Cancelled, always show 0 for all cargo values
+    // A cancelled manifest is "empty" - all job orders have been returned to pending
+    const isCancelled = manifest.status?.toLowerCase() === 'cancelled';
+
     // Cargo Summary should be calculated from Job Orders
     const commodity = jobOrders.map(jo => jo.commodity || jo.goods_desc).filter(Boolean).join(', ');
 
-    // ✅ FIXED: Calculate cargoSummary from Job Orders, not from database
-    // This ensures consistency between displayed koli/berat and the summary text
-    const cargoSummary = jobOrders.length > 0
-        ? `${jobOrders.length} packages${commodity ? ': ' + commodity.substring(0, 50) : ''}`
-        : (manifest.cargo_summary || '-');
-
-    // ✅ FIXED: Calculate cargo from ALL Job Orders (including Cancelled)
-    // Manifest menunjukkan TOTAL rencana muatan (termasuk yang dibatalkan) untuk audit
-    // Ini sesuai dengan kebutuhan bisnis: Manifest adalah "wadah" yang menunjukkan rencana pengiriman
+    // ✅ FIXED: For Cancelled manifests, always show "0 packages"
+    // For active manifests, calculate from job orders or fallback to database
+    let cargoSummary;
+    if (isCancelled) {
+        cargoSummary = '0 packages';
+    } else if (jobOrders.length > 0) {
+        cargoSummary = `${jobOrders.length} packages${commodity ? ': ' + commodity.substring(0, 50) : ''}`;
+    } else {
+        cargoSummary = manifest.cargo_summary || '-';
+    }
 
     // Filter untuk menentukan apakah ada Job Order aktif (untuk driver assignment)
     const activeJobOrders = jobOrders.filter(jo => jo.status !== 'Cancelled');
 
-    // ✅ Calculate Total Packages (Koli) from ALL Job Orders
-    const totalPackages = jobOrders.reduce((sum, jo) => {
+    // ✅ FIXED: For Cancelled manifests, weight and packages are always 0
+    // For active manifests, calculate from job orders
+    const totalPackages = isCancelled ? 0 : jobOrders.reduce((sum, jo) => {
         const qty = Number(jo.goods_qty || jo.quantity || jo.koli || 0);
         return sum + qty;
     }, 0);
 
-    // ✅ Calculate Total Weight from ALL Job Orders
-    const totalWeight = jobOrders.reduce((sum, jo) => {
+    const totalWeight = isCancelled ? 0 : jobOrders.reduce((sum, jo) => {
         const weight = Number(jo.goods_weight || jo.weight || 0);
         return sum + weight;
     }, 0);
@@ -363,12 +368,17 @@ const mapManifestFromApi = (manifest) => {
         // ✅ NEW: Route Preview for form Edit (full label with Multi-stop indicator)
         routePreview: routePreview,
         packages: totalPackages,
-        // ✅ FIXED: Use frontend-calculated totalWeight from ALL Job Orders
-        // Fallback to database cargo_weight if jobOrders array is empty (for data consistency)
+        // ✅ FIXED: For Cancelled manifests, always show "0 kg"
+        // For active manifests, use calculated weight or fallback to database
+        // Note: Use !== null/undefined check instead of truthy check to handle 0 correctly
         totalWeightValue: totalWeight,
-        totalWeight: jobOrders.length > 0
-            ? `${totalWeight.toLocaleString('id-ID')} kg`
-            : (manifest.cargo_weight ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg` : '-'),
+        totalWeight: isCancelled
+            ? '0 kg'
+            : (jobOrders.length > 0
+                ? `${totalWeight.toLocaleString('id-ID')} kg`
+                : (manifest.cargo_weight !== null && manifest.cargo_weight !== undefined
+                    ? `${Number(manifest.cargo_weight).toLocaleString('id-ID')} kg`
+                    : '-')),
         status: manifest.status ?? 'Pending',
         hub: (manifest.origin_city ?? '').toLowerCase().includes('jakarta')
             ? 'jakarta'

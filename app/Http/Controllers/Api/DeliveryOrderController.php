@@ -641,6 +641,67 @@ class DeliveryOrderController extends Controller
                     ]);
 
                     $resetJobOrders[] = $jobOrder->job_order_id;
+
+                    // ============================================================
+                    // ✅ NEW: Check if this Job Order is part of any Manifest
+                    // If so, detach it and potentially cancel the Manifest
+                    // ============================================================
+                    $relatedManifest = Manifests::whereHas('jobOrders', function($query) use ($jobOrder) {
+                        $query->where('job_orders.job_order_id', $jobOrder->job_order_id);
+                    })->first();
+
+                    if ($relatedManifest) {
+                        // Detach the Job Order from Manifest
+                        $relatedManifest->jobOrders()->detach($jobOrder->job_order_id);
+                        \Log::info("[CANCEL DO] Detached Job Order {$jobOrder->job_order_id} from Manifest {$relatedManifest->manifest_id}");
+
+                        // Re-calculate cargo from remaining job orders
+                        $remainingJobOrders = $relatedManifest->jobOrders()->get();
+
+                        if ($remainingJobOrders->count() === 0) {
+                            // Manifest is now empty - cancel it
+                            $relatedManifest->update([
+                                'status' => 'Cancelled',
+                                'cancelled_at' => now(),
+                                'cancellation_reason' => "Delivery Order {$doId} dibatalkan. Manifest tidak memiliki Job Order tersisa.",
+                                'cargo_weight' => 0,
+                                'cargo_summary' => '0 packages'
+                            ]);
+
+                            \Log::info("[CANCEL DO] Manifest {$relatedManifest->manifest_id} cancelled because no Job Orders remaining");
+
+                            $recalculatedManifest = [
+                                'manifest_id' => $relatedManifest->manifest_id,
+                                'status' => 'Cancelled',
+                                'active_jobs' => 0,
+                                'total_weight' => 0,
+                                'total_koli' => 0
+                            ];
+                        } else {
+                            // Still has remaining Job Orders - just recalculate cargo
+                            $totalWeight = $remainingJobOrders->sum('goods_weight');
+                            $totalKoli = $remainingJobOrders->sum('goods_qty');
+                            
+                            $cargoSummary = $remainingJobOrders->count() . ' packages';
+                            if ($remainingJobOrders->count() > 0) {
+                                $descriptions = $remainingJobOrders->pluck('goods_desc')->unique()->take(3);
+                                $cargoSummary .= ': ' . $descriptions->implode(', ');
+                            }
+
+                            $relatedManifest->update([
+                                'cargo_weight' => $totalWeight,
+                                'cargo_summary' => $cargoSummary
+                            ]);
+
+                            $recalculatedManifest = [
+                                'manifest_id' => $relatedManifest->manifest_id,
+                                'status' => $relatedManifest->status,
+                                'active_jobs' => $remainingJobOrders->count(),
+                                'total_weight' => $totalWeight,
+                                'total_koli' => $totalKoli
+                            ];
+                        }
+                    }
                 }
 
             } elseif ($deliveryOrder->source_type === 'MF') {
@@ -688,29 +749,55 @@ class DeliveryOrderController extends Controller
                     // Re-calculate cargo from remaining job orders in manifest
                     $remainingJobOrders = $manifest->jobOrders()->get();
                     
-                    $totalWeight = $remainingJobOrders->sum('goods_weight');
-                    $totalKoli = $remainingJobOrders->sum('goods_qty');
-                    
-                    $cargoSummary = $remainingJobOrders->count() . ' packages';
-                    if ($remainingJobOrders->count() > 0) {
-                        $descriptions = $remainingJobOrders->pluck('goods_desc')->unique()->take(3);
-                        $cargoSummary .= ': ' . $descriptions->implode(', ');
-                        if ($remainingJobOrders->count() > 3) {
-                            $cargoSummary .= ', etc.';
+                    // ============================================================
+                    // ✅ NEW: If no remaining Job Orders, CANCEL the Manifest entirely
+                    // ============================================================
+                    if ($remainingJobOrders->count() === 0) {
+                        // Manifest is now empty - cancel it
+                        $manifest->update([
+                            'status' => 'Cancelled',
+                            'cancelled_at' => now(),
+                            'cancellation_reason' => "Delivery Order {$doId} dibatalkan. Manifest tidak memiliki Job Order tersisa.",
+                            'cargo_weight' => 0,
+                            'cargo_summary' => '0 packages'
+                        ]);
+
+                        \Log::info("[CANCEL DO] Manifest {$manifest->manifest_id} cancelled because no Job Orders remaining");
+
+                        $recalculatedManifest = [
+                            'manifest_id' => $manifest->manifest_id,
+                            'status' => 'Cancelled',
+                            'active_jobs' => 0,
+                            'total_weight' => 0,
+                            'total_koli' => 0
+                        ];
+                    } else {
+                        // Still has remaining Job Orders - just recalculate cargo
+                        $totalWeight = $remainingJobOrders->sum('goods_weight');
+                        $totalKoli = $remainingJobOrders->sum('goods_qty');
+                        
+                        $cargoSummary = $remainingJobOrders->count() . ' packages';
+                        if ($remainingJobOrders->count() > 0) {
+                            $descriptions = $remainingJobOrders->pluck('goods_desc')->unique()->take(3);
+                            $cargoSummary .= ': ' . $descriptions->implode(', ');
+                            if ($remainingJobOrders->count() > 3) {
+                                $cargoSummary .= ', etc.';
+                            }
                         }
+
+                        $manifest->update([
+                            'cargo_weight' => $totalWeight,
+                            'cargo_summary' => $cargoSummary
+                        ]);
+
+                        $recalculatedManifest = [
+                            'manifest_id' => $manifest->manifest_id,
+                            'status' => $manifest->status,
+                            'active_jobs' => $remainingJobOrders->count(),
+                            'total_weight' => $totalWeight,
+                            'total_koli' => $totalKoli
+                        ];
                     }
-
-                    $manifest->update([
-                        'cargo_weight' => $totalWeight,
-                        'cargo_summary' => $cargoSummary
-                    ]);
-
-                    $recalculatedManifest = [
-                        'manifest_id' => $manifest->manifest_id,
-                        'active_jobs' => $remainingJobOrders->count(),
-                        'total_weight' => $totalWeight,
-                        'total_koli' => $totalKoli
-                    ];
                 }
             }
 
