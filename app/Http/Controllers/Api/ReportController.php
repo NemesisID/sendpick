@@ -33,6 +33,10 @@ class ReportController extends Controller
     /**
      * Get sales performance report
      * 
+     * Revenue calculation is based on INVOICES table (not job_orders.order_value)
+     * - Total Revenue = sum of paid_amount from invoices with status 'Paid'
+     * - This ensures consistency with the Invoices module display
+     * 
      * @param Request $request
      * @return JsonResponse
      */
@@ -40,7 +44,7 @@ class ReportController extends Controller
     {
         $request->validate([
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'end_date' => 'required|date|after_or_equal:start_date',
             'group_by' => 'in:day,week,month,year'
         ]);
 
@@ -48,51 +52,88 @@ class ReportController extends Controller
         $endDate = Carbon::parse($request->end_date)->endOfDay();
         $groupBy = $request->get('group_by', 'month');
 
-        // Sales trend data
-        $salesTrend = JobOrder::select(
-                DB::raw("DATE_TRUNC('{$groupBy}', created_at) as period"),
-                DB::raw('COUNT(*) as total_orders'),
-                DB::raw('SUM(order_value) as total_revenue'),
-                DB::raw('AVG(order_value) as avg_order_value')
-            )
+        // Get invoices for revenue calculation (excludes cancelled)
+        $invoices = Invoices::whereNotIn('status', ['Cancelled'])
             ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy('period')
-            ->orderBy('period')
-            ->get()
-            ->map(function ($item) use ($groupBy) {
-                return [
-                    'period' => Carbon::parse($item->period)->format($this->getDateFormat($groupBy)),
-                    'total_orders' => $item->total_orders,
-                    'total_revenue' => $item->total_revenue,
-                    'avg_order_value' => round($item->avg_order_value, 2)
-                ];
-            });
+            ->get();
 
-        // Customer distribution
+        // Sales trend based on invoices - only count PAID invoices for revenue
+        $salesTrend = $invoices->groupBy(function ($item) use ($groupBy) {
+            $date = Carbon::parse($item->created_at);
+            return match($groupBy) {
+                'day' => $date->format('Y-m-d'),
+                'week' => $date->format('Y-W'),
+                'month' => $date->format('Y-m'),
+                'year' => $date->format('Y'),
+                default => $date->format('Y-m')
+            };
+        })->map(function ($group, $period) {
+            // Only sum paid_amount from Paid invoices
+            $paidInvoices = $group->where('status', 'Paid');
+            return [
+                'period' => $period,
+                'total_orders' => $group->count(),
+                'total_revenue' => $paidInvoices->sum('paid_amount'),
+                'avg_order_value' => $paidInvoices->count() > 0 
+                    ? round($paidInvoices->avg('paid_amount') ?? 0, 2) 
+                    : 0
+            ];
+        })->sortKeys()->values();
+
+        // Customer distribution based on INVOICES (not job_orders)
         $customerDistribution = Customers::select('customers.customer_name')
-            ->selectRaw('COUNT(job_orders.job_order_id) as order_count')
-            ->selectRaw('SUM(job_orders.order_value) as total_revenue')
-            ->leftJoin('job_orders', 'customers.customer_id', '=', 'job_orders.customer_id')
-            ->whereBetween('job_orders.created_at', [$startDate, $endDate])
+            ->selectRaw('COUNT(invoices.invoice_id) as order_count')
+            ->selectRaw('SUM(CASE WHEN invoices.status = ? THEN invoices.paid_amount ELSE 0 END) as total_revenue', ['Paid'])
+            ->leftJoin('invoices', 'customers.customer_id', '=', 'invoices.customer_id')
+            ->where(function($q) use ($startDate, $endDate) {
+                $q->whereBetween('invoices.created_at', [$startDate, $endDate])
+                  ->whereNotIn('invoices.status', ['Cancelled']);
+            })
             ->groupBy('customers.customer_id', 'customers.customer_name')
+            ->havingRaw('COUNT(invoices.invoice_id) > 0')
             ->orderByDesc('total_revenue')
             ->limit(10)
             ->get();
 
-        // Order status distribution
-        $statusDistribution = JobOrder::select('status', DB::raw('COUNT(*) as count'))
+        // Invoice status distribution (instead of job order status)
+        $statusDistribution = Invoices::select('status', DB::raw('COUNT(*) as count'))
             ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotIn('status', ['Cancelled'])
             ->groupBy('status')
             ->get();
 
         // Summary statistics
+        // OPERATIONAL metrics from JOB_ORDERS (Total Orders, Completion Rate)
+        // FINANCIAL metrics from INVOICES (Revenue, Customers, Avg Order Value)
+        
+        $activeJobOrders = JobOrder::whereNotIn('status', ['Cancelled'])
+            ->whereBetween('created_at', [$startDate, $endDate]);
+        
+        $completedJobOrders = JobOrder::where('status', 'Completed')
+            ->whereBetween('created_at', [$startDate, $endDate]);
+        
+        $paidInvoices = Invoices::where('status', 'Paid')
+            ->whereBetween('created_at', [$startDate, $endDate]);
+        
+        // Active invoiced customers (customers with invoices, excluding Cancelled)
+        $activeInvoicedCustomers = Invoices::whereNotIn('status', ['Cancelled'])
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->distinct('customer_id')
+            ->count('customer_id');
+
+        // Calculate Job Order completion rate
+        $totalJoCount = (clone $activeJobOrders)->count();
+        $completedJoCount = (clone $completedJobOrders)->count();
+        $joCompletionRate = $totalJoCount > 0 ? round(($completedJoCount / $totalJoCount) * 100, 2) : 0;
+
         $summary = [
-            'total_orders' => JobOrder::whereBetween('created_at', [$startDate, $endDate])->count(),
-            'total_revenue' => JobOrder::whereBetween('created_at', [$startDate, $endDate])->sum('order_value'),
-            'avg_order_value' => JobOrder::whereBetween('created_at', [$startDate, $endDate])->avg('order_value'),
-            'total_customers' => JobOrder::whereBetween('created_at', [$startDate, $endDate])
-                ->distinct('customer_id')->count('customer_id'),
-            'completion_rate' => $this->calculateCompletionRate($startDate, $endDate)
+            // Operational metrics from Job Orders
+            'total_orders' => $totalJoCount,
+            'completion_rate' => $joCompletionRate,
+            // Financial metrics from Invoices
+            'total_customers' => $activeInvoicedCustomers, // Customers with active invoices
+            'total_revenue' => (clone $paidInvoices)->sum('paid_amount'),
+            'avg_order_value' => (clone $paidInvoices)->avg('paid_amount') ?? 0,
         ];
 
         return response()->json([
@@ -116,7 +157,7 @@ class ReportController extends Controller
     {
         $request->validate([
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'end_date' => 'required|date|after_or_equal:start_date',
             'group_by' => 'in:day,week,month,year'
         ]);
 
@@ -124,27 +165,27 @@ class ReportController extends Controller
         $endDate = Carbon::parse($request->end_date)->endOfDay();
         $groupBy = $request->get('group_by', 'month');
 
-        // Revenue trend
-        $revenueTrend = Invoices::select(
-                DB::raw("DATE_TRUNC('{$groupBy}', created_at) as period"),
-                DB::raw('SUM(CASE WHEN status = \'Paid\' THEN total_amount ELSE 0 END) as paid_amount'),
-                DB::raw('SUM(CASE WHEN status = \'Pending\' THEN total_amount ELSE 0 END) as pending_amount'),
-                DB::raw('SUM(CASE WHEN status = \'Overdue\' THEN total_amount ELSE 0 END) as overdue_amount'),
-                DB::raw('SUM(total_amount) as total_invoiced')
-            )
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy('period')
-            ->orderBy('period')
-            ->get()
-            ->map(function ($item) use ($groupBy) {
-                return [
-                    'period' => Carbon::parse($item->period)->format($this->getDateFormat($groupBy)),
-                    'paid_amount' => $item->paid_amount,
-                    'pending_amount' => $item->pending_amount,
-                    'overdue_amount' => $item->overdue_amount,
-                    'total_invoiced' => $item->total_invoiced
-                ];
-            });
+        // Revenue trend - database agnostic approach using PHP grouping
+        $invoices = Invoices::whereBetween('created_at', [$startDate, $endDate])->get();
+
+        $revenueTrend = $invoices->groupBy(function ($item) use ($groupBy) {
+            $date = Carbon::parse($item->created_at);
+            return match($groupBy) {
+                'day' => $date->format('Y-m-d'),
+                'week' => $date->format('Y-W'),
+                'month' => $date->format('Y-m'),
+                'year' => $date->format('Y'),
+                default => $date->format('Y-m')
+            };
+        })->map(function ($group, $period) {
+            return [
+                'period' => $period,
+                'paid_amount' => $group->where('status', 'Paid')->sum('total_amount'),
+                'pending_amount' => $group->where('status', 'Pending')->sum('total_amount'),
+                'overdue_amount' => $group->where('status', 'Overdue')->sum('total_amount'),
+                'total_invoiced' => $group->sum('total_amount')
+            ];
+        })->sortKeys()->values();
 
         // Payment status summary
         $paymentSummary = Invoices::select('status')
@@ -154,21 +195,52 @@ class ReportController extends Controller
             ->groupBy('status')
             ->get();
 
-        // Outstanding receivables aging
-        $receivablesAging = Invoices::select(
-                DB::raw("CASE 
-                    WHEN due_date >= CURRENT_DATE THEN 'Current'
-                    WHEN due_date >= CURRENT_DATE - INTERVAL '30 days' THEN '1-30 days'
-                    WHEN due_date >= CURRENT_DATE - INTERVAL '60 days' THEN '31-60 days'
-                    WHEN due_date >= CURRENT_DATE - INTERVAL '90 days' THEN '61-90 days'
-                    ELSE 'Over 90 days'
-                END as aging_category"),
-                DB::raw('COUNT(*) as invoice_count'),
-                DB::raw('SUM(total_amount) as total_amount')
-            )
-            ->whereIn('status', ['Pending', 'Overdue'])
-            ->groupBy('aging_category')
-            ->get();
+        // Outstanding receivables aging - PHP-based calculation
+        $outstandingInvoices = Invoices::whereIn('status', ['Pending', 'Overdue'])->get();
+        $today = Carbon::today();
+        
+        $agingCategories = [
+            'Current' => 0,
+            '1-30 days' => 0,
+            '31-60 days' => 0,
+            '61-90 days' => 0,
+            'Over 90 days' => 0
+        ];
+        $agingCounts = [
+            'Current' => 0,
+            '1-30 days' => 0,
+            '31-60 days' => 0,
+            '61-90 days' => 0,
+            'Over 90 days' => 0
+        ];
+        
+        foreach ($outstandingInvoices as $inv) {
+            $dueDate = Carbon::parse($inv->due_date);
+            $daysOverdue = $today->diffInDays($dueDate, false);
+            
+            if ($daysOverdue >= 0) {
+                $category = 'Current';
+            } elseif ($daysOverdue >= -30) {
+                $category = '1-30 days';
+            } elseif ($daysOverdue >= -60) {
+                $category = '31-60 days';
+            } elseif ($daysOverdue >= -90) {
+                $category = '61-90 days';
+            } else {
+                $category = 'Over 90 days';
+            }
+            
+            $agingCategories[$category] += $inv->total_amount;
+            $agingCounts[$category]++;
+        }
+
+        $receivablesAging = collect($agingCategories)->map(function ($amount, $category) use ($agingCounts) {
+            return [
+                'aging_category' => $category,
+                'invoice_count' => $agingCounts[$category],
+                'total_amount' => $amount
+            ];
+        })->values();
 
         // Top paying customers
         $topPayingCustomers = Customers::select('customers.customer_name')
@@ -212,75 +284,91 @@ class ReportController extends Controller
     {
         $request->validate([
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date'
+            'end_date' => 'required|date|after_or_equal:start_date'
         ]);
 
         $startDate = Carbon::parse($request->start_date)->startOfDay();
         $endDate = Carbon::parse($request->end_date)->endOfDay();
 
-        // Delivery performance
-        $deliveryStats = DeliveryOrder::selectRaw("
-                COUNT(*) as total_deliveries,
-                SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as completed_deliveries,
-                SUM(CASE WHEN status = 'Failed' THEN 1 ELSE 0 END) as failed_deliveries,
-                SUM(CASE WHEN status IN ('Assigned', 'In Transit', 'At Destination') THEN 1 ELSE 0 END) as in_progress_deliveries
-            ")
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->first();
+        // Delivery performance - database agnostic
+        $deliveryOrders = DeliveryOrder::whereBetween('created_at', [$startDate, $endDate])->get();
+        
+        $deliveryStats = [
+            'total_deliveries' => $deliveryOrders->count(),
+            'completed_deliveries' => $deliveryOrders->where('status', 'Delivered')->count(),
+            'failed_deliveries' => $deliveryOrders->where('status', 'Failed')->count(),
+            'in_progress_deliveries' => $deliveryOrders->whereIn('status', ['Assigned', 'In Transit', 'At Destination', 'Pending'])->count()
+        ];
 
-        // Driver performance
-        $driverPerformance = Drivers::select('drivers.driver_name', 'drivers.phone')
-            ->selectRaw('COUNT(delivery_orders.do_id) as total_deliveries')
-            ->selectRaw('SUM(CASE WHEN delivery_orders.status = \'Delivered\' THEN 1 ELSE 0 END) as successful_deliveries')
-            ->selectRaw('ROUND(AVG(CASE WHEN delivery_orders.status = \'Delivered\' THEN 1 ELSE 0 END) * 100, 2) as success_rate')
-            ->leftJoin('delivery_orders', 'drivers.driver_id', '=', 'delivery_orders.driver_id')
-            ->whereBetween('delivery_orders.created_at', [$startDate, $endDate])
-            ->groupBy('drivers.driver_id', 'drivers.driver_name', 'drivers.phone')
-            ->orderByDesc('total_deliveries')
-            ->limit(10)
+        // Driver performance via Manifests (since drivers are assigned to manifests)
+        $manifests = Manifests::with('drivers')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('driver_id')
             ->get();
 
-        // Vehicle utilization
-        $vehicleUtilization = Vehicles::select('vehicles.plate_number', 'vehicle_types.type_name')
-            ->selectRaw('COUNT(delivery_orders.do_id) as trips_count')
-            ->selectRaw('COUNT(DISTINCT delivery_orders.driver_id) as drivers_used')
-            ->leftJoin('vehicle_types', 'vehicles.vehicle_type_id', '=', 'vehicle_types.vehicle_type_id')
-            ->leftJoin('delivery_orders', 'vehicles.vehicle_id', '=', 'delivery_orders.vehicle_id')
-            ->whereBetween('delivery_orders.created_at', [$startDate, $endDate])
-            ->groupBy('vehicles.vehicle_id', 'vehicles.plate_number', 'vehicle_types.type_name')
-            ->orderByDesc('trips_count')
-            ->limit(10)
+        $driverPerformance = $manifests->groupBy('driver_id')->map(function ($driverManifests, $driverId) {
+            $driver = $driverManifests->first()->drivers;
+            $completed = $driverManifests->where('status', 'Completed')->count();
+            $total = $driverManifests->count();
+            
+            return [
+                'driver_name' => $driver?->driver_name ?? 'Unknown',
+                'phone' => $driver?->phone ?? '-',
+                'total_deliveries' => $total,
+                'successful_deliveries' => $completed,
+                'success_rate' => $total > 0 ? round(($completed / $total) * 100, 2) : 0
+            ];
+        })->sortByDesc('total_deliveries')->take(10)->values();
+
+        // Vehicle utilization via Manifests (since vehicles are assigned to manifests)
+        $manifestsWithVehicles = Manifests::with(['vehicles.vehicleType'])
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('vehicle_id')
             ->get();
 
-        // Manifest efficiency
-        $manifestStats = Manifests::selectRaw("
-                COUNT(*) as total_manifests,
-                SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed_manifests,
-                AVG(cargo_weight) as avg_cargo_weight,
-                SUM(cargo_weight) as total_cargo_handled
-            ")
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->first();
+        $vehicleUtilization = $manifestsWithVehicles->groupBy('vehicle_id')->map(function ($vehicleManifests, $vehicleId) {
+            $vehicle = $vehicleManifests->first()->vehicles;
+            
+            return [
+                'plate_number' => $vehicle?->plate_no ?? 'Unknown',
+                'type_name' => $vehicle?->vehicleType?->type_name ?? '-',
+                'trips_count' => $vehicleManifests->count(),
+                'drivers_used' => $vehicleManifests->pluck('driver_id')->unique()->count()
+            ];
+        })->sortByDesc('trips_count')->take(10)->values();
+
+        // Manifest efficiency - database agnostic
+        $allManifests = Manifests::whereBetween('created_at', [$startDate, $endDate])->get();
+        
+        $manifestStats = [
+            'total_manifests' => $allManifests->count(),
+            'completed_manifests' => $allManifests->where('status', 'Completed')->count(),
+            'avg_cargo_weight' => $allManifests->avg('cargo_weight') ?? 0,
+            'total_cargo_handled' => $allManifests->sum('cargo_weight') ?? 0
+        ];
 
         // Route analysis
-        $routeAnalysis = Manifests::select('origin_city', 'dest_city')
-            ->selectRaw('COUNT(*) as route_frequency')
-            ->selectRaw('AVG(cargo_weight) as avg_cargo_weight')
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy('origin_city', 'dest_city')
-            ->orderByDesc('route_frequency')
-            ->limit(10)
-            ->get();
+        $routeAnalysis = $allManifests->groupBy(function ($manifest) {
+            return $manifest->origin_city . ' -> ' . $manifest->dest_city;
+        })->map(function ($routeManifests, $route) {
+            $parts = explode(' -> ', $route);
+            return [
+                'origin_city' => $parts[0] ?? '',
+                'dest_city' => $parts[1] ?? '',
+                'route_frequency' => $routeManifests->count(),
+                'avg_cargo_weight' => round($routeManifests->avg('cargo_weight') ?? 0, 2)
+            ];
+        })->sortByDesc('route_frequency')->take(10)->values();
 
         $summary = [
-            'delivery_success_rate' => $deliveryStats->total_deliveries > 0 
-                ? round(($deliveryStats->completed_deliveries / $deliveryStats->total_deliveries) * 100, 2) 
+            'delivery_success_rate' => $deliveryStats['total_deliveries'] > 0 
+                ? round(($deliveryStats['completed_deliveries'] / $deliveryStats['total_deliveries']) * 100, 2) 
                 : 0,
             'active_drivers' => Drivers::whereIn('status', ['Available', 'On Duty'])->count(),
             'active_vehicles' => Vehicles::where('status', 'Available')->count(),
-            'avg_deliveries_per_driver' => $driverPerformance->avg('total_deliveries'),
-            'manifest_completion_rate' => $manifestStats->total_manifests > 0 
-                ? round(($manifestStats->completed_manifests / $manifestStats->total_manifests) * 100, 2) 
+            'avg_deliveries_per_driver' => $driverPerformance->count() > 0 ? $driverPerformance->avg('total_deliveries') : 0,
+            'manifest_completion_rate' => $manifestStats['total_manifests'] > 0 
+                ? round(($manifestStats['completed_manifests'] / $manifestStats['total_manifests']) * 100, 2) 
                 : 0
         ];
 
@@ -346,17 +434,26 @@ class ReportController extends Controller
             ];
         })->values();
 
-        // Customer lifetime value
-        $customerLTV = Customers::select('customers.customer_name')
-            ->selectRaw('COUNT(job_orders.job_order_id) as lifetime_orders')
-            ->selectRaw('SUM(job_orders.order_value) as lifetime_value')
-            ->selectRaw('DATEDIFF(month, MIN(job_orders.created_at), MAX(job_orders.created_at)) + 1 as customer_lifetime_months')
-            ->leftJoin('job_orders', 'customers.customer_id', '=', 'job_orders.customer_id')
-            ->groupBy('customers.customer_id', 'customers.customer_name')
-            ->having('lifetime_orders', '>', 0)
-            ->orderByDesc('lifetime_value')
-            ->limit(20)
-            ->get();
+        // Customer lifetime value - database agnostic approach
+        $customersWithOrders = Customers::with(['jobOrders' => function($q) {
+            $q->select('customer_id', 'job_order_id', 'order_value', 'created_at');
+        }])->whereHas('jobOrders')->get();
+
+        $customerLTV = $customersWithOrders->map(function ($customer) {
+            $orders = $customer->jobOrders;
+            if ($orders->isEmpty()) return null;
+            
+            $firstOrder = $orders->min('created_at');
+            $lastOrder = $orders->max('created_at');
+            $lifetimeMonths = Carbon::parse($firstOrder)->diffInMonths(Carbon::parse($lastOrder)) + 1;
+            
+            return [
+                'customer_name' => $customer->customer_name,
+                'lifetime_orders' => $orders->count(),
+                'lifetime_value' => $orders->sum('order_value'),
+                'customer_lifetime_months' => $lifetimeMonths
+            ];
+        })->filter()->sortByDesc('lifetime_value')->take(20)->values();
 
         // New vs returning customers
         $newVsReturning = [
@@ -564,6 +661,20 @@ class ReportController extends Controller
             ->whereBetween('created_at', [$startDate, $endDate])->count();
 
         return $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 2) : 0;
+    }
+
+    /**
+     * Calculate invoice-based completion rate
+     * Completion = Paid invoices / Total invoices (excluding cancelled)
+     */
+    private function calculateInvoiceCompletionRate($startDate, $endDate): float
+    {
+        $totalInvoices = Invoices::whereNotIn('status', ['Cancelled'])
+            ->whereBetween('created_at', [$startDate, $endDate])->count();
+        $paidInvoices = Invoices::where('status', 'Paid')
+            ->whereBetween('created_at', [$startDate, $endDate])->count();
+
+        return $totalInvoices > 0 ? round(($paidInvoices / $totalInvoices) * 100, 2) : 0;
     }
 
     private function calculateCollectionRate($startDate, $endDate): float

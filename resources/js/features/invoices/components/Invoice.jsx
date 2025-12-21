@@ -439,6 +439,11 @@ export default function InvoiceContent() {
     const [statsRefreshTrigger, setStatsRefreshTrigger] = useState(0);
     const triggerStatsRefresh = () => setStatsRefreshTrigger(prev => prev + 1);
 
+    // Loading state for form submissions
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+
     // Update params when filters change
     useEffect(() => {
         const params = {};
@@ -504,6 +509,7 @@ export default function InvoiceContent() {
     };
 
     const handleConfirmCancel = async (invoiceId, reason) => {
+        setIsCancelling(true);
         try {
             await cancelInvoice(invoiceId, reason);
             setIsCancelModalOpen(false);
@@ -511,6 +517,8 @@ export default function InvoiceContent() {
         } catch (error) {
             console.error('Failed to cancel invoice:', error);
             alert('Gagal membatalkan invoice');
+        } finally {
+            setIsCancelling(false);
         }
     };
 
@@ -524,6 +532,7 @@ export default function InvoiceContent() {
     };
 
     const handleConfirmRecordPayment = async (invoiceId, paymentData) => {
+        setIsRecordingPayment(true);
         try {
             await recordPayment(invoiceId, {
                 payment_amount: paymentData.amount,
@@ -536,10 +545,13 @@ export default function InvoiceContent() {
         } catch (error) {
             console.error('Failed to record payment:', error);
             alert('Gagal mencatat pembayaran');
+        } finally {
+            setIsRecordingPayment(false);
         }
     };
 
     const handleModalSubmit = async (formData) => {
+        setIsSubmitting(true);
         try {
             if (selectedInvoice) {
                 await updateInvoice(selectedInvoice.invoice_id, formData);
@@ -551,6 +563,8 @@ export default function InvoiceContent() {
         } catch (error) {
             console.error('Failed to save invoice:', error);
             alert('Gagal menyimpan invoice');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -620,6 +634,7 @@ export default function InvoiceContent() {
                 onClose={() => setIsModalOpen(false)}
                 onSubmit={handleModalSubmit}
                 initialData={selectedInvoice}
+                isLoading={isSubmitting}
             />
 
             <CancelInvoiceModal
@@ -627,6 +642,7 @@ export default function InvoiceContent() {
                 onClose={() => setIsCancelModalOpen(false)}
                 onConfirm={handleConfirmCancel}
                 invoice={invoiceToCancel}
+                isLoading={isCancelling}
             />
 
             <RecordPaymentModal
@@ -634,6 +650,7 @@ export default function InvoiceContent() {
                 onClose={() => setIsRecordPaymentModalOpen(false)}
                 onConfirm={handleConfirmRecordPayment}
                 invoice={invoiceToRecordPayment}
+                isLoading={isRecordingPayment}
             />
 
             <InvoiceDetailModal

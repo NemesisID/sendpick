@@ -3,7 +3,7 @@ import { HiOutlinePlus, HiOutlineTrash, HiOutlineLockClosed, HiOutlineExclamatio
 import EditModal from '../../../components/common/EditModal';
 import { fetchAvailableSources } from '../services/invoiceService';
 
-export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialData }) {
+export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialData, isLoading = false }) {
     const isEditMode = !!initialData;
     const [availableSources, setAvailableSources] = useState([]);
     const [loadingSources, setLoadingSources] = useState(false);
@@ -299,8 +299,8 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                             onClick={addItem}
                             disabled={hasPaidAmount}
                             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${hasPaidAmount
-                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                    : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
                                 }`}
                             title={hasPaidAmount ? 'Tidak dapat menambah item karena sudah ada pembayaran' : 'Tambah item baru'}
                         >
@@ -331,8 +331,8 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                         required
                                         disabled={hasPaidAmount}
                                         className={`w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 ${hasPaidAmount
-                                                ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
-                                                : 'border-slate-200 text-slate-700 focus:border-indigo-500 focus:ring-indigo-500/20'
+                                            ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
+                                            : 'border-slate-200 text-slate-700 focus:border-indigo-500 focus:ring-indigo-500/20'
                                             }`}
                                     />
                                     {hasPaidAmount && (
@@ -349,8 +349,8 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                         required
                                         disabled={hasPaidAmount}
                                         className={`w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 ${hasPaidAmount
-                                                ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
-                                                : 'border-slate-200 text-slate-700 focus:border-indigo-500 focus:ring-indigo-500/20'
+                                            ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
+                                            : 'border-slate-200 text-slate-700 focus:border-indigo-500 focus:ring-indigo-500/20'
                                             }`}
                                     />
                                     {hasPaidAmount && (
@@ -407,8 +407,8 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                                     onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })}
                                     disabled={hasPaidAmount}
                                     className={`w-20 rounded-lg border px-3 py-1.5 text-right text-sm focus:outline-none ${hasPaidAmount
-                                            ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
-                                            : 'border-slate-200 text-slate-700 focus:border-indigo-500'
+                                        ? 'border-amber-200 bg-amber-50 text-amber-700 cursor-not-allowed'
+                                        : 'border-slate-200 text-slate-700 focus:border-indigo-500'
                                         }`}
                                 />
                             </div>
@@ -445,15 +445,23 @@ export default function InvoiceFormModal({ isOpen, onClose, onSubmit, initialDat
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                        disabled={isLoading}
+                        className="rounded-xl border border-slate-200 px-6 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Batal
                     </button>
                     <button
                         type="submit"
-                        className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 hover:shadow-indigo-300"
+                        disabled={isLoading}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 hover:shadow-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isEditMode ? 'Simpan Perubahan' : 'Buat Invoice'}
+                        {isLoading && (
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        )}
+                        {isLoading ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Buat Invoice')}
                     </button>
                 </div>
             </form>

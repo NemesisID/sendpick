@@ -12,7 +12,7 @@ Dokumen ini menjelaskan logika pembatalan yang telah diimplementasikan untuk sis
 |---------------------|------------------------|-----------------------------|-----------------------|--------------------|
 | **Cancel Job Order** (Customer Batal) | ❌ CANCELLED (Order Mati) | ❌ CANCELLED (Hangus Otomatis) | ✅ TETAP/AMAN (Hanya kurangi muatan) | Induk (JO) mati, surat jalan (DO) otomatis tidak berlaku. Truk (Manifest) tetap jalan. |
 | **Cancel Manifest** (Truk Batal Jalan) | 🔄 PENDING (Reset & Cari Truk Baru) | ❌ CANCELLED (Hangus Otomatis) | ❌ CANCELLED (Riwayat Batal) | Truk batal, JO diselamatkan (turun dari truk) untuk ikut truk lain. DO lama hangus. |
-| **Cancel DO** (Salah Dokumen) | 🔄 PENDING (Reset & Buat DO Baru) | ❌ CANCELLED (Arsip Salah) | ✅ TETAP/AMAN (Hanya kurangi muatan) | Dokumen salah, JO dikembalikan ke antrean untuk dicetak ulang surat jalannya. |
+| **Cancel DO** (Salah Dokumen) | 🔄 PENDING (Reset & Buat DO Baru) | ❌ CANCELLED (Arsip Salah) | ⚠️ CANCELLED jika Manifest kosong | Dokumen salah, JO dikembalikan ke antrean. **Jika tidak ada JO tersisa di Manifest, Manifest ikut CANCELLED.** |
 
 ---
 
@@ -99,7 +99,7 @@ POST /api/delivery-orders/{doId}/cancel
 }
 ```
 
-**Response Success:**
+**Response Success (dengan sisa JO di Manifest):**
 ```json
 {
   "success": true,
@@ -112,9 +112,32 @@ POST /api/delivery-orders/{doId}/cancel
     "reset_job_orders": ["JO-20251219-001"],
     "recalculated_manifest": {
       "manifest_id": "MF-20251219-XXXX",
+      "status": "Pending",
       "active_jobs": 2,
       "total_weight": 1200,
       "total_koli": 10
+    }
+  }
+}
+```
+
+**Response Success (Manifest menjadi kosong → CANCELLED):**
+```json
+{
+  "success": true,
+  "message": "Delivery Order berhasil dibatalkan. Job Order dikembalikan ke antrian untuk dicetak ulang.",
+  "data": {
+    "do_id": "DO-20251219-XXXX",
+    "status": "Cancelled",
+    "cancelled_at": "2025-12-19T21:48:00Z",
+    "cancellation_reason": "Salah cetak tanggal pengiriman",
+    "reset_job_orders": ["JO-20251219-001"],
+    "recalculated_manifest": {
+      "manifest_id": "MF-20251219-XXXX",
+      "status": "Cancelled",
+      "active_jobs": 0,
+      "total_weight": 0,
+      "total_koli": 0
     }
   }
 }
@@ -238,13 +261,36 @@ php artisan manifest:reattach-jobs
 - `app/Console/Commands/RecalculateManifestCargo.php`
 - `app/Console/Commands/ReattachCancelledJobOrders.php`
 
+### Berat & Koli Manifest Masih Ada Setelah Cancel Manifest
+**Penyebab**: Backend sudah meng-update `cargo_weight = 0` dan `cargo_summary = '0 packages'`, tapi Frontend menggunakan fallback ke `manifest.cargo_weight` dari database yang mungkin falsy (karena 0) atau menggunakan kalkulasi dari jobOrders.
+
+**Solusi (2025-12-21)**: 
+- Frontend sekarang mendeteksi status `Cancelled` dan langsung menampilkan **0 kg, 0 koli, 0 packages**
+- Variabel `isCancelled` di-check sebelum kalkulasi cargo:
+  ```javascript
+  const isCancelled = manifest.status?.toLowerCase() === 'cancelled';
+  const totalPackages = isCancelled ? 0 : jobOrders.reduce(...);
+  const totalWeight = isCancelled ? 0 : jobOrders.reduce(...);
+  const cargoSummary = isCancelled ? '0 packages' : ...;
+  ```
+- Fix falsy check untuk `cargo_weight = 0` dengan menggunakan `!== null && !== undefined` instead of truthy check
+
+**Files yang diperbaiki**:
+- `resources/js/features/manifests/components/Manifest.jsx` - `mapManifestFromApi()`
+
+**Catatan Penting**: 
+- Driver & Armada tetap ditampilkan pada Cancelled Manifest untuk keperluan audit
+- Hanya data cargo (Berat, Koli, Packages) yang di-reset ke 0
+
 ---
 
 ## 6. Kesimpulan
 
 - **Cancel JO** = Mematikan Order (Stop Proses) - Job Order tetap terikat ke Manifest untuk audit
 - **Cancel Manifest/DO** = Mereset Order (Mundur satu langkah untuk diperbaiki/dijadwalkan ulang)
-- **Manifest Cargo** = Menampilkan TOTAL berat dari SEMUA Job Order (termasuk yang dibatalkan)
+- **Manifest CANCELLED** = Menampilkan **0 Koli, 0 Berat, 0 Packages** (Truk kosong)
+  - Driver & Armada **TETAP ditampilkan** untuk keperluan audit riwayat
+- **Manifest AKTIF** = Menampilkan TOTAL berat dari SEMUA Job Order (termasuk yang dibatalkan)
 
 **Catatan Penting**:
 - Untuk data lama dimana Job Order sudah ter-detach dari Manifest, gunakan Edit Manifest untuk re-attach Job Order

@@ -137,9 +137,8 @@ const statusStyles = {
 
 const typeFilterOptions = [
     { value: 'all', label: 'Semua Tipe' },
-    { value: 'jobOrder', label: 'Job Order' },
-    { value: 'manifest', label: 'Manifest' },
-    { value: 'delivery', label: 'Delivery Order' },
+    { value: 'FTL', label: 'FTL (Full Truckload)' },
+    { value: 'LTL', label: 'LTL (Less Than Truckload)' },
 ];
 
 const statusFilterOptions = [
@@ -959,7 +958,7 @@ export default function JobOrderContent() {
 
             const matchesType =
                 (activeTab !== 'all' ? order.type === activeTab : true) &&
-                (typeFilter === 'all' || order.type === typeFilter);
+                (typeFilter === 'all' || order.jobOrderType === typeFilter);
 
             const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
 
