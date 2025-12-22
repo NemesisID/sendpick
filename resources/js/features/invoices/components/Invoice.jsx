@@ -367,14 +367,14 @@ function PaymentTracking({ refreshTrigger = 0 }) {
             description: 'Segera follow up pelanggan',
             icon: <HiOutlineExclamation className='h-6 w-6' />,
         },
-        {
-            title: 'Average Payment Time',
-            value: `${stats.avg_payment_time} days`,
-            iconBg: 'bg-indigo-100',
-            iconColor: 'text-indigo-500',
-            description: 'Rata-rata penyelesaian invoice',
-            icon: <HiOutlineClock className='h-6 w-6' />,
-        },
+        // {
+        //     title: 'Average Payment Time',
+        //     value: `${stats.avg_payment_time} days`,
+        //     iconBg: 'bg-indigo-100',
+        //     iconColor: 'text-indigo-500',
+        //     description: 'Rata-rata penyelesaian invoice',
+        //     icon: <HiOutlineClock className='h-6 w-6' />,
+        // },
     ];
 
     if (loading) {

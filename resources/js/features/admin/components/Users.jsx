@@ -18,25 +18,10 @@ const roleStyles = {
         bg: 'bg-rose-100',
         text: 'text-rose-600',
     },
-    operations: {
-        label: 'Operations Manager',
+    adminOperational: {
+        label: 'Admin Operasional',
         bg: 'bg-sky-100',
         text: 'text-sky-600',
-    },
-    finance: {
-        label: 'Finance Manager',
-        bg: 'bg-emerald-100',
-        text: 'text-emerald-600',
-    },
-    customerService: {
-        label: 'Customer Service',
-        bg: 'bg-amber-100',
-        text: 'text-amber-600',
-    },
-    warehouse: {
-        label: 'Warehouse Lead',
-        bg: 'bg-indigo-100',
-        text: 'text-indigo-600',
     },
     admin: {
         label: 'Admin',
@@ -63,42 +48,24 @@ const statusStyles = {
 const roleFilterOptions = [
     { value: 'all', label: 'Semua Role' },
     { value: 'superAdmin', label: 'Super Admin' },
-    { value: 'operations', label: 'Operations Manager' },
-    { value: 'finance', label: 'Finance Manager' },
-    { value: 'customerService', label: 'Customer Service' },
-    { value: 'warehouse', label: 'Warehouse Lead' },
+    { value: 'adminOperational', label: 'Admin Operasional' },
 ];
 
-const rolesOverview = [
-    {
+// Role configuration untuk styling dan deskripsi
+const roleConfig = {
+    superAdmin: {
         role: 'Super Admin',
-        members: 2,
         description: 'Akses penuh sistem, manajemen pengguna dan konfigurasi.',
         color: 'text-rose-600',
         bg: 'bg-rose-50',
     },
-    {
-        role: 'Operations Manager',
-        members: 5,
-        description: 'Kelola operasi harian, job order, dan armada.',
-        color: 'text-sky-600',
-        bg: 'bg-sky-50',
+    admin: {
+        role: 'Admin Operasional',
+        description: 'Kelola operasi harian, job order, manifest, delivery order, dan armada.',
+        color: 'text-blue-600',
+        bg: 'bg-blue-50',
     },
-    {
-        role: 'Finance Manager',
-        members: 4,
-        description: 'Kontrol invoice, pelaporan, dan rekonsiliasi pembayaran.',
-        color: 'text-emerald-600',
-        bg: 'bg-emerald-50',
-    },
-    {
-        role: 'Customer Service',
-        members: 6,
-        description: 'Monitoring tiket pelanggan dan SLA pengiriman.',
-        color: 'text-amber-600',
-        bg: 'bg-amber-50',
-    },
-];
+};
 
 const SearchIcon = ({ className = 'h-5 w-5' }) => (
     <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
@@ -140,10 +107,7 @@ const getRoleKey = (roleName) => {
     if (!roleName) return 'superAdmin';
     const normalized = roleName.toLowerCase();
     if (normalized.includes('super')) return 'superAdmin';
-    if (normalized.includes('operation')) return 'operations';
-    if (normalized.includes('finance')) return 'finance';
-    if (normalized.includes('customer')) return 'customerService';
-    if (normalized.includes('warehouse')) return 'warehouse';
+    if (normalized.includes('operasional') || normalized.includes('operational') || normalized.includes('operation')) return 'adminOperational';
     if (normalized === 'admin') return 'admin';
     return 'superAdmin';
 };
@@ -391,7 +355,36 @@ function RoleCard({ role }) {
     );
 }
 
-function RolePermissionsSection() {
+function RolePermissionsSection({ admins = [] }) {
+    // Hitung jumlah anggota per role secara dinamis dari data admin
+    const roleCounts = useMemo(() => {
+        const counts = {
+            superAdmin: 0,
+            adminOperational: 0,
+            admin: 0,
+        };
+
+        admins.forEach(admin => {
+            const roleKey = getRoleKey(admin.roles?.[0]?.name);
+            if (counts.hasOwnProperty(roleKey)) {
+                counts[roleKey]++;
+            }
+        });
+
+        return counts;
+    }, [admins]);
+
+    // Generate roles overview dengan member count real-time
+    // Hanya tampilkan role yang memiliki anggota (members > 0)
+    const rolesWithCounts = useMemo(() => {
+        return Object.entries(roleConfig)
+            .filter(([key]) => roleCounts[key] > 0)
+            .map(([key, config]) => ({
+                ...config,
+                members: roleCounts[key],
+            }));
+    }, [roleCounts]);
+
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex items-center justify-between'>
@@ -399,15 +392,9 @@ function RolePermissionsSection() {
                     <h3 className='text-lg font-semibold text-slate-900'>Role & Permissions</h3>
                     <p className='text-sm text-slate-400'>Kelola akses fitur dan penugasan berdasarkan role.</p>
                 </div>
-                <button
-                    type='button'
-                    className='hidden items-center gap-2 rounded-2xl border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600 sm:flex'
-                >
-                    Kelola Role
-                </button>
             </div>
             <div className='mt-6 grid grid-cols-1 gap-4 md:grid-cols-2'>
-                {rolesOverview.map((role) => (
+                {rolesWithCounts.map((role) => (
                     <RoleCard key={role.role} role={role} />
                 ))}
             </div>
@@ -494,22 +481,18 @@ export default function AdminContent() {
     };
 
     const handleEditSubmit = async (formData) => {
-        try {
-            const payload = {
-                ...formData,
-                role_ids: [formData.role_ids],
-            };
+        const payload = {
+            ...formData,
+            role_ids: [formData.role_ids],
+        };
 
-            if (editModal.admin) {
-                await updateAdmin(resolveAdminId(editModal.admin), payload);
-            } else {
-                await createAdmin(payload);
-            }
-            await refetch();
-            handleEditClose();
-        } catch (error) {
-            console.error('Gagal menyimpan admin:', error);
+        if (editModal.admin) {
+            await updateAdmin(resolveAdminId(editModal.admin), payload);
+        } else {
+            await createAdmin(payload);
         }
+        await refetch();
+        // Note: handleEditClose() dipanggil oleh EditModal setelah onSubmit berhasil
     };
 
     const handleDeleteConfirm = async () => {
@@ -735,7 +718,7 @@ export default function AdminContent() {
                 onDelete={handleDelete}
                 loading={loading}
             />
-            <RolePermissionsSection />
+            <RolePermissionsSection admins={adminList} />
 
             {/* Edit Modal */}
             <EditModal

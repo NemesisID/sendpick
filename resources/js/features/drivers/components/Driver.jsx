@@ -43,6 +43,7 @@ import {
 } from 'react-icons/hi2';
 
 import { UserProvider, useUser } from '../../../context/UserContext';
+import { logout } from '../../auth/services/authService';
 import HomeContent from '../../../pages/Home';
 import CustomerContent from '../../customers/components/Customer';
 import AdminContent from '../../admin/components/Users';
@@ -98,6 +99,7 @@ const MoonIcon = ({ className = 'h-5 w-5' }) => <HiMoon className={className} />
 
 const MonitorIcon = ({ className = 'h-5 w-5' }) => <HiComputerDesktop className={className} />;
 const SearchIcon = ({ className = 'h-4 w-4' }) => <HiMagnifyingGlass className={className} />;
+const LogoutIcon = ({ className = 'h-4 w-4' }) => <HiArrowRightOnRectangle className={className} />;
 
 // Icons menggunakan React Icons
 const FilterIcon = ({ className = 'h-4 w-4' }) => <HiFunnel className={className} />;
@@ -1136,6 +1138,106 @@ const ThemeIndicator = () => {
     );
 };
 
+const UserDropdown = ({ user, onNavigateProfile }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleBlur = (event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+            setIsOpen(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+        try {
+            await logout();
+            // Clear user data dari localStorage
+            localStorage.removeItem('sendpick_user');
+            // Redirect ke halaman login
+            window.location.href = '/login';
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Tetap redirect meskipun API gagal
+            localStorage.removeItem('sendpick_user');
+            localStorage.removeItem('authToken');
+            window.location.href = '/login';
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
+
+    const handleProfileClick = () => {
+        setIsOpen(false);
+        onNavigateProfile();
+    };
+
+    const menuClassName = [
+        'absolute right-0 mt-3 w-48 rounded-2xl border border-slate-200 bg-white p-2 text-left shadow-lg transition-all duration-150 ease-out origin-top-right z-50',
+        isOpen ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0',
+    ].join(' ');
+
+    return (
+        <div
+            className='relative'
+            onMouseEnter={() => setIsOpen(true)}
+            onMouseLeave={() => setIsOpen(false)}
+            onFocus={() => setIsOpen(true)}
+            onBlur={handleBlur}
+        >
+            {/* User Info Button */}
+            <button
+                type='button'
+                onClick={() => setIsOpen((previous) => !previous)}
+                className='flex items-center gap-3 rounded-xl px-2 py-1.5 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+                aria-haspopup='menu'
+                aria-expanded={isOpen}
+                aria-label='Menu akun'
+            >
+                <div className='relative h-10 w-10 overflow-hidden rounded-full border border-indigo-100 shadow-sm'>
+                    <img
+                        src={user.photo}
+                        alt={user.fullName}
+                        className='h-full w-full object-cover'
+                    />
+                </div>
+                <div className='text-sm leading-tight text-left'>
+                    <p className='font-semibold text-slate-800'>{user.fullName}</p>
+                    <p className='text-xs text-slate-400'>{user.username}</p>
+                </div>
+                <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            <div className={menuClassName}>
+                {/* Profile Option */}
+                <button
+                    type='button'
+                    onClick={handleProfileClick}
+                    className='flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+                >
+                    <HiUser className='h-4 w-4' />
+                    Profil Saya
+                </button>
+
+                {/* Divider */}
+                <div className='my-1 border-t border-slate-200' />
+
+                {/* Logout Option */}
+                <button
+                    type='button'
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className='flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                    <LogoutIcon className='h-4 w-4' />
+                    {isLoggingOut ? 'Keluar...' : 'Logout'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 function Sidebar({ activeView, onNavigate, isOpen, onToggle, isTransitioning }) {
     const [expandedIds, setExpandedIds] = useState(() => {
         const ids = [];
@@ -1553,35 +1655,11 @@ function DashboardLayout() {
                                 </span>
                             ) : null}
                         </button>
-                        <div className='flex items-center gap-3'>
-                            <div className='flex items-center gap-3'>
-                                <div className='relative h-10 w-10 overflow-hidden rounded-full border border-indigo-100 shadow-sm'>
-                                    <img
-                                        src={user.photo}
-                                        alt={user.fullName}
-                                        className='h-full w-full object-cover'
-                                    />
-                                </div>
-                                <div className='text-sm leading-tight'>
-                                    <p className='font-semibold text-slate-800'>{user.fullName}</p>
-                                    <button
-                                        type='button'
-                                        onClick={() => setActiveView('profile')}
-                                        className='text-xs text-slate-400 transition hover:text-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
-                                    >
-                                        {user.username}
-                                    </button>
-                                </div>
-                                <button
-                                    type='button'
-                                    className='text-slate-400 transition hover:text-indigo-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
-                                    aria-label='Buka menu akun'
-                                >
-                                    <ChevronDownIcon />
-                                </button>
-                            </div>
-
-                        </div>
+                        {/* User Account Dropdown */}
+                        <UserDropdown
+                            user={user}
+                            onNavigateProfile={() => setActiveView('profile')}
+                        />
                     </div>
                 </header>
                 <main className='flex-1 bg-white'>

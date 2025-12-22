@@ -275,31 +275,34 @@ const mapManifestFromApi = (manifest) => {
     // A cancelled manifest is "empty" - all job orders have been returned to pending
     const isCancelled = manifest.status?.toLowerCase() === 'cancelled';
 
-    // Cargo Summary should be calculated from Job Orders
-    const commodity = jobOrders.map(jo => jo.commodity || jo.goods_desc).filter(Boolean).join(', ');
+    // Filter untuk menentukan Job Order aktif (exclude Cancelled JOs)
+    const activeJobOrders = jobOrders.filter(jo => jo.status !== 'Cancelled');
 
-    // ✅ FIXED: For Cancelled manifests, always show "0 packages"
-    // For active manifests, calculate from job orders or fallback to database
+    // Cargo Summary should be calculated from ACTIVE Job Orders only
+    const commodity = activeJobOrders.map(jo => jo.commodity || jo.goods_desc).filter(Boolean).join(', ');
+
+    // ✅ FIXED (2025-12-22): For Cancelled manifests, always show "0 packages"
+    // For active manifests, calculate from ACTIVE job orders only (exclude Cancelled JOs)
+    // This ensures that when a JO is cancelled, the Manifest shows reduced total
     let cargoSummary;
     if (isCancelled) {
         cargoSummary = '0 packages';
-    } else if (jobOrders.length > 0) {
-        cargoSummary = `${jobOrders.length} packages${commodity ? ': ' + commodity.substring(0, 50) : ''}`;
+    } else if (activeJobOrders.length > 0) {
+        cargoSummary = `${activeJobOrders.length} packages${commodity ? ': ' + commodity.substring(0, 50) : ''}`;
     } else {
-        cargoSummary = manifest.cargo_summary || '-';
+        // All JOs might be cancelled but Manifest is still active
+        cargoSummary = '0 packages';
     }
 
-    // Filter untuk menentukan apakah ada Job Order aktif (untuk driver assignment)
-    const activeJobOrders = jobOrders.filter(jo => jo.status !== 'Cancelled');
-
-    // ✅ FIXED: For Cancelled manifests, weight and packages are always 0
-    // For active manifests, calculate from job orders
-    const totalPackages = isCancelled ? 0 : jobOrders.reduce((sum, jo) => {
+    // ✅ FIXED (2025-12-22): Calculate weight and packages from ACTIVE Job Orders only
+    // For Cancelled manifests: always 0
+    // For Active manifests: sum from ACTIVE JOs only (exclude Cancelled)
+    const totalPackages = isCancelled ? 0 : activeJobOrders.reduce((sum, jo) => {
         const qty = Number(jo.goods_qty || jo.quantity || jo.koli || 0);
         return sum + qty;
     }, 0);
 
-    const totalWeight = isCancelled ? 0 : jobOrders.reduce((sum, jo) => {
+    const totalWeight = isCancelled ? 0 : activeJobOrders.reduce((sum, jo) => {
         const weight = Number(jo.goods_weight || jo.weight || 0);
         return sum + weight;
     }, 0);

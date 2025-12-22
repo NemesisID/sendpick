@@ -192,39 +192,97 @@ class DeliveryOrder extends Model
 
     /**
      * Accessor: Get driver name from Job Order Assignment or Manifest
+     * ✅ FIXED (2025-12-22): Also look for Cancelled assignments for audit purposes
+     * If DO is Cancelled, we still want to show who WAS assigned
      */
     public function getDriverNameAttribute()
     {
         if ($this->source_type === 'JO' && $this->jobOrder) {
+            // First, try to find Active assignment
             $assignment = $this->jobOrder->assignments()
                 ->where('status', 'Active')
                 ->with('driver')
                 ->first();
             
-            return $assignment?->driver?->driver_name ?? 'Belum ditugaskan';
+            // ✅ FIXED: If no Active assignment found, look for most recent Cancelled assignment
+            // This preserves driver info for DO that has been cancelled
+            if (!$assignment) {
+                $assignment = $this->jobOrder->assignments()
+                    ->whereIn('status', ['Cancelled', 'Inactive'])
+                    ->with('driver')
+                    ->orderBy('assigned_at', 'desc')
+                    ->first();
+            }
+            
+            return $assignment?->driver?->driver_name ?? null;
         } elseif ($this->source_type === 'MF' && $this->manifest) {
-            return $this->manifest->drivers?->driver_name ?? 'Belum ditugaskan';
+            // ✅ FIXED: For Manifest, check if driver relation exists
+            // If Manifest still has driver assigned, use it
+            if ($this->manifest->drivers) {
+                return $this->manifest->drivers->driver_name;
+            }
+            
+            // ✅ FIXED: If Manifest no longer has driver (e.g., was cancelled),
+            // try to find driver from the Job Orders' assignments history
+            $manifestJobOrders = $this->manifest->jobOrders()->with(['assignments.driver'])->get();
+            foreach ($manifestJobOrders as $jo) {
+                $assignment = $jo->assignments
+                    ->sortByDesc('assigned_at')
+                    ->first();
+                if ($assignment?->driver) {
+                    return $assignment->driver->driver_name;
+                }
+            }
+            
+            return null;
         }
         
-        return 'Belum ditugaskan';
+        return null;
     }
 
     /**
      * Accessor: Get vehicle plate from Job Order Assignment or Manifest
+     * ✅ FIXED (2025-12-22): Also look for Cancelled assignments for audit purposes
      */
     public function getVehiclePlateAttribute()
     {
         if ($this->source_type === 'JO' && $this->jobOrder) {
+            // First, try to find Active assignment
             $assignment = $this->jobOrder->assignments()
                 ->where('status', 'Active')
                 ->with('vehicle')
                 ->first();
             
-            return $assignment?->vehicle?->plate_no ?? 'Belum ditugaskan';
+            // ✅ FIXED: If no Active assignment found, look for most recent Cancelled assignment
+            if (!$assignment) {
+                $assignment = $this->jobOrder->assignments()
+                    ->whereIn('status', ['Cancelled', 'Inactive'])
+                    ->with('vehicle')
+                    ->orderBy('assigned_at', 'desc')
+                    ->first();
+            }
+            
+            return $assignment?->vehicle?->plate_no ?? null;
         } elseif ($this->source_type === 'MF' && $this->manifest) {
-            return $this->manifest->vehicles?->plate_no ?? 'Belum ditugaskan';
+            // ✅ FIXED: For Manifest, check if vehicle relation exists
+            if ($this->manifest->vehicles) {
+                return $this->manifest->vehicles->plate_no;
+            }
+            
+            // ✅ FIXED: Try to find vehicle from Job Orders' assignments history
+            $manifestJobOrders = $this->manifest->jobOrders()->with(['assignments.vehicle'])->get();
+            foreach ($manifestJobOrders as $jo) {
+                $assignment = $jo->assignments
+                    ->sortByDesc('assigned_at')
+                    ->first();
+                if ($assignment?->vehicle) {
+                    return $assignment->vehicle->plate_no;
+                }
+            }
+            
+            return null;
         }
         
-        return 'Belum ditugaskan';
+        return null;
     }
 }

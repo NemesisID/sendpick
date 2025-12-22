@@ -25,6 +25,8 @@ const EditModal = ({
     const [validationAlert, setValidationAlert] = useState({ show: false, message: '' });
     // State untuk toggle visibility password
     const [passwordVisibility, setPasswordVisibility] = useState({});
+    // State untuk general error dari server (e.g., validation errors tanpa field spesifik)
+    const [generalError, setGeneralError] = useState('');
 
     // Ref to track if modal was already open (prevent reset on field changes)
     const wasOpenRef = useRef(false);
@@ -55,6 +57,7 @@ const EditModal = ({
             setFormData(newFormData);
             setErrors({});
             setValidationAlert({ show: false, message: '' }); // Reset alert saat modal dibuka
+            setGeneralError(''); // Reset general error saat modal dibuka
 
             // Update prev data ref
             prevDataRef.current = sourceDataKey;
@@ -146,6 +149,9 @@ const EditModal = ({
     const handleSubmit = async (event) => {
         event.preventDefault();
 
+        // Reset errors sebelum submit
+        setGeneralError('');
+
         if (!validateForm()) {
             return;
         }
@@ -157,18 +163,35 @@ const EditModal = ({
             console.error('Error submitting form:', error);
 
             // Handle server-side validation errors
-            if (error.response?.data?.errors) {
-                const serverErrors = {};
-                Object.keys(error.response.data.errors).forEach(key => {
+            // Support untuk dua struktur error:
+            // 1. error.response?.data?.errors (dari axios langsung)
+            // 2. error.errors (dari normalizeError di service)
+            const serverErrors = error.response?.data?.errors || error.errors;
+
+            if (serverErrors && typeof serverErrors === 'object') {
+                const formattedErrors = {};
+                Object.keys(serverErrors).forEach(key => {
                     // Laravel returns array of errors, take the first one
-                    serverErrors[key] = error.response.data.errors[key][0];
+                    const errorValue = serverErrors[key];
+                    formattedErrors[key] = Array.isArray(errorValue) ? errorValue[0] : errorValue;
                 });
-                setErrors(serverErrors);
-            } else if (error.response?.data?.message) {
-                // If it's a general error message without field specifics, 
-                // you might want to show it in a general error alert.
-                // For now, we'll log it, or you could add a generalError state.
-                console.error('Server Error:', error.response.data.message);
+                setErrors(formattedErrors);
+
+                // Jika ada field error, tapi tidak ada field yang cocok di form,
+                // tampilkan sebagai general error
+                const fieldNames = fields.map(f => f.key || f.name);
+                const hasMatchingField = Object.keys(formattedErrors).some(key => fieldNames.includes(key));
+
+                if (!hasMatchingField) {
+                    // Format semua error sebagai general message
+                    const allMessages = Object.entries(formattedErrors)
+                        .map(([key, value]) => `${key}: ${value}`)
+                        .join('; ');
+                    setGeneralError(allMessages);
+                }
+            } else if (error.response?.data?.message || error.message) {
+                // Tampilkan general error message
+                setGeneralError(error.response?.data?.message || error.message);
             }
         }
     };
@@ -572,6 +595,28 @@ const EditModal = ({
                 children
             ) : (
                 <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+                    {/* General Error Alert */}
+                    {generalError && (
+                        <div className="mb-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl animate-pulse">
+                            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <div className="flex-1">
+                                <p className="text-sm font-semibold text-red-800">Terjadi Kesalahan</p>
+                                <p className="text-sm text-red-700 mt-1">{generalError}</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setGeneralError('')}
+                                className="text-red-400 hover:text-red-600 transition-colors"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    )}
+
                     {/* Scrollable form fields dengan desain yang lebih menarik */}
                     <div className={`flex-1 ${hideContentScrollbar ? 'space-y-4 overflow-hidden' : 'space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[60vh]'}`}>
                         {fields.map((field, index) => {

@@ -40,9 +40,6 @@ export default function Profile() {
         updateUser(updatedUser);
         setIsLoading(false); // Selesai loading
         setIsEditModalOpen(false);
-
-        // Tampilkan notifikasi sukses
-        alert('Profile berhasil diperbarui!');
     };
 
     return (
