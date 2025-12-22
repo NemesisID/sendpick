@@ -593,16 +593,21 @@ class JobOrderController extends Controller
                     }
                 }
 
-                // ✅ Jika tidak ada Job Order AKTIF, kosongkan driver & vehicle
-                // Agar driver tersebut kembali tersedia untuk Manifest lain
+                // ✅ FIXED (2025-12-22): Jika tidak ada Job Order AKTIF:
+                // 1. Kosongkan driver & vehicle (agar kembali tersedia)
+                // 2. UBAH STATUS MANIFEST ke 'Cancelled' (bukan hanya Pending)
+                // 3. Set cargo_weight dan cargo_summary ke 0
                 if ($activeJobs->count() === 0) {
                     $manifest->update([
-                        'cargo_weight' => $totalWeight,
-                        'cargo_summary' => $cargoSummary,
-                        'driver_id' => null,   // ✅ Lepaskan driver
-                        'vehicle_id' => null   // ✅ Lepaskan vehicle
+                        'status' => 'Cancelled',  // ✅ NEW: Manifest jadi Cancelled
+                        'cancelled_at' => now(),
+                        'cancellation_reason' => "Semua Job Order dalam Manifest ini sudah dibatalkan",
+                        'cargo_weight' => 0,      // ✅ Set berat ke 0
+                        'cargo_summary' => '0 packages',  // ✅ Set summary ke 0
+                        'driver_id' => null,      // ✅ Lepaskan driver
+                        'vehicle_id' => null      // ✅ Lepaskan vehicle
                     ]);
-                    \Log::info("[CANCEL JO] Manifest {$manifest->manifest_id} has 0 ACTIVE Job Orders. Weight: {$totalWeight} kg. Driver & Vehicle released.");
+                    \Log::info("[CANCEL JO] Manifest {$manifest->manifest_id} has 0 ACTIVE Job Orders. Status changed to CANCELLED. Driver & Vehicle released.");
                 } else {
                     $manifest->update([
                         'cargo_weight' => $totalWeight,
@@ -614,7 +619,8 @@ class JobOrderController extends Controller
                     'manifest_id' => $manifest->manifest_id,
                     'total_jobs' => $allJobs->count(),
                     'active_jobs' => $activeJobs->count(),
-                    'total_weight' => $totalWeight,
+                    'total_weight' => $activeJobs->count() === 0 ? 0 : $totalWeight,
+                    'status' => $activeJobs->count() === 0 ? 'Cancelled' : $manifest->status,
                     'driver_released' => $activeJobs->count() === 0
                 ];
             }

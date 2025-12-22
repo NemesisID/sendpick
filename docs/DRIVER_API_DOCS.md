@@ -13,77 +13,53 @@ Authorization: Bearer <token>
 Token didapatkan dari response login dan berlaku selama **1 tahun**.
 
 
-📋 Daftar Endpoint:
+## 📋 Daftar Endpoint
 
+### 🔐 Authentication & Profile
 
-No
-Method
-Endpoint
-Deskripsi
-1
-POST
-/login
-Login driver
-2
-POST
-/logout
-Logout driver
-3
-GET
-/profile
-Get profil driver
-4
-PUT
-/status
-Update status driver
-5
-PUT
-/fcm-token
-Update FCM Token (Push Notification)
-6
-GET
-/jobs
-Get daftar job orders
-7
-GET
-/jobs/{jobOrderId}
-Get detail job order
-8
-POST
-/jobs/{jobOrderId}/accept
-Terima order
-9
-POST
-/jobs/{jobOrderId}/reject
-Tolak order
-10
-PUT
-/jobs/{jobOrderId}/status
-Update status job
-11
-POST
-/jobs/{jobOrderId}/pod
-Upload Proof of Delivery
-12
-POST
-/scan-qr
-Scan QR Code
-13
-POST
-/gps/bulk
-Kirim data GPS batch
-14
-GET
-/history
-Get riwayat order
-15
-GET
-/history/stats
-Get statistik driver
-16
-GET
-/vehicles/{vehicleId}/check
-Cek ketersediaan kendaraan
+| No | Method | Endpoint | Deskripsi |
+|----|--------|----------|-----------|
+| 1 | `POST` | `/login` | Login driver |
+| 2 | `POST` | `/logout` | Logout driver |
+| 3 | `GET` | `/profile` | Get profil driver |
+
+### 👤 Driver Management
+
+| No | Method | Endpoint | Deskripsi |
+|----|--------|----------|-----------|
+| 4 | `PUT` | `/status` | Update status driver |
+| 5 | `PUT` | `/fcm-token` | Update FCM Token (Push Notification) |
+
+### 📦 Job Order
+
+| No | Method | Endpoint | Deskripsi |
+|----|--------|----------|-----------|
+| 6 | `GET` | `/jobs` | Get daftar job orders |
+| 7 | `GET` | `/jobs/{jobOrderId}` | Get detail job order |
+| 8 | `POST` | `/jobs/{jobOrderId}/accept` | Terima order |
+| 9 | `POST` | `/jobs/{jobOrderId}/reject` | Tolak order |
+| 10 | `PUT` | `/jobs/{jobOrderId}/status` | Update status job |
+
+### 📸 POD & QR Code
+
+| No | Method | Endpoint | Deskripsi |
+|----|--------|----------|-----------|
+| 11 | `POST` | `/jobs/{jobOrderId}/pod` | Upload Proof of Delivery |
+| 12 | `POST` | `/scan-qr` | Scan QR Code |
+
+### 📍 GPS & History
+
+| No | Method | Endpoint | Deskripsi |
+|----|--------|----------|-----------|
+| 13 | `POST` | `/gps/bulk` | Kirim data GPS batch |
+| 14 | `GET` | `/history` | Get riwayat order |
+| 15 | `GET` | `/history/stats` | Get statistik driver |
+
+### 🚗 Vehicle
+
+| No | Method | Endpoint | Deskripsi |
+|----|--------|----------|-----------|
+| 16 | `GET` | `/vehicles/{vehicleId}/check` | Cek ketersediaan kendaraan |
 
 
 1️⃣ Login

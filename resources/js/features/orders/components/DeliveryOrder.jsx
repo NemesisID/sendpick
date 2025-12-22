@@ -205,26 +205,40 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
     const departureDate = deliveryOrder.departure_date ?? deliveryOrder.do_date;
     const formattedDeparture = departureDate ? new Date(departureDate).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' }) : '-';
 
+    // ✅ FIXED (2025-12-22): Check if DO is Cancelled
+    // Cancelled DO should:
+    // - Show 0/dash for cargo data (weight, qty, volume, goods_desc, ETA)
+    // - KEEP showing driver/vehicle names for audit purposes
+    const status = normalizeStatus(deliveryOrder.status);
+    const isCancelled = status === 'cancelled';
+
     // Fix Koli & Goods Info
-    // ✅ FIXED: Now uses correct weight from selected JO (not total manifest weight)
-    const weight = sourceInfo.goods_weight ?? deliveryOrder.weight ?? '-';
-    const qty = sourceInfo.koli ?? sourceInfo.quantity ?? deliveryOrder.quantity ?? '-';
-    const volume = sourceInfo.goods_volume ?? '-'; // ✅ NEW: Volume in m³
+    // For Cancelled DO: show dash/empty for cargo info
+    const weight = isCancelled ? '-' : (sourceInfo.goods_weight ?? deliveryOrder.weight ?? '-');
+    const qty = isCancelled ? '-' : (sourceInfo.koli ?? sourceInfo.quantity ?? deliveryOrder.quantity ?? '-');
+    const volume = isCancelled ? '-' : (sourceInfo.goods_volume ?? '-');
     const jobOrdersCount = sourceInfo.job_orders_count ?? null;
 
     // Use goods_summary first, then sourceInfo.goods_desc
-    const goodsDesc = deliveryOrder.goods_summary || sourceInfo.goods_desc || '-';
+    // For Cancelled DO: hide goods description
+    const goodsDesc = isCancelled ? '-' : (deliveryOrder.goods_summary || sourceInfo.goods_desc || '-');
 
     // Fix ETA: Now using the eta field from database
-    const status = normalizeStatus(deliveryOrder.status);
+    // For Cancelled DO: always show dash (no ETA needed)
     let eta = '-';
-
-    // If eta is stored in database, use it
-    if (deliveryOrder.eta) {
-        eta = new Date(deliveryOrder.eta).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-    } else if (status === 'inTransit') {
-        eta = 'Estimating...';
+    if (!isCancelled) {
+        if (deliveryOrder.eta) {
+            eta = new Date(deliveryOrder.eta).toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        } else if (status === 'inTransit') {
+            eta = 'Estimating...';
+        }
     }
+
+    // ✅ FIXED (2025-12-22): For driver/vehicle display:
+    // - For Cancelled DO: KEEP showing original driver/vehicle names for AUDIT purposes
+    // - Only show "Belum ditugaskan" if data truly doesn't exist
+    const driverName = deliveryOrder.driver_name ?? deliveryOrder.assigned_driver ?? null;
+    const vehiclePlate = deliveryOrder.vehicle_plate ?? deliveryOrder.assigned_vehicle ?? null;
 
     return {
         id: deliveryOrder.do_id ?? deliveryOrder.id,
@@ -233,8 +247,9 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
         selectedJobOrderId: sourceInfo.selected_job_order_id ?? sourceInfo.job_order_id ?? null,
         sourceLabel: sourceLabel,
         customer: customerName,
-        driver: deliveryOrder.driver_name ?? deliveryOrder.assigned_driver ?? 'Belum ditugaskan',
-        vehicle: deliveryOrder.vehicle_plate ?? deliveryOrder.assigned_vehicle ?? 'Belum ditugaskan',
+        // ✅ FIXED: Show driver/vehicle for audit even on Cancelled DO
+        driver: driverName || 'Belum ditugaskan',
+        vehicle: vehiclePlate || 'Belum ditugaskan',
         route,
         origin: origin,  // Separate field for vertical display
         destination: destination,  // Separate field for vertical display
@@ -244,14 +259,15 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
         backendStatus: deliveryOrder.status ?? 'Pending',
         weight: weight,
         qty: qty,
-        volume: volume, // ✅ NEW: Volume in m³
+        volume: volume,
         goods_desc: goodsDesc,
         lastUpdate: deliveryOrder.updated_at ? new Date(deliveryOrder.updated_at).toLocaleString('id-ID') : '-',
 
         // Additional fields for display logic
         isManifest: deliveryOrder.source_type === 'MF',
-        isLTLSpecific: isLTLSpecific, // ✅ NEW: Flag for LTL-specific DO
+        isLTLSpecific: isLTLSpecific,
         jobOrdersCount: jobOrdersCount,
+        isCancelled: isCancelled, // ✅ NEW: Flag for cancelled status
 
         priority: (deliveryOrder.priority ?? 'normal').toLowerCase(),
         raw: deliveryOrder,

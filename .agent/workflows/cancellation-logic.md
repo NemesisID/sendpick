@@ -282,6 +282,40 @@ php artisan manifest:reattach-jobs
 - Driver & Armada tetap ditampilkan pada Cancelled Manifest untuk keperluan audit
 - Hanya data cargo (Berat, Koli, Packages) yang di-reset ke 0
 
+### Manifest Tidak Berkurang Berat/Koli Setelah Cancel Job Order (BARU 2025-12-22)
+**Penyebab**: Frontend menghitung berat & koli dari SEMUA `jobOrders` array (termasuk yang Cancelled), sehingga meskipun satu JO dibatalkan, total Manifest tetap sama.
+
+**Solusi (2025-12-22)**:
+- Frontend sekarang FILTER Job Order yang aktif terlebih dahulu sebelum kalkulasi:
+  ```javascript
+  const activeJobOrders = jobOrders.filter(jo => jo.status !== 'Cancelled');
+  const totalWeight = isCancelled ? 0 : activeJobOrders.reduce(...);
+  const totalPackages = isCancelled ? 0 : activeJobOrders.reduce(...);
+  ```
+- Manifest AKTIF menampilkan total dari JO AKTIF saja (bukan semua JO)
+- Manifest CANCELLED tetap menampilkan 0
+
+**Files yang diperbaiki**:
+- `resources/js/features/manifests/components/Manifest.jsx` - `mapManifestFromApi()`
+
+### Delivery Order Cancelled Masih Menampilkan Data Cargo (BARU 2025-12-22)
+**Penyebab**: `mapDeliveryOrderFromApi` tidak mengecek status Cancelled dan tetap menampilkan weight, qty, volume, goods_desc dari `source_info`.
+
+**Solusi (2025-12-22)**:
+- Frontend sekarang mengecek `isCancelled` dan mengosongkan data cargo untuk DO yang dibatalkan:
+  ```javascript
+  const isCancelled = status === 'cancelled';
+  const weight = isCancelled ? '-' : (sourceInfo.goods_weight ?? ...);
+  const qty = isCancelled ? '-' : (sourceInfo.koli ?? ...);
+  const volume = isCancelled ? '-' : (sourceInfo.goods_volume ?? ...);
+  const goodsDesc = isCancelled ? '-' : (deliveryOrder.goods_summary || ...);
+  const eta = isCancelled ? '-' : ...;
+  ```
+- Driver & Armada **TETAP ditampilkan** untuk keperluan audit (tidak berubah jadi "Belum ditugaskan")
+
+**Files yang diperbaiki**:
+- `resources/js/features/orders/components/DeliveryOrder.jsx` - `mapDeliveryOrderFromApi()`
+
 ---
 
 ## 6. Kesimpulan
@@ -290,7 +324,9 @@ php artisan manifest:reattach-jobs
 - **Cancel Manifest/DO** = Mereset Order (Mundur satu langkah untuk diperbaiki/dijadwalkan ulang)
 - **Manifest CANCELLED** = Menampilkan **0 Koli, 0 Berat, 0 Packages** (Truk kosong)
   - Driver & Armada **TETAP ditampilkan** untuk keperluan audit riwayat
-- **Manifest AKTIF** = Menampilkan TOTAL berat dari SEMUA Job Order (termasuk yang dibatalkan)
+- **Manifest AKTIF (dengan JO Cancelled)** = Menampilkan total berat dari **JO AKTIF saja** (berkurang sesuai JO yang dibatalkan)
+- **Delivery Order CANCELLED** = Menampilkan **- (dash)** untuk Koli, Berat, Volume, Barang, ETA
+  - Driver & Armada **TETAP ditampilkan** untuk keperluan audit riwayat
 
 **Catatan Penting**:
 - Untuk data lama dimana Job Order sudah ter-detach dari Manifest, gunakan Edit Manifest untuk re-attach Job Order
