@@ -1,82 +1,4 @@
-import React, { useState, useEffect } from 'react';
-
-const assignmentSummaryData = {
-    todayAssignments: [
-        {
-            id: 'ASG-2024-001',
-            type: 'driver_assignment',
-            assignedTo: 'Budi Santoso',
-            jobOrder: 'JO-2024-874',
-            customer: 'PT Maju Jaya',
-            route: 'Jakarta → Surabaya',
-            startTime: '08:00',
-            status: 'active',
-            priority: 'high',
-        },
-        {
-            id: 'ASG-2024-003',
-            type: 'loading_supervisor',
-            assignedTo: 'Roni Setiawan',
-            jobOrder: 'JO-2024-876',
-            customer: 'PT Nusantara',
-            route: 'Jakarta → Medan',
-            startTime: '08:00',
-            status: 'pending',
-            priority: 'high',
-        },
-        {
-            id: 'ASG-2024-004',
-            type: 'quality_check',
-            assignedTo: 'Maya Sari',
-            jobOrder: 'JO-2024-877',
-            customer: 'CV Sukses Mandiri',
-            route: 'Bandung → Makassar',
-            startTime: '09:30',
-            status: 'completed',
-            priority: 'medium',
-        },
-        {
-            id: 'ASG-2024-005',
-            type: 'driver_assignment',
-            assignedTo: 'Agus Rahman',
-            jobOrder: 'JO-2024-878',
-            customer: 'PT Sejahtera Abadi',
-            route: 'Jakarta → Bali',
-            startTime: '10:00',
-            status: 'pending',
-            priority: 'medium',
-        },
-        {
-            id: 'ASG-2024-006',
-            type: 'loading_supervisor',
-            assignedTo: 'Doni Pratama',
-            jobOrder: 'JO-2024-879',
-            customer: 'CV Mitra Logistik',
-            route: 'Surabaya → Balikpapan',
-            startTime: '11:30',
-            status: 'active',
-            priority: 'low',
-        },
-        {
-            id: 'ASG-2024-007',
-            type: 'delivery_coordinator',
-            assignedTo: 'Sari Indah',
-            jobOrder: 'JO-2024-880',
-            customer: 'PT Global Express',
-            route: 'Medan → Aceh',
-            startTime: '12:00',
-            status: 'standby',
-            priority: 'high',
-        },
-    ],
-    metrics: {
-        totalToday: 12,
-        active: 5,
-        completed: 4,
-        pending: 3,
-        overdue: 0,
-    },
-};
+import React, { useState, useMemo } from 'react';
 
 const statusStyles = {
     pending: {
@@ -86,13 +8,19 @@ const statusStyles = {
         dot: 'bg-amber-400',
     },
     active: {
-        label: 'Active',
+        label: 'In Transit',
         bg: 'bg-blue-50',
         text: 'text-blue-600',
         dot: 'bg-blue-400',
     },
+    assigned: {
+        label: 'Assigned',
+        bg: 'bg-indigo-50',
+        text: 'text-indigo-600',
+        dot: 'bg-indigo-400',
+    },
     completed: {
-        label: 'Completed',
+        label: 'Delivered',
         bg: 'bg-emerald-50',
         text: 'text-emerald-600',
         dot: 'bg-emerald-400',
@@ -104,6 +32,16 @@ const statusStyles = {
         dot: 'bg-red-400',
     },
 };
+
+// Helper: Map API status to widget status
+function mapApiStatusToWidget(apiStatus) {
+    const status = (apiStatus || '').toLowerCase();
+    if (status === 'in transit' || status === 'on delivery') return 'active';
+    if (status === 'assigned' || status === 'pickup') return 'assigned';
+    if (status === 'delivered' || status === 'completed') return 'completed';
+    if (status === 'pending') return 'pending';
+    return 'pending';
+}
 
 const priorityStyles = {
     low: 'border-l-slate-300',
@@ -159,7 +97,7 @@ const ArrowRightIcon = ({ className = 'h-4 w-4' }) => (
 function StatusBadge({ status, size = 'sm' }) {
     const style = statusStyles[status] ?? statusStyles.pending;
     const sizeClass = size === 'xs' ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs';
-    
+
     return (
         <span className={`inline-flex items-center rounded-full font-medium ${style.bg} ${style.text} ${sizeClass}`}>
             <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${style.dot}`}></span>
@@ -171,7 +109,7 @@ function StatusBadge({ status, size = 'sm' }) {
 function AssignmentTypeIcon({ type, className = 'h-4 w-4' }) {
     switch (type) {
         case 'driver_assignment':
-            return <TruckIcon className={className} />;
+            return <UserIcon className={className} />;
         case 'quality_check':
             return <CheckCircleIcon className={className} />;
         case 'loading_supervisor':
@@ -182,31 +120,47 @@ function AssignmentTypeIcon({ type, className = 'h-4 w-4' }) {
 }
 
 function AssignmentItem({ assignment }) {
+    // FTL/LTL badge styles
+    const orderTypeBadge = {
+        FTL: 'bg-purple-100 text-purple-600',
+        LTL: 'bg-orange-100 text-orange-600',
+    };
+
     return (
         <div className={`flex items-center justify-between rounded-2xl border-l-4 bg-white p-4 shadow-sm transition hover:shadow-md ${priorityStyles[assignment.priority]}`}>
             <div className='flex items-center gap-3'>
                 <div className='flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600'>
-                    <AssignmentTypeIcon type={assignment.type} className='h-5 w-5' />
+                    <UserIcon className='h-5 w-5' />
                 </div>
-                <div>
+                <div className='space-y-0.5'>
+                    {/* Row 1: Driver Name + Vehicle Plate */}
                     <div className='flex items-center gap-2'>
                         <p className='font-semibold text-slate-800'>{assignment.assignedTo}</p>
-                        <span className='text-xs text-slate-400'>•</span>
-                        <span className='text-xs font-medium text-slate-600'>
-                            {assignmentTypeLabels[assignment.type]}
-                        </span>
+                        {assignment.vehiclePlate && assignment.vehiclePlate !== 'N/A' && (
+                            <>
+                                <span className='text-xs text-slate-300'>•</span>
+                                <span className='text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded'>
+                                    {assignment.vehiclePlate}
+                                </span>
+                            </>
+                        )}
                     </div>
-                    <p className='text-sm text-slate-600'>{assignment.customer}</p>
+                    {/* Row 2: Route (Origin → Destination) */}
                     <p className='text-xs text-slate-500'>{assignment.route}</p>
+                    {/* Row 3: Order Type Badge + Customer / LTL Info */}
+                    <div className='flex items-center gap-2'>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded ${orderTypeBadge[assignment.orderType] || orderTypeBadge.FTL}`}>
+                            {assignment.orderType || 'FTL'}
+                        </span>
+                        <p className='text-sm text-slate-600'>{assignment.customer}</p>
+                    </div>
                 </div>
             </div>
-            <div className='flex items-center gap-3'>
-                <div className='text-right'>
-                    <div className='flex items-center gap-1 text-xs text-slate-500'>
-                        <ClockIcon className='h-3 w-3' />
-                        <span>{assignment.startTime}</span>
-                    </div>
-                    <StatusBadge status={assignment.status} size='xs' />
+            <div className='flex flex-col items-end gap-1'>
+                <StatusBadge status={assignment.status} size='xs' />
+                <div className='flex items-center gap-1 text-xs text-slate-400'>
+                    <ClockIcon className='h-3 w-3' />
+                    <span>{assignment.startTime}</span>
                 </div>
             </div>
         </div>
@@ -236,45 +190,87 @@ function AssignmentMetrics({ metrics }) {
     );
 }
 
-export default function AssignmentWidget({ limit = 5, showMetrics = true }) {
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [displayLimit, setDisplayLimit] = useState(limit); // ✅ State untuk limit tampilan
+export default function AssignmentWidget({
+    itemsPerPage = 4,
+    showMetrics = true,
+    assignments = [], // Data dari API
+    loading = false   // Loading state dari parent
+}) {
+    const [currentPage, setCurrentPage] = useState(1);
 
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setData(assignmentSummaryData);
-            setLoading(false);
-        }, 1000);
+    // Compute metrics from assignments data
+    const metrics = useMemo(() => {
+        const statusCounts = {
+            totalToday: assignments.length,
+            active: 0,
+            completed: 0,
+            pending: 0,
+            overdue: 0,
+        };
 
-        return () => clearTimeout(timer);
-    }, []);
+        assignments.forEach(a => {
+            const status = (a.status || '').toLowerCase();
+            if (status === 'in transit' || status === 'assigned' || status === 'active') {
+                statusCounts.active++;
+            } else if (status === 'delivered' || status === 'completed') {
+                statusCounts.completed++;
+            } else if (status === 'pending') {
+                statusCounts.pending++;
+            }
+        });
 
-    // ✅ Handler untuk expand/collapse widget
-    const handleViewAll = () => {
-        console.log('View All clicked!', { data, displayLimit, limit }); // Debug log
-        if (data && data.todayAssignments) {
-            setDisplayLimit(data.todayAssignments.length); // Tampilkan semua
-            console.log('Setting display limit to:', data.todayAssignments.length);
-        }
+        return statusCounts;
+    }, [assignments]);
+
+    // Transform API data to widget format
+    const todayAssignments = useMemo(() => {
+        return assignments.map(a => ({
+            id: a.job_order_id || a.do_id,
+            type: 'driver_assignment',
+            orderType: a.order_type || 'FTL',
+            assignedTo: a.driver_name || 'Unassigned',
+            jobOrder: a.job_order_id || a.do_id,
+            customer: a.customer_name || 'N/A',
+            route: `${a.pickup_city || '?'} → ${a.delivery_city || '?'}`,
+            startTime: a.assigned_at
+                ? new Date(a.assigned_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+                : (a.created_at ? new Date(a.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'),
+            status: mapApiStatusToWidget(a.status),
+            priority: 'medium',
+            vehiclePlate: a.vehicle_plate || 'N/A',
+            goodsSummary: a.goods_summary || 'N/A',
+        }));
+    }, [assignments]);
+
+    // Pagination calculations
+    const totalItems = todayAssignments.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const displayAssignments = todayAssignments.slice(startIndex, endIndex);
+
+    const handlePrevPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
     };
 
-    const handleShowLess = () => {
-        console.log('Show Less clicked!'); // Debug log
-        setDisplayLimit(limit); // Kembali ke limit awal
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
     };
 
-    const handleShowMore = () => {
-        console.log('Show More clicked!', { data, displayLimit }); // Debug log
-        if (data && data.todayAssignments) {
-            setDisplayLimit(data.todayAssignments.length); // Tampilkan semua
-            console.log('Setting display limit to:', data.todayAssignments.length);
-        }
-    };
+    // Chevron Icons for pagination
+    const ChevronLeftIcon = ({ className = 'h-4 w-4' }) => (
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' className={className}>
+            <path d='M15 19l-7-7 7-7' strokeLinecap='round' strokeLinejoin='round' />
+        </svg>
+    );
 
-    const isExpanded = data && displayLimit > limit;
+    const ChevronRightIcon = ({ className = 'h-4 w-4' }) => (
+        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' className={className}>
+            <path d='M9 5l7 7-7 7' strokeLinecap='round' strokeLinejoin='round' />
+        </svg>
+    );
 
-    if (loading || !data) {
+    if (loading) {
         return (
             <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
                 <div className='animate-pulse space-y-6'>
@@ -310,28 +306,25 @@ export default function AssignmentWidget({ limit = 5, showMetrics = true }) {
         );
     }
 
-    const displayAssignments = data?.todayAssignments?.slice(0, displayLimit) || [];
-
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex items-center justify-between'>
                 <div>
-                    <h2 className='text-lg font-semibold text-slate-900'>Today's Assignments</h2>
-                    <p className='text-sm text-slate-500'>Active task assignments for today</p>
+                    <h2 className='text-lg font-semibold text-slate-900'>Active Assignments</h2>
+                    <p className='text-sm text-slate-500'>Ongoing task assignments (not yet completed)</p>
                 </div>
-                <button
-                    type='button'
-                    onClick={isExpanded ? handleShowLess : handleViewAll} // ✅ Toggle expand/collapse
+                <a
+                    href='/orders'
                     className='inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50'
                 >
-                    {isExpanded ? 'Show Less' : 'View All'}
-                    <ArrowRightIcon className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                </button>
+                    View All
+                    <ArrowRightIcon className='h-3 w-3' />
+                </a>
             </div>
 
             {showMetrics && (
                 <div className='mt-6'>
-                    <AssignmentMetrics metrics={data.metrics} />
+                    <AssignmentMetrics metrics={metrics} />
                 </div>
             )}
 
@@ -346,34 +339,46 @@ export default function AssignmentWidget({ limit = 5, showMetrics = true }) {
                             <div className='mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center'>
                                 <UserIcon className='h-6 w-6 text-slate-400' />
                             </div>
-                            <p className='mt-3 text-sm font-medium text-slate-800'>No assignments today</p>
-                            <p className='text-xs text-slate-500'>All assignments for today have been completed.</p>
+                            <p className='mt-3 text-sm font-medium text-slate-800'>No active assignments</p>
+                            <p className='text-xs text-slate-500'>All assignments have been completed.</p>
                         </div>
                     </div>
                 )}
             </div>
 
-            {data?.todayAssignments?.length > displayLimit && !isExpanded && (
-                <div className='mt-4 text-center'>
-                    <button
-                        type='button'
-                        onClick={handleShowMore} // ✅ Expand untuk show more
-                        className='text-sm font-medium text-indigo-600 hover:text-indigo-700'
-                    >
-                        Show {(data?.todayAssignments?.length || 0) - displayLimit} more assignments
-                    </button>
-                </div>
-            )}
-
-            {isExpanded && (
-                <div className='mt-4 text-center'>
-                    <button
-                        type='button'
-                        onClick={handleShowLess}
-                        className='text-sm font-medium text-indigo-600 hover:text-indigo-700'
-                    >
-                        ← Show Less
-                    </button>
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+                <div className='mt-6 flex items-center justify-between border-t border-slate-100 pt-4'>
+                    <p className='text-xs text-slate-400'>
+                        Menampilkan {startIndex + 1}-{Math.min(endIndex, totalItems)} dari {totalItems} assignment
+                    </p>
+                    <div className='flex items-center gap-2'>
+                        <button
+                            type='button'
+                            onClick={handlePrevPage}
+                            disabled={currentPage === 1}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${currentPage === 1
+                                ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                        >
+                            <ChevronLeftIcon className='h-4 w-4' />
+                        </button>
+                        <span className='px-3 py-1 text-xs font-medium text-slate-600'>
+                            {currentPage} / {totalPages || 1}
+                        </span>
+                        <button
+                            type='button'
+                            onClick={handleNextPage}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${currentPage === totalPages || totalPages === 0
+                                ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                        >
+                            <ChevronRightIcon className='h-4 w-4' />
+                        </button>
+                    </div>
                 </div>
             )}
         </section>

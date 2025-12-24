@@ -241,7 +241,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Karena ini adalah WRITE operation yang hanya boleh dilakukan dari Mobile App Driver
 
     // Dashboard - Single endpoint untuk semua data dashboard READ ONLY
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard.index');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('api.dashboard.index')->withoutMiddleware('auth:sanctum');
 
     // Reports - Read-Only endpoints untuk analytics
     Route::get('/reports/sales', [ReportController::class, 'sales'])->name('api.reports.sales')->withoutMiddleware('auth:sanctum');

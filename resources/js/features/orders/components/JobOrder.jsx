@@ -1,10 +1,15 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { Search, Eye, Pencil, XCircle, ClipboardList, Clock, Truck, CheckCircle2, ArrowDown } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
+import Pagination from '../../../components/common/Pagination';
 import JobOrderDetail from './JobOrderDetail';
 import { fetchJobOrders, createJobOrder, updateJobOrder, cancelJobOrder } from '../services/jobOrderService';
 import { fetchCustomers } from '../../customers/services/customerService';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 const summaryCards = [
     {
@@ -13,13 +18,7 @@ const summaryCards = [
         iconBg: 'bg-sky-100',
         iconColor: 'text-sky-600',
         description: 'Semua jenis order',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M4 4h16' strokeLinecap='round' />
-                <path d='M5 8h14v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M9 12h6M9 16h4' strokeLinecap='round' />
-            </svg>
-        ),
+        icon: <ClipboardList className='h-5 w-5' />,
     },
     {
         title: 'Pending',
@@ -27,12 +26,7 @@ const summaryCards = [
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
         description: 'Menunggu konfirmasi',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='M12 8v4l2.5 1.5' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <Clock className='h-5 w-5' />,
     },
     {
         title: 'In Progress',
@@ -40,14 +34,7 @@ const summaryCards = [
         iconBg: 'bg-indigo-100',
         iconColor: 'text-indigo-500',
         description: 'Dalam proses pengiriman',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M4 7h11v9H4z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M15 11h3l2 2v3h-5' strokeLinecap='round' strokeLinejoin='round' />
-                <circle cx='7' cy='18' r='1.5' />
-                <circle cx='17' cy='18' r='1.5' />
-            </svg>
-        ),
+        icon: <Truck className='h-5 w-5' />,
     },
     {
         title: 'Completed',
@@ -55,12 +42,7 @@ const summaryCards = [
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
         description: 'Order selesai bulan ini',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <CheckCircle2 className='h-5 w-5' />,
     },
 ];
 
@@ -240,34 +222,11 @@ const INDONESIA_CITIES = [
     { value: 'Padang', label: 'Padang' },
 ];
 
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='6' />
-        <path d='m20 20-3.5-3.5' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const EyeIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M2 12s3-6 10-6 10 6 10 6-3 6-10 6-10-6-10-6z' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='12' cy='12' r='3' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='m14.5 5.5 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const CancelIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='12' cy='12' r='10' />
-        <path d='M15 9l-6 6' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M9 9l6 6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const SearchIcon = ({ className = 'h-5 w-5' }) => <Search className={className} />;
+const EyeIcon = ({ className = 'h-4 w-4' }) => <Eye className={className} />;
+const EditIcon = ({ className = 'h-4 w-4' }) => <Pencil className={className} />;
+const CancelIcon = ({ className = 'h-4 w-4' }) => <XCircle className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -327,9 +286,7 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
 
                     {/* Arrow */}
                     <div className='flex items-center pl-1'>
-                        <svg className='h-4 w-4 text-slate-300' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-                            <path d='M12 5v14M19 12l-7 7-7-7' strokeLinecap='round' strokeLinejoin='round' />
-                        </svg>
+                        <ArrowDown className='h-4 w-4 text-slate-300' />
                     </div>
 
                     {/* Delivery */}
@@ -422,57 +379,84 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
     );
 }
 
-function OrdersTable({ orders, isLoading, error, onViewDetail, onEdit, onCancel }) {
+function OrdersTable({
+    orders,
+    isLoading,
+    error,
+    onViewDetail,
+    onEdit,
+    onCancel,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
     return (
-        <div className='mt-6 overflow-x-auto'>
-            <table className='w-full min-w-[960px] border-collapse'>
-                <thead>
-                    <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
-                        <th className='px-6 py-3'>Order ID</th>
-                        <th className='px-6 py-3'>Tipe</th>
-                        <th className='px-6 py-3'>Customer</th>
-                        <th className='px-6 py-3'>Route</th>
-                        <th className='px-6 py-3'>Barang</th>
-                        <th className='px-6 py-3'>Driver/Kendaraan</th>
-                        <th className='px-6 py-3'>Status</th>
-                        <th className='px-6 py-3'>Tanggal</th>
-                        <th className='px-6 py-3'>Nilai</th>
-                        <th className='px-6 py-3'>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody className='divide-y divide-slate-100'>
-                    {isLoading ? (
-                        <tr>
-                            <td colSpan={10} className='px-6 py-12 text-center text-sm text-slate-400'>
-                                Memuat data job order...
-                            </td>
+        <>
+            <div className='mt-6 overflow-x-auto'>
+                <table className='w-full min-w-[960px] border-collapse'>
+                    <thead>
+                        <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
+                            <th className='px-6 py-3'>Order ID</th>
+                            <th className='px-6 py-3'>Tipe</th>
+                            <th className='px-6 py-3'>Customer</th>
+                            <th className='px-6 py-3'>Route</th>
+                            <th className='px-6 py-3'>Barang</th>
+                            <th className='px-6 py-3'>Driver/Kendaraan</th>
+                            <th className='px-6 py-3'>Status</th>
+                            <th className='px-6 py-3'>Tanggal</th>
+                            <th className='px-6 py-3'>Nilai</th>
+                            <th className='px-6 py-3'>Aksi</th>
                         </tr>
-                    ) : error ? (
-                        <tr>
-                            <td colSpan={10} className='px-6 py-12 text-center text-sm text-rose-500'>
-                                {error}
-                            </td>
-                        </tr>
-                    ) : orders.length > 0 ? (
-                        orders.map((order) => (
-                            <OrderRow
-                                key={order.id}
-                                order={order}
-                                onViewDetail={onViewDetail}
-                                onEdit={onEdit}
-                                onCancel={onCancel}
-                            />
-                        ))
-                    ) : (
-                        <tr>
-                            <td colSpan={10} className='px-6 py-12 text-center text-sm text-slate-400'>
-                                Tidak ada order untuk filter saat ini.
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody className='divide-y divide-slate-100'>
+                        {isLoading ? (
+                            <tr>
+                                <td colSpan={10} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                    Memuat data job order...
+                                </td>
+                            </tr>
+                        ) : error ? (
+                            <tr>
+                                <td colSpan={10} className='px-6 py-12 text-center text-sm text-rose-500'>
+                                    {error}
+                                </td>
+                            </tr>
+                        ) : orders.length > 0 ? (
+                            orders.map((order) => (
+                                <OrderRow
+                                    key={order.id}
+                                    order={order}
+                                    onViewDetail={onViewDetail}
+                                    onEdit={onEdit}
+                                    onCancel={onCancel}
+                                />
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan={10} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                    Tidak ada order untuk filter saat ini.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
+        </>
     );
 }
 
@@ -495,6 +479,7 @@ export default function JobOrderContent() {
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, order: null });
     const [createModal, setCreateModal] = useState({ isOpen: false });
     const [isLoading, setIsLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const [customers, setCustomers] = useState([]);
 
@@ -966,6 +951,22 @@ export default function JobOrderContent() {
         });
     }, [orders, searchTerm, typeFilter, statusFilter, activeTab]);
 
+    // Pagination calculations
+    const totalItems = filteredOrders.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, typeFilter, statusFilter, activeTab]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
     // Render JobOrderDetail if in detail view
     if (currentView === 'detail' && selectedOrderId) {
         console.log('Rendering JobOrderDetail for order:', selectedOrderId);
@@ -1038,12 +1039,18 @@ export default function JobOrderContent() {
                 </div>
 
                 <OrdersTable
-                    orders={filteredOrders}
+                    orders={paginatedOrders}
                     isLoading={ordersLoading}
                     error={ordersError}
                     onViewDetail={handleViewDetail}
                     onEdit={handleEdit}
                     onCancel={handleCancel}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    startIndex={startIndex}
+                    endIndex={endIndex}
+                    onPageChange={handlePageChange}
                 />
             </section>
 

@@ -1,7 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { Truck, Check, Settings, BarChart3, Search } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
+import Pagination from '../../../components/common/Pagination';
 import LiveTrackingMap from '../../tracking/components/LiveTrackingMap';
 import { fetchActiveVehicles } from '../services/vehicleService';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 // Generate real-time summary cards from active vehicles data
 const generateSummaryCards = (vehicles = []) => {
@@ -27,14 +32,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: 'Sedang melakukan delivery',
             iconBg: 'bg-indigo-100',
             iconColor: 'text-indigo-600',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M3 7h11v8H3z' strokeLinecap='round' strokeLinejoin='round' />
-                    <path d='M14 11h3l3 3v3h-3' strokeLinecap='round' strokeLinejoin='round' />
-                    <circle cx='7.5' cy='19' r='1.5' />
-                    <circle cx='16.5' cy='19' r='1.5' />
-                </svg>
-            ),
+            icon: <Truck className='h-5 w-5' />,
         },
         {
             title: 'Siap Berangkat',
@@ -42,11 +40,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: 'Idle < 30 menit',
             iconBg: 'bg-emerald-100',
             iconColor: 'text-emerald-500',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M3 12l4 4L21 4' strokeLinecap='round' strokeLinejoin='round' />
-                </svg>
-            ),
+            icon: <Check className='h-5 w-5' />,
         },
         {
             title: 'Maintenance Ringan',
@@ -54,11 +48,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: 'Terjadwal hari ini',
             iconBg: 'bg-amber-100',
             iconColor: 'text-amber-500',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M10 2h4l2 3h5v4l-2 2 2 2v4h-5l-2 3h-4l-2-3H3v-4l2-2-2-2V5h5z' strokeLinecap='round' strokeLinejoin='round' />
-                </svg>
-            ),
+            icon: <Settings className='h-5 w-5' />,
         },
         {
             title: 'Utilisasi Rata-rata',
@@ -66,14 +56,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: '7 hari terakhir',
             iconBg: 'bg-sky-100',
             iconColor: 'text-sky-600',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M4 19h16' strokeLinecap='round' />
-                    <path d='M7 16v-5' strokeLinecap='round' />
-                    <path d='M12 16V9' strokeLinecap='round' />
-                    <path d='M17 16V6' strokeLinecap='round' />
-                </svg>
-            ),
+            icon: <BarChart3 className='h-5 w-5' />,
         },
     ];
 };
@@ -143,12 +126,8 @@ const utilizationSnapshots = [
     },
 ];
 
-const SearchIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='7' />
-        <path d='m16 16 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const SearchIcon = ({ className = 'h-4 w-4' }) => <Search className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -196,39 +175,62 @@ function ActiveVehicleRow({ item }) {
     );
 }
 
-function ActiveVehicleTable({ items, loading }) {
+function ActiveVehicleTable({
+    items,
+    loading,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
     return (
-        <div className='mt-6 overflow-x-auto'>
-            <table className='w-full min-w-[960px] border-collapse'>
-                <thead>
-                    <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
-                        <th className='px-6 py-3'>Kendaraan</th>
-                        <th className='px-6 py-3'>Rute</th>
-                        <th className='px-6 py-3'>ETA</th>
-                        <th className='px-6 py-3'>Load</th>
-                        <th className='px-6 py-3'>Status</th>
-                        <th className='px-6 py-3'>Update Terakhir</th>
-                    </tr>
-                </thead>
-                <tbody className='divide-y divide-slate-100'>
-                    {loading ? (
-                        <tr>
-                            <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
-                                Memuat data kendaraan...
-                            </td>
+        <>
+            <div className='mt-6 overflow-x-auto'>
+                <table className='w-full min-w-[960px] border-collapse'>
+                    <thead>
+                        <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
+                            <th className='px-6 py-3'>Kendaraan</th>
+                            <th className='px-6 py-3'>Rute</th>
+                            <th className='px-6 py-3'>ETA</th>
+                            <th className='px-6 py-3'>Load</th>
+                            <th className='px-6 py-3'>Status</th>
+                            <th className='px-6 py-3'>Update Terakhir</th>
                         </tr>
-                    ) : items.length > 0 ? (
-                        items.map((item) => <ActiveVehicleRow key={item.id} item={item} />)
-                    ) : (
-                        <tr>
-                            <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
-                                Tidak ada kendaraan dengan filter yang dipilih.
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody className='divide-y divide-slate-100'>
+                        {loading ? (
+                            <tr>
+                                <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                    Memuat data kendaraan...
+                                </td>
+                            </tr>
+                        ) : items.length > 0 ? (
+                            items.map((item) => <ActiveVehicleRow key={item.id} item={item} />)
+                        ) : (
+                            <tr>
+                                <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                    Tidak ada kendaraan dengan filter yang dipilih.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
+        </>
     );
 }
 
@@ -248,6 +250,7 @@ export default function ActiveVehiclesContent() {
     const [regionFilter, setRegionFilter] = useState('all');
     const [vehicles, setVehicles] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
 
     useEffect(() => {
         const loadVehicles = async () => {
@@ -288,6 +291,22 @@ export default function ActiveVehiclesContent() {
 
     // Generate real-time summary cards from vehicles data
     const summaryCards = useMemo(() => generateSummaryCards(vehicles), [vehicles]);
+
+    // Pagination calculations
+    const totalItems = filteredVehicles.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedVehicles = filteredVehicles.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, regionFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
 
     return (
         <div className='flex flex-col gap-8'>
@@ -330,7 +349,16 @@ export default function ActiveVehiclesContent() {
                         />
                     </div>
                 </div>
-                <ActiveVehicleTable items={filteredVehicles} loading={loading} />
+                <ActiveVehicleTable
+                    items={paginatedVehicles}
+                    loading={loading}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    startIndex={startIndex}
+                    endIndex={endIndex}
+                    onPageChange={handlePageChange}
+                />
             </section>
 
             <section className='grid grid-cols-1 gap-6 xl:grid-cols-1'>

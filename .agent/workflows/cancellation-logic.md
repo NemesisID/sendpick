@@ -10,7 +10,7 @@ Dokumen ini menjelaskan logika pembatalan yang telah diimplementasikan untuk sis
 
 | Aksi Admin (Source) | Status Akhir Job Order | Status Akhir Delivery Order | Status Akhir Manifest | Penjelasan Singkat |
 |---------------------|------------------------|-----------------------------|-----------------------|--------------------|
-| **Cancel Job Order** (Customer Batal) | ❌ CANCELLED (Order Mati) | ❌ CANCELLED (Hangus Otomatis) | ✅ TETAP/AMAN (Hanya kurangi muatan) | Induk (JO) mati, surat jalan (DO) otomatis tidak berlaku. Truk (Manifest) tetap jalan. |
+| **Cancel Job Order** (Customer Batal) | ❌ CANCELLED (Order Mati) | ❌ CANCELLED (Hangus Otomatis) | ⚠️ CANCELLED jika satu-satunya JO, ✅ TETAP jika masih ada JO lain | Induk (JO) mati, surat jalan (DO) otomatis tidak berlaku. Manifest di-cancel jika tidak ada JO aktif. |
 | **Cancel Manifest** (Truk Batal Jalan) | 🔄 PENDING (Reset & Cari Truk Baru) | ❌ CANCELLED (Hangus Otomatis) | ❌ CANCELLED (Riwayat Batal) | Truk batal, JO diselamatkan (turun dari truk) untuk ikut truk lain. DO lama hangus. |
 | **Cancel DO** (Salah Dokumen) | 🔄 PENDING (Reset & Buat DO Baru) | ❌ CANCELLED (Arsip Salah) | ⚠️ CANCELLED jika Manifest kosong | Dokumen salah, JO dikembalikan ke antrean. **Jika tidak ada JO tersisa di Manifest, Manifest ikut CANCELLED.** |
 
@@ -316,14 +316,61 @@ php artisan manifest:reattach-jobs
 **Files yang diperbaiki**:
 - `resources/js/features/orders/components/DeliveryOrder.jsx` - `mapDeliveryOrderFromApi()`
 
+### Manifest Status Tidak Berubah ke Cancelled Ketika Satu-satunya JO Dibatalkan (BARU 2025-12-22)
+**Penyebab**: Backend hanya menghapus driver/vehicle dari Manifest ketika `activeJobs.count() === 0`, tapi tidak mengubah status Manifest ke "Cancelled".
+
+**Solusi (2025-12-22)**:
+- Backend sekarang mengubah status Manifest ke "Cancelled" ketika tidak ada JO aktif tersisa:
+  ```php
+  if ($activeJobs->count() === 0) {
+      $manifest->update([
+          'status' => 'Cancelled',
+          'cancelled_at' => now(),
+          'cancellation_reason' => "Semua Job Order dalam Manifest ini sudah dibatalkan",
+          'cargo_weight' => 0,
+          'cargo_summary' => '0 packages',
+          'driver_id' => null,
+          'vehicle_id' => null
+      ]);
+  }
+  ```
+
+**Files yang diperbaiki**:
+- `app/Http/Controllers/Api/JobOrderController.php` - `cancel()` method
+
+### Driver/Armada di DO Cancelled Menampilkan "Belum ditugaskan" (BARU 2025-12-22)
+**Penyebab**: Accessor `getDriverNameAttribute()` dan `getVehiclePlateAttribute()` hanya mencari assignment dengan status `Active`. Ketika JO dibatalkan, assignment berubah ke `Cancelled`, sehingga accessor tidak menemukan data.
+
+**Solusi (2025-12-22)**:
+- Accessor sekarang juga mencari assignment dengan status `Cancelled` atau `Inactive` untuk keperluan audit:
+  ```php
+  // First try Active
+  $assignment = $this->jobOrder->assignments()
+      ->where('status', 'Active')
+      ->first();
+  
+  // If not found, look for cancelled/inactive (for audit)
+  if (!$assignment) {
+      $assignment = $this->jobOrder->assignments()
+          ->whereIn('status', ['Cancelled', 'Inactive'])
+          ->orderBy('assigned_at', 'desc')
+          ->first();
+  }
+  ```
+
+**Files yang diperbaiki**:
+- `app/Models/DeliveryOrder.php` - `getDriverNameAttribute()` dan `getVehiclePlateAttribute()`
+
 ---
 
 ## 6. Kesimpulan
 
 - **Cancel JO** = Mematikan Order (Stop Proses) - Job Order tetap terikat ke Manifest untuk audit
+  - **Manifest CANCELLED** jika itu adalah satu-satunya JO (tidak ada JO aktif lain)
+  - **Manifest TETAP** jika masih ada JO aktif lain (hanya cargo yang berkurang)
 - **Cancel Manifest/DO** = Mereset Order (Mundur satu langkah untuk diperbaiki/dijadwalkan ulang)
 - **Manifest CANCELLED** = Menampilkan **0 Koli, 0 Berat, 0 Packages** (Truk kosong)
-  - Driver & Armada **TETAP ditampilkan** untuk keperluan audit riwayat
+  - Driver & Armada dilepas (tersedia untuk Manifest lain)
 - **Manifest AKTIF (dengan JO Cancelled)** = Menampilkan total berat dari **JO AKTIF saja** (berkurang sesuai JO yang dibatalkan)
 - **Delivery Order CANCELLED** = Menampilkan **- (dash)** untuk Koli, Berat, Volume, Barang, ETA
   - Driver & Armada **TETAP ditampilkan** untuk keperluan audit riwayat
