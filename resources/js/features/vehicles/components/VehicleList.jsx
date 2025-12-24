@@ -1,11 +1,16 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
+import { Truck, Check, Settings, AlertTriangle, Search, Plus, Pencil, Trash2 } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
+import Pagination from '../../../components/common/Pagination';
 import { useVehicles } from '../hooks/useVehicles';
 import { useVehiclesCrud } from '../hooks/useVehiclesCrud';
 import { useActiveVehicleTypes } from '../hooks/useActiveVehicleTypes';
 import { useAvailableDrivers } from '../hooks/useAvailableDrivers';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 // Generate real-time summary cards from vehicle data
 const generateSummaryCards = (vehicles = []) => {
@@ -32,14 +37,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: 'Armada terdaftar',
             iconBg: 'bg-sky-100',
             iconColor: 'text-sky-600',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M3 13h18l-2-6H5z' strokeLinecap='round' strokeLinejoin='round' />
-                    <path d='M5 17h14' strokeLinecap='round' />
-                    <circle cx='7.5' cy='17.5' r='1.5' />
-                    <circle cx='16.5' cy='17.5' r='1.5' />
-                </svg>
-            ),
+            icon: <Truck className='h-5 w-5' />,
         },
         {
             title: 'Beroperasi',
@@ -47,11 +45,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: 'Sedang digunakan di lapangan',
             iconBg: 'bg-emerald-100',
             iconColor: 'text-emerald-500',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M3 12l4 4L21 4' strokeLinecap='round' strokeLinejoin='round' />
-                </svg>
-            ),
+            icon: <Check className='h-5 w-5' />,
         },
         {
             title: 'Maintenance',
@@ -59,11 +53,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: 'Jadwal perawatan minggu ini',
             iconBg: 'bg-amber-100',
             iconColor: 'text-amber-500',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M10 2h4l2 3h5v4l-2 2 2 2v4h-5l-2 3h-4l-2-3H3v-4l2-2-2-2V5h5z' strokeLinecap='round' strokeLinejoin='round' />
-                </svg>
-            ),
+            icon: <Settings className='h-5 w-5' />,
         },
         {
             title: 'Tidak Aktif',
@@ -71,13 +61,7 @@ const generateSummaryCards = (vehicles = []) => {
             description: 'Perlu tindak lanjut',
             iconBg: 'bg-rose-100',
             iconColor: 'text-rose-500',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M12 4 3 19h18z' strokeLinecap='round' strokeLinejoin='round' />
-                    <path d='M12 9v4' strokeLinecap='round' />
-                    <circle cx='12' cy='15' r='1' fill='currentColor' stroke='none' />
-                </svg>
-            ),
+            icon: <AlertTriangle className='h-5 w-5' />,
         },
     ];
 };
@@ -146,34 +130,11 @@ const statusFilterOptions = [
 
 const EXIT_ANIMATION_DURATION = 280; // Keep in sync with CSS modal exit duration
 
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='7' />
-        <path d='m16 16 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const PlusIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M12 5v14M5 12h14' strokeLinecap='round' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='m14.5 5.5 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const TrashIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M5 7h14' strokeLinecap='round' />
-        <path d='M10 11v6M14 11v6' strokeLinecap='round' />
-        <path d='M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const SearchIcon = ({ className = 'h-5 w-5' }) => <Search className={className} />;
+const PlusIcon = ({ className = 'h-4 w-4' }) => <Plus className={className} />;
+const EditIcon = ({ className = 'h-4 w-4' }) => <Pencil className={className} />;
+const TrashIcon = ({ className = 'h-4 w-4' }) => <Trash2 className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -209,7 +170,7 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
             <td className='whitespace-nowrap px-6 py-4'>
                 <p className='text-sm font-semibold text-slate-800'>{vehicle.plate_no || 'N/A'}</p>
                 <p className='text-xs text-slate-500'>
-                    {vehicle.brand} {vehicle.model} • {vehicle.odometer_km ? `${vehicle.odometer_km.toLocaleString('id-ID')} Km` : '0 Km'}
+                    {vehicle.brand} {vehicle.model} • {vehicle.year ? `Tahun ${vehicle.year}` : 'Tahun N/A'}
                 </p>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -272,7 +233,19 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
     );
 }
 
-function VehicleTable({ vehicles, onEdit, onDelete, loading }) {
+function VehicleTable({
+    vehicles,
+    onEdit,
+    onDelete,
+    loading,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex items-center justify-between'>
@@ -325,6 +298,17 @@ function VehicleTable({ vehicles, onEdit, onDelete, loading }) {
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 }
@@ -334,6 +318,7 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [driverFilter, setDriverFilter] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Hooks integration
     const { vehicles, loading, error, refetch, setParams } = useVehicles();
@@ -360,6 +345,22 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
         }, 500);
         return () => clearTimeout(timer);
     }, [searchTerm, statusFilter, driverFilter, setParams]);
+
+    // Pagination calculations
+    const totalItems = vehicles.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedVehicles = vehicles.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, driverFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
 
     // Edit modal handlers
     const handleAdd = () => {
@@ -599,10 +600,16 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             </section>
 
             <VehicleTable
-                vehicles={vehicles}
+                vehicles={paginatedVehicles}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 loading={loading}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={handlePageChange}
             />
 
             <EditModal

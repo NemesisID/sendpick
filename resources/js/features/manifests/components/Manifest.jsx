@@ -1,24 +1,21 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
+import { Ban, Play, Search, Download, Plus, ChevronDown, Pencil, Trash2, Eye, ClipboardList, CheckCircle2, Clock, Printer } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import CancelConfirmModal from '../../../components/common/CancelConfirmModal';
-import ManifestDetailModal from './ManifestDetailModal';
+import ManifestDetail from './ManifestDetail';
+import Pagination from '../../../components/common/Pagination';
 import { useManifests } from '../hooks/useManifest';
 import { useManifestJobOrders } from '../hooks/useManifestJobOrders';
 import { getAvailableDrivers } from '../../drivers/services/driverService';
 import { fetchAvailableVehicles } from '../../vehicles/services/vehicleService';
 
-const BanIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
-const PlayIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M5 3l14 9-14 9V3z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const BanIcon = ({ className = 'h-4 w-4' }) => <Ban className={className} />;
+const PlayIcon = ({ className = 'h-4 w-4' }) => <Play className={className} />;
 
 const summaryCardsBase = [
     {
@@ -28,13 +25,7 @@ const summaryCardsBase = [
         value: '0',
         iconBg: 'bg-sky-100',
         iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M4 4h16' strokeLinecap='round' />
-                <path d='M5 8h14v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M9 12h6M9 16h4' strokeLinecap='round' />
-            </svg>
-        ),
+        icon: <ClipboardList className='h-5 w-5' />,
     },
     {
         key: 'completed',
@@ -43,12 +34,7 @@ const summaryCardsBase = [
         value: '0',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <CheckCircle2 className='h-5 w-5' />,
     },
     {
         key: 'inProgress',
@@ -57,12 +43,7 @@ const summaryCardsBase = [
         value: '0',
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='M12 8v4l2.5 1.5' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <Clock className='h-5 w-5' />,
     },
     {
         key: 'average',
@@ -71,12 +52,7 @@ const summaryCardsBase = [
         value: '3.5 Jam',
         iconBg: 'bg-purple-100',
         iconColor: 'text-purple-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='9' />
-                <path d='M12 7v5l3 2' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <Clock className='h-5 w-5' />,
     },
 ];
 
@@ -468,53 +444,15 @@ const manifestStatusOptions = [
 
 // Dummy data dihapus - sekarang menggunakan data real dari API
 
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='6' />
-        <path d='m20 20-3.5-3.5' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const DownloadIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M12 4v10' strokeLinecap='round' />
-        <path d='m8 10 4 4 4-4' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M5 18h14' strokeLinecap='round' />
-    </svg>
-);
-
-const PlusIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M12 5v14M5 12h14' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const ChevronDownIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='m6 9 6 6 6-6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M12 20h9' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const TrashIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M10 11v6M14 11v6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const EyeIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M2 12s3-6 10-6 10 6 10 6-3 6-10 6-10-6-10-6z' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='12' cy='12' r='3' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const SearchIcon = ({ className = 'h-5 w-5' }) => <Search className={className} />;
+const DownloadIcon = ({ className = 'h-4 w-4' }) => <Download className={className} />;
+const PlusIcon = ({ className = 'h-4 w-4' }) => <Plus className={className} />;
+const ChevronDownIcon = ({ className = 'h-4 w-4' }) => <ChevronDown className={className} />;
+const EditIcon = ({ className = 'h-4 w-4' }) => <Pencil className={className} />;
+const TrashIcon = ({ className = 'h-4 w-4' }) => <Trash2 className={className} />;
+const EyeIcon = ({ className = 'h-4 w-4' }) => <Eye className={className} />;
+const PrinterIcon = ({ className = 'h-4 w-4' }) => <Printer className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -609,11 +547,7 @@ function ManifestRow({ manifest, onEdit, onDelete, onViewDetail, onPrint }) {
                         className='inline-flex items-center justify-center rounded-lg bg-emerald-50 p-2 text-emerald-600 transition hover:bg-emerald-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50'
                         title='Cetak PDF'
                     >
-                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                            <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
-                            <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
-                            <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
-                        </svg>
+                        <PrinterIcon className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
@@ -663,6 +597,13 @@ function ManifestTable({
     onPrintRow, // Print single row/manifest
     loading,
     error,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
 }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -716,11 +657,7 @@ function ManifestTable({
                             onClick={onPrint}
                             className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 sm:w-auto'
                         >
-                            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                                <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
-                                <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
-                                <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
-                            </svg>
+                            <PrinterIcon className='h-4 w-4' />
                             Cetak Manifest
                         </button>
                     </div>
@@ -775,6 +712,17 @@ function ManifestTable({
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 }
@@ -785,8 +733,10 @@ export default function ManifestContent() {
     const [hubFilter, setHubFilter] = useState('all');
     const [editModal, setEditModal] = useState({ isOpen: false, manifest: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, manifest: null });
-    const [detailModal, setDetailModal] = useState({ isOpen: false, manifestId: null });
+    const [currentView, setCurrentView] = useState('list'); // 'list' or 'detail'
+    const [selectedManifestId, setSelectedManifestId] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const {
         manifests,
@@ -1540,7 +1490,13 @@ export default function ManifestContent() {
     };
 
     const handleViewManifest = (manifest) => {
-        setDetailModal({ isOpen: true, manifestId: manifest.id });
+        setSelectedManifestId(manifest.id);
+        setCurrentView('detail');
+    };
+
+    const handleBackToList = () => {
+        setCurrentView('list');
+        setSelectedManifestId(null);
     };
 
     // ✅ NEW: Handle print button click in header - Opens PDF in new tab
@@ -1584,6 +1540,32 @@ export default function ManifestContent() {
         });
     }, [manifestRecords, searchTerm, statusFilter, hubFilter]);
 
+    // Pagination calculations
+    const totalItems = filteredRecords.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, hubFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
+    // Render ManifestDetail if in detail view
+    if (currentView === 'detail' && selectedManifestId) {
+        return (
+            <ManifestDetail
+                manifestId={selectedManifestId}
+                onBack={handleBackToList}
+            />
+        );
+    }
+
     return (
         <>
             <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
@@ -1592,7 +1574,7 @@ export default function ManifestContent() {
                 ))}
             </section>
             <ManifestTable
-                records={filteredRecords}
+                records={paginatedRecords}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 statusFilter={statusFilter}
@@ -1607,6 +1589,12 @@ export default function ManifestContent() {
                 onPrintRow={handlePrintSingle}
                 loading={manifestsLoading}
                 error={manifestsError}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={handlePageChange}
             />
 
 
@@ -1630,13 +1618,6 @@ export default function ManifestContent() {
                 onClose={handleDeleteClose}
                 onConfirm={handleDeleteConfirm}
                 isLoading={isLoading}
-            />
-
-            {/* Manifest Detail Modal */}
-            <ManifestDetailModal
-                isOpen={detailModal.isOpen}
-                onClose={() => setDetailModal({ isOpen: false, manifestId: null })}
-                manifestId={detailModal.manifestId}
             />
         </>
     );

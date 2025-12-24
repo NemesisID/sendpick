@@ -2,8 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
+import Pagination from '../../../components/common/Pagination';
 import { useAdmins } from '../hooks/useAdmins';
 import { useAdminsCrud } from '../hooks/useAdminsCrud';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 const defaultSummary = {
     totalAdmin: '0',
@@ -266,7 +270,24 @@ function AdminTableSkeleton({ rows = 6 }) {
     );
 }
 
-function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChange, onAdd, onEdit, onDelete, loading }) {
+function AdminTable({
+    admins,
+    searchTerm,
+    onSearchChange,
+    roleFilter,
+    onRoleChange,
+    onAdd,
+    onEdit,
+    onDelete,
+    loading,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
@@ -319,7 +340,7 @@ function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChan
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {loading ? (
-                            <AdminTableSkeleton rows={8} />
+                            <AdminTableSkeleton rows={ITEMS_PER_PAGE} />
                         ) : admins.length > 0 ? (
                             admins.map((admin) => (
                                 <AdminRow
@@ -339,6 +360,17 @@ function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChan
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 }
@@ -409,6 +441,7 @@ export default function AdminContent() {
     const [summary, setSummary] = useState(defaultSummary);
     const [editModal, setEditModal] = useState({ isOpen: false, admin: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, admin: null });
+    const [currentPage, setCurrentPage] = useState(1);
     const filterEffectInitialized = useRef(false);
 
     const {
@@ -625,6 +658,22 @@ export default function AdminContent() {
         });
     }, [adminList, searchTerm, roleFilter]);
 
+    // Pagination calculations
+    const totalItems = filteredAdmins.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedAdmins = filteredAdmins.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, roleFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
     return (
         <>
             {(fetchError || mutationError || mutationSuccess) ? (
@@ -708,7 +757,7 @@ export default function AdminContent() {
                 ))}
             </section>
             <AdminTable
-                admins={filteredAdmins}
+                admins={paginatedAdmins}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 roleFilter={roleFilter}
@@ -717,6 +766,12 @@ export default function AdminContent() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 loading={loading}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={handlePageChange}
             />
             <RolePermissionsSection admins={adminList} />
 

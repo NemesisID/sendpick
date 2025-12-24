@@ -1,12 +1,17 @@
 ﻿import React, { useMemo, useState, useEffect } from 'react';
+import { Search, Phone, MapPin, Truck, ChevronDown, Pencil, Users, Eye, XCircle, Clock, ArrowRight, Printer, Plus } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import DeliveryOrderModal from '../../../components/common/DeliveryOrderModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import EditModal from '../../../components/common/EditModal';
-import DeliveryOrderDetailModal from './DeliveryOrderDetailModal';
+import DeliveryOrderDetail from './DeliveryOrderDetail';
+import Pagination from '../../../components/common/Pagination';
 import { useDeliveryOrders } from '../hooks/useDeliveryOrders';
 import { fetchDrivers } from '../../drivers/services/driverService';
 import { fetchVehicles } from '../../vehicles/services/vehicleService';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 const summaryCardsBase = [
     {
@@ -16,14 +21,7 @@ const summaryCardsBase = [
         description: 'DO aktif minggu ini',
         iconBg: 'bg-sky-100',
         iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M4 7h11v9H4z' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M15 11h3l2 2v3h-5' strokeLinecap='round' strokeLinejoin='round' />
-                <circle cx='7' cy='18' r='1.5' />
-                <circle cx='17' cy='18' r='1.5' />
-            </svg>
-        ),
+        icon: <Truck className='h-5 w-5' />,
     },
     {
         key: 'delivered',
@@ -32,12 +30,7 @@ const summaryCardsBase = [
         description: '0% dari total pengiriman',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 12h18' strokeLinecap='round' />
-                <path d='m7 8 4 4-4 4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <ArrowRight className='h-5 w-5' />,
     },
     {
         key: 'inTransit',
@@ -46,12 +39,7 @@ const summaryCardsBase = [
         description: 'Update real-time setiap 15 menit',
         iconBg: 'bg-indigo-100',
         iconColor: 'text-indigo-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='M12 8v4l2.5 1.5' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <Clock className='h-5 w-5' />,
     },
     {
         key: 'exception',
@@ -60,12 +48,7 @@ const summaryCardsBase = [
         description: 'Gagal kirim atau dibatalkan',
         iconBg: 'bg-amber-100',
         iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 12h18' strokeLinecap='round' />
-                <path d='m17 8-4 4 4 4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <ArrowRight className='h-5 w-5 rotate-180' />,
     },
 ];
 
@@ -275,71 +258,18 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
 };
 
 
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='6' />
-        <path d='m20 20-3.5-3.5' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const PhoneIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M6.5 3h2a1 1 0 0 1 1 .72c.23.92.65 2.19 1.3 3.5a1 1 0 0 1-.23 1.15L9.1 10.04c1.4 2.3 3.2 4.1 5.5 5.5l1.67-1.47a1 1 0 0 1 1.15-.23c1.3.65 2.58 1.07 3.5 1.3a1 1 0 0 1 .72 1v2a1 1 0 0 1-1.05 1 16 16 0 0 1-14.5-14.45A1 1 0 0 1 6.5 3z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const MapPinIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M12 3a6 6 0 0 1 6 6c0 4.5-6 12-6 12s-6-7.5-6-12a6 6 0 0 1 6-6z' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='12' cy='9' r='2' />
-    </svg>
-);
-
-const TruckIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M3 7h11v8H3z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M14 11h3l2 2v3h-3' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='7.5' cy='19' r='1.5' />
-        <circle cx='16.5' cy='19' r='1.5' />
-    </svg>
-);
-
-const ChevronDownIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='m6 9 6 6 6-6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const UserAssignIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='9' cy='7' r='4' />
-        <path d='M22 21v-2a4 4 0 0 0-3-3.87' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M16 3.13a4 4 0 0 1 0 7.75' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const ViewDetailIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' strokeLinecap='round' strokeLinejoin='round' />
-        <circle cx='12' cy='12' r='3' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const CancelIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='12' cy='12' r='10' />
-        <path d='M15 9l-6 6' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M9 9l6 6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const SearchIcon = ({ className = 'h-5 w-5' }) => <Search className={className} />;
+const PhoneIcon = ({ className = 'h-4 w-4' }) => <Phone className={className} />;
+const MapPinIcon = ({ className = 'h-4 w-4' }) => <MapPin className={className} />;
+const TruckIcon = ({ className = 'h-4 w-4' }) => <Truck className={className} />;
+const ChevronDownIcon = ({ className = 'h-4 w-4' }) => <ChevronDown className={className} />;
+const EditIcon = ({ className = 'h-4 w-4' }) => <Pencil className={className} />;
+const UserAssignIcon = ({ className = 'h-4 w-4' }) => <Users className={className} />;
+const ViewDetailIcon = ({ className = 'h-4 w-4' }) => <Eye className={className} />;
+const CancelIcon = ({ className = 'h-4 w-4' }) => <XCircle className={className} />;
+const PrinterIcon = ({ className = 'h-4 w-4' }) => <Printer className={className} />;
+const PlusIcon = ({ className = 'h-4 w-4' }) => <Plus className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -455,11 +385,7 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel, onPrint })
                         }}
                         className='inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-emerald-50 hover:text-emerald-600'
                     >
-                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                            <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
-                            <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
-                            <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
-                        </svg>
+                        <PrinterIcon className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
@@ -528,6 +454,13 @@ function DeliveryOrderTable({
     onPrintRow, // Print single row/delivery
     loading,
     error,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
 }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm'>
@@ -586,11 +519,7 @@ function DeliveryOrderTable({
                                 onClick={onPrint}
                                 className='w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 whitespace-nowrap'
                             >
-                                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4 flex-shrink-0'>
-                                    <path d='M6 9V2h12v7' strokeLinecap='round' strokeLinejoin='round' />
-                                    <path d='M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' strokeLinecap='round' strokeLinejoin='round' />
-                                    <path d='M6 14h12v8H6z' strokeLinecap='round' strokeLinejoin='round' />
-                                </svg>
+                                <PrinterIcon className='h-4 w-4 flex-shrink-0' />
                                 <span className='hidden sm:inline'>Cetak Delivery Order</span>
                                 <span className='sm:hidden'>Cetak DO</span>
                             </button>
@@ -601,10 +530,7 @@ function DeliveryOrderTable({
                                 onClick={onAddNew}
                                 className='w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 whitespace-nowrap'
                             >
-                                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4 flex-shrink-0'>
-                                    <path d='M12 5v14' strokeLinecap='round' strokeLinejoin='round' />
-                                    <path d='M5 12h14' strokeLinecap='round' strokeLinejoin='round' />
-                                </svg>
+                                <PlusIcon className='h-4 w-4 flex-shrink-0' />
                                 <span className='hidden sm:inline'>Tambah Delivery Order</span>
                                 <span className='sm:hidden'>Tambah DO</span>
                             </button>
@@ -663,6 +589,17 @@ function DeliveryOrderTable({
                     </table>
                 </div>
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 }
@@ -688,9 +625,11 @@ export default function DeliveryOrderContent() {
     // Modal states
     const [editModal, setEditModal] = useState({ isOpen: false, delivery: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, delivery: null });
-    const [detailModal, setDetailModal] = useState({ isOpen: false, delivery: null });
+    const [currentView, setCurrentView] = useState('list'); // 'list' or 'detail'
+    const [selectedDeliveryOrderId, setSelectedDeliveryOrderId] = useState(null);
     const [assignDriverModal, setAssignDriverModal] = useState({ isOpen: false, delivery: null });
     const [isLoading, setIsLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const {
         deliveryOrders,
@@ -785,11 +724,13 @@ export default function DeliveryOrderContent() {
     };
 
     const handleViewDetail = (delivery) => {
-        setDetailModal({ isOpen: true, delivery });
+        setSelectedDeliveryOrderId(delivery.id);
+        setCurrentView('detail');
     };
 
-    const handleViewDetailClose = () => {
-        setDetailModal({ isOpen: false, delivery: null });
+    const handleBackToList = () => {
+        setCurrentView('list');
+        setSelectedDeliveryOrderId(null);
     };
 
     const handleAssignDriver = (delivery) => {
@@ -1123,6 +1064,32 @@ export default function DeliveryOrderContent() {
         });
     }, [computedRecords, searchTerm, statusFilter, priorityFilter, alertFilter]);
 
+    // Pagination calculations
+    const totalItems = filteredRecords.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedRecords = filteredRecords.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, priorityFilter, alertFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
+    // Render DeliveryOrderDetail if in detail view
+    if (currentView === 'detail' && selectedDeliveryOrderId) {
+        return (
+            <DeliveryOrderDetail
+                deliveryOrderId={selectedDeliveryOrderId}
+                onBack={handleBackToList}
+            />
+        );
+    }
+
     return (
         <>
             <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
@@ -1131,7 +1098,7 @@ export default function DeliveryOrderContent() {
                 ))}
             </section>
             <DeliveryOrderTable
-                records={filteredRecords}
+                records={paginatedRecords}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 statusFilter={statusFilter}
@@ -1149,6 +1116,12 @@ export default function DeliveryOrderContent() {
                 onPrintRow={handlePrintSingle}
                 loading={loading}
                 error={error}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={handlePageChange}
             />
 
 
@@ -1198,15 +1171,6 @@ export default function DeliveryOrderContent() {
                 confirmLabel="Ya, Batalkan"
                 loadingLabel="Membatalkan..."
             />
-
-            {/* Delivery Order Detail Modal */}
-            {detailModal.isOpen && (
-                <DeliveryOrderDetailModal
-                    isOpen={detailModal.isOpen}
-                    onClose={handleViewDetailClose}
-                    delivery={detailModal.delivery}
-                />
-            )}
         </>
     );
 }

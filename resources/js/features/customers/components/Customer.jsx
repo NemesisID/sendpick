@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
+import Pagination from '../../../components/common/Pagination';
 import { useCustomers } from '../hooks/useCustomers';
 import { useCustomersCrud } from '../hooks/useCustomersCrud';
 import {
@@ -19,6 +20,9 @@ import {
     HiEnvelope,
     HiMapPin
 } from 'react-icons/hi2';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 5;
 
 // Generate real-time summary cards from customer data
 const generateSummaryCards = (customers = []) => {
@@ -297,7 +301,24 @@ function TableSkeleton({ rows = 5 }) {
     );
 }
 
-function CustomerTable({ customers, loading, searchTerm, onSearchChange, typeFilter, onTypeChange, onEdit, onDelete, onAdd }) {
+function CustomerTable({
+    customers,
+    loading,
+    searchTerm,
+    onSearchChange,
+    typeFilter,
+    onTypeChange,
+    onEdit,
+    onDelete,
+    onAdd,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm'>
             <div className='flex flex-col gap-4'>
@@ -355,7 +376,7 @@ function CustomerTable({ customers, loading, searchTerm, onSearchChange, typeFil
                         </tr>
                     </thead>
                     {loading ? (
-                        <TableSkeleton rows={6} />
+                        <TableSkeleton rows={ITEMS_PER_PAGE} />
                     ) : (
                         <tbody className='divide-y divide-slate-100'>
                             {customers.length > 0 ? (
@@ -378,6 +399,17 @@ function CustomerTable({ customers, loading, searchTerm, onSearchChange, typeFil
                     )}
                 </table>
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 }
@@ -387,6 +419,7 @@ export default function CustomerContent() {
     const [typeFilter, setTypeFilter] = useState('all');
     const [editModal, setEditModal] = useState({ isOpen: false, customer: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, customer: null });
+    const [currentPage, setCurrentPage] = useState(1);
     const filterEffectInitialized = useRef(false);
 
     const {
@@ -473,6 +506,22 @@ export default function CustomerContent() {
             return matchesSearch && matchesType;
         });
     }, [formattedCustomers, searchTerm, typeFilter]);
+
+    // Pagination calculations
+    const totalItems = filteredCustomers.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedCustomers = filteredCustomers.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, typeFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
 
     const handleAddCustomer = () => {
         setEditModal({ isOpen: true, customer: null });
@@ -605,7 +654,7 @@ export default function CustomerContent() {
             ) : null}
 
             <CustomerTable
-                customers={filteredCustomers}
+                customers={paginatedCustomers}
                 loading={loading}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
@@ -614,6 +663,12 @@ export default function CustomerContent() {
                 onEdit={handleEditCustomer}
                 onDelete={handleDeleteCustomer}
                 onAdd={handleAddCustomer}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={handlePageChange}
             />
 
             <EditModal

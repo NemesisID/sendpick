@@ -71,8 +71,8 @@ class DashboardController extends Controller
 
         // 2.3 Widgets - Data untuk widget aktivitas dan assignments
         $widgets = [
-            'recent_activities' => $this->getRecentActivities(),      // 10 aktivitas terbaru
-            'todays_assignments' => $this->getTodaysAssignments()     // Assignments hari ini
+            'recent_activities' => $this->getRecentActivities(),      // 15 aktivitas terbaru
+            'active_assignments' => $this->getActiveAssignments()     // Active assignments (belum selesai)
         ];
 
         // STEP 3: Mengemas Semua Data ke dalam Struktur JSON Terorganisir
@@ -234,12 +234,13 @@ class DashboardController extends Controller
      * METHOD PRIVATE - RECENT ACTIVITIES (WIDGET)
      * ============================================
      * 
-     * Mengumpulkan 10 aktivitas terbaru dari berbagai sumber:
-     * - Job Orders terbaru (5 data)
-     * - Delivery Orders terbaru (5 data)
-     * - Invoices terbaru (5 data)
+     * Mengumpulkan 15 aktivitas terbaru dari berbagai sumber:
+     * - Job Orders terbaru (10 data)
+     * - Delivery Orders terbaru (10 data)
+     * - Invoices terbaru (10 data)
      * 
-     * Total 15 data akan di-sort by timestamp, lalu ambil 10 teratas.
+     * Total 30 data akan di-sort by timestamp, lalu ambil 15 teratas.
+     * Frontend akan melakukan pagination client-side.
      * 
      * @return array
      */
@@ -248,7 +249,7 @@ class DashboardController extends Controller
         // Recent Job Orders
         $recentOrders = JobOrder::with('customer')
             ->latest()
-            ->limit(5)
+            ->limit(10)
             ->get()
             ->map(function ($order) {
                 return [
@@ -263,7 +264,7 @@ class DashboardController extends Controller
         // Recent Deliveries
         $recentDeliveries = DeliveryOrder::with(['customer'])
             ->latest()
-            ->limit(5)
+            ->limit(10)
             ->get()
             ->map(function ($delivery) {
                 // Load assignments only if source_type = 'JO'
@@ -291,7 +292,7 @@ class DashboardController extends Controller
         // Recent Invoices
         $recentInvoices = Invoices::with('customer')
             ->latest()
-            ->limit(5)
+            ->limit(10)
             ->get()
             ->map(function ($invoice) {
                 return [
@@ -303,11 +304,11 @@ class DashboardController extends Controller
                 ];
             });
 
-        // Gabungkan semua aktivitas, sort by timestamp, ambil 10 teratas
+        // Gabungkan semua aktivitas, sort by timestamp, ambil 15 teratas (5 items x 3 pages)
         $activities = $recentOrders->concat($recentDeliveries)
             ->concat($recentInvoices)
             ->sortByDesc('timestamp')
-            ->take(10)
+            ->take(15)
             ->values();
 
         return $activities->toArray();
@@ -315,45 +316,62 @@ class DashboardController extends Controller
 
     /**
      * =============================================
-     * METHOD PRIVATE - TODAY'S ASSIGNMENTS (WIDGET)
+     * METHOD PRIVATE - ACTIVE ASSIGNMENTS (WIDGET)
      * =============================================
      * 
-     * Mengumpulkan data assignments hari ini untuk widget "Today's Assignments".
-     * Menampilkan Delivery Orders yang di-assign hari ini dengan status aktif.
+     * Mengumpulkan data active assignments untuk widget "Active Assignments".
+     * Mengambil dari Job Orders dengan status aktif yang belum selesai.
+     * Filter: Status Assigned, Pickup, On Delivery (tanpa filter tanggal).
+     * Tujuan: Memastikan tidak ada tugas yang "tergantung" atau macet.
      * 
      * @return array
      */
-    private function getTodaysAssignments(): array
+    private function getActiveAssignments(): array
     {
-        $today = now()->startOfDay();
-        
-        return DeliveryOrder::with(['customer', 'jobOrder.assignments' => function($query) {
+        // Query Job Orders yang memiliki Assignment aktif (tanpa filter tanggal)
+        return JobOrder::with(['customer', 'assignments' => function($query) {
                 $query->where('status', 'Active')->with(['driver', 'vehicle']);
             }])
-            ->whereDate('created_at', $today)
-            ->whereIn('status', ['Assigned', 'In Transit', 'At Destination'])
-            ->latest()
-            ->limit(5)
+            ->whereIn('status', ['Assigned', 'Pickup', 'On Delivery'])
+            ->whereHas('assignments', function($query) {
+                $query->where('status', 'Active');
+            })
+            ->latest('updated_at')
+            ->limit(15)
             ->get()
-            ->map(function ($delivery) {
-                $driverName = 'Unassigned';
-                $vehiclePlate = 'N/A';
+            ->map(function ($jobOrder) {
+                $activeAssignment = $jobOrder->assignments->firstWhere('status', 'Active');
+                $driverName = $activeAssignment?->driver?->driver_name ?? 'Unassigned';
+                $vehiclePlate = $activeAssignment?->vehicle?->plate_no ?? 'N/A';
                 
-                // Get driver and vehicle from active assignment if source is JO
-                if ($delivery->source_type === 'JO' && $delivery->jobOrder) {
-                    $activeAssignment = $delivery->jobOrder->assignments->firstWhere('status', 'Active');
-                    $driverName = $activeAssignment?->driver?->name ?? 'Unassigned';
-                    $vehiclePlate = $activeAssignment?->vehicle?->plate_no ?? 'N/A';
+                // Determine customer display based on order_type
+                $orderType = $jobOrder->order_type ?? 'FTL';
+                $customerDisplay = $jobOrder->customer->customer_name ?? 'N/A';
+                
+                // For LTL, check if this JO is part of a manifest with multiple JOs
+                if ($orderType === 'LTL') {
+                    // Check if manifest exists with multiple JOs
+                    $manifest = $jobOrder->manifests()->first();
+                    if ($manifest) {
+                        $joCount = $manifest->jobOrders()->count();
+                        if ($joCount > 1) {
+                            $customerDisplay = "Konsolidasi LTL ({$joCount} JOs)";
+                        }
+                    }
                 }
                 
                 return [
-                    'do_id' => $delivery->do_id,
-                    'customer_name' => $delivery->customer->customer_name ?? 'N/A',
+                    'job_order_id' => $jobOrder->job_order_id,
+                    'order_type' => $orderType,
+                    'customer_name' => $customerDisplay,
                     'driver_name' => $driverName,
                     'vehicle_plate' => $vehiclePlate,
-                    'goods_summary' => $delivery->goods_summary ?? 'N/A',
-                    'status' => $delivery->status,
-                    'created_at' => $delivery->created_at
+                    'goods_summary' => $jobOrder->goods_desc ?? 'N/A',
+                    'pickup_city' => $jobOrder->pickup_city ?? 'N/A',
+                    'delivery_city' => $jobOrder->delivery_city ?? 'N/A',
+                    'status' => $jobOrder->status,
+                    'assigned_at' => $activeAssignment?->assigned_at,
+                    'created_at' => $jobOrder->created_at
                 ];
             })
             ->toArray();

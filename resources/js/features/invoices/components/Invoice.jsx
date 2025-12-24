@@ -4,8 +4,12 @@ import InvoiceFormModal from './InvoiceFormModal';
 import CancelInvoiceModal from './CancelInvoiceModal';
 import RecordPaymentModal from './RecordPaymentModal';
 import InvoiceDetailModal from './InvoiceDetailModal';
+import Pagination from '../../../components/common/Pagination';
 import { useInvoices } from '../hooks/useInvoices';
 import { useInvoicesCrud } from '../hooks/useInvoicesCrud';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 import {
     HiOutlineDocumentText,
@@ -259,7 +263,21 @@ function InvoiceRow({ invoice, onEdit, onCancel, onRecordPayment, onViewDetail }
     );
 }
 
-function InvoiceTable({ invoices, onEdit, onCancel, onRecordPayment, onViewDetail, loading }) {
+function InvoiceTable({
+    invoices,
+    onEdit,
+    onCancel,
+    onRecordPayment,
+    onViewDetail,
+    loading,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
     if (loading) {
         return (
             <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -309,6 +327,17 @@ function InvoiceTable({ invoices, onEdit, onCancel, onRecordPayment, onViewDetai
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 }
@@ -443,6 +472,7 @@ export default function InvoiceContent() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isRecordingPayment, setIsRecordingPayment] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Update params when filters change
     useEffect(() => {
@@ -479,6 +509,22 @@ export default function InvoiceContent() {
 
     // Generate real-time summary cards from invoice data
     const summaryCards = useMemo(() => generateSummaryCards(invoices), [invoices]);
+
+    // Pagination calculations
+    const totalItems = formattedInvoices.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedInvoices = formattedInvoices.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter, monthFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
 
     const handleCreate = () => {
         setSelectedInvoice(null);
@@ -620,12 +666,18 @@ export default function InvoiceContent() {
                 </div>
             </section>
             <InvoiceTable
-                invoices={formattedInvoices}
+                invoices={paginatedInvoices}
                 onEdit={handleEdit}
                 onCancel={handleCancel}
                 onRecordPayment={handleRecordPayment}
                 onViewDetail={handleViewDetail}
                 loading={loading}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={handlePageChange}
             />
             <PaymentTracking refreshTrigger={statsRefreshTrigger} />
 

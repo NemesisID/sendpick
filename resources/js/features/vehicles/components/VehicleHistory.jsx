@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { CheckCircle2, Activity, Package, Clock, Search } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 
 const summaryCards = [
@@ -8,52 +9,31 @@ const summaryCards = [
         description: '30 hari terakhir',
         iconBg: 'bg-emerald-100',
         iconColor: 'text-emerald-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M3 12l4 4L21 4' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <CheckCircle2 className='h-5 w-5' />,
     },
     {
-        title: 'Downtime Armada',
-        value: '18 jam',
-        description: 'Gabungan semua unit',
-        iconBg: 'bg-amber-100',
-        iconColor: 'text-amber-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <circle cx='12' cy='12' r='8' />
-                <path d='M12 8v4l3 2' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        title: 'Utilisasi Armada',
+        value: '89%',
+        description: 'Armada aktif dari Manifest',
+        iconBg: 'bg-indigo-100',
+        iconColor: 'text-indigo-500',
+        icon: <Activity className='h-5 w-5' />,
     },
     {
-        title: 'Biaya Operasional',
-        value: 'Rp 87,4 jt',
-        description: 'Periode yang dipilih',
+        title: 'Total Muatan',
+        value: '45,2 Ton',
+        description: 'Akumulasi berat JO selesai',
         iconBg: 'bg-sky-100',
         iconColor: 'text-sky-600',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='M12 1v22' strokeLinecap='round' />
-                <path d='M17 5H9.5A3.5 3.5 0 0 0 6 8.5 3.5 3.5 0 0 0 9.5 12H14a3 3 0 0 1 0 6H6' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <Package className='h-5 w-5' />,
     },
     {
-        title: 'Maintenance Tuntas',
-        value: '12',
-        description: 'Termasuk servis ringan',
+        title: 'Tepat Waktu (%)',
+        value: '94%',
+        description: 'On-time delivery rate',
         iconBg: 'bg-purple-100',
         iconColor: 'text-purple-500',
-        icon: (
-            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                <path d='m3 3 3 3 3-3' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M6 2v9a4 4 0 0 0 4 4h1' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='m21 14-3-3-3 3' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M18 21v-9a4 4 0 0 0-4-4h-1' strokeLinecap='round' strokeLinejoin='round' />
-            </svg>
-        ),
+        icon: <Clock className='h-5 w-5' />,
     },
 ];
 
@@ -157,16 +137,16 @@ const recapHighlights = [
     },
     {
         id: 'recap-002',
-        title: 'Rata-rata Downtime',
-        value: '1.5 jam/unit',
-        change: '-22% mom',
-        description: 'Perbandingan dengan periode sebelumnya.',
+        title: 'On-Time Delivery',
+        value: '94%',
+        change: '+8% mom',
+        description: 'Persentase pengiriman tepat waktu.',
     },
     {
         id: 'recap-003',
         title: 'Lead Time Pengiriman',
         value: '7 jam',
-        change: '+12% mom',
+        change: '-12% mom',
         description: 'Waktu rata-rata dari pickup ke delivery.',
     },
 ];
@@ -216,12 +196,8 @@ const maintenancePipeline = [
     },
 ];
 
-const SearchIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='7' />
-        <path d='m16 16 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const SearchIcon = ({ className = 'h-4 w-4' }) => <Search className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -281,7 +257,7 @@ function HistoryTable({ records, searchTerm, onSearchChange, statusFilter, onSta
                         <p className='text-sm text-slate-400'>Ringkasan aktivitas operasional dan perawatan kendaraan.</p>
                     </div>
                 </div>
-                
+
                 {/* Search and Filters Section */}
                 <div className='space-y-3'>
                     {/* Search Bar */}
@@ -297,7 +273,7 @@ function HistoryTable({ records, searchTerm, onSearchChange, statusFilter, onSta
                             className='w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-11 pr-4 text-sm text-slate-600 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
                         />
                     </div>
-                    
+
                     {/* Filters Row */}
                     <div className='flex flex-col gap-3 sm:flex-row sm:gap-3'>
                         <FilterDropdown

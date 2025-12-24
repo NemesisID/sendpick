@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import AssignmentWidget from '../features/orders/components/AssignmentWidget';
 import {
     HiClipboardDocumentList,
     HiUser,
     HiTruck,
     HiClock,
-    HiArrowRight
+    HiArrowRight,
+    HiDocumentText,
+    HiBanknotes,
+    HiChevronLeft,
+    HiChevronRight
 } from 'react-icons/hi2';
 import {
     AreaChart,
@@ -60,48 +65,55 @@ const statCards = [
     },
 ];
 
-const transactions = [
-    {
-        company: 'PT Maju Jaya',
-        code: 'ORD-001',
-        time: '2 jam lalu',
-        status: 'Transaksi Baru',
-        statusColor: 'text-emerald-500 bg-emerald-50',
-        amount: 'Rp 2,500,000',
-    },
-    {
-        company: 'CV Sukses Mandiri',
-        code: 'REQ-002',
-        time: '4 jam lalu',
-        status: 'Permintaan Pickup',
-        statusColor: 'text-sky-500 bg-sky-50',
-        amount: 'Rp 1,240,000',
-    },
-    {
-        company: 'PT Nusantara Logistik',
-        code: 'ORD-014',
-        time: 'Kemarin',
-        status: 'Sedang Diproses',
-        statusColor: 'text-indigo-500 bg-indigo-50',
-        amount: 'Rp 4,950,000',
-    },
-    {
-        company: 'PT Global Express',
-        code: 'ORD-025',
-        time: '1 hari lalu',
-        status: 'Selesai',
-        statusColor: 'text-purple-500 bg-purple-50',
-        amount: 'Rp 3,750,000',
-    },
-    {
-        company: 'CV Mitra Logistik',
-        code: 'REQ-031',
-        time: '2 hari lalu',
-        status: 'Menunggu Konfirmasi',
-        statusColor: 'text-amber-500 bg-amber-50',
-        amount: 'Rp 1,890,000',
-    },
-];
+// Helper: Get icon based on activity type
+function getActivityIcon(type) {
+    switch (type) {
+        case 'order':
+            return <HiClipboardDocumentList className='h-5 w-5 text-indigo-500' />;
+        case 'delivery':
+            return <HiTruck className='h-5 w-5 text-blue-500' />;
+        case 'invoice':
+            return <HiBanknotes className='h-5 w-5 text-emerald-500' />;
+        default:
+            return <HiDocumentText className='h-5 w-5 text-slate-500' />;
+    }
+}
+
+// Helper: Get status color based on activity type and status
+function getActivityStatusStyle(type, status) {
+    const statusLower = (status || '').toLowerCase();
+    if (type === 'order') {
+        if (statusLower === 'pending') return 'text-amber-500 bg-amber-50';
+        if (statusLower === 'completed') return 'text-emerald-500 bg-emerald-50';
+        return 'text-indigo-500 bg-indigo-50';
+    }
+    if (type === 'delivery') {
+        if (statusLower === 'in transit') return 'text-blue-500 bg-blue-50';
+        if (statusLower === 'delivered') return 'text-emerald-500 bg-emerald-50';
+        return 'text-amber-500 bg-amber-50';
+    }
+    if (type === 'invoice') {
+        if (statusLower === 'paid') return 'text-emerald-500 bg-emerald-50';
+        if (statusLower === 'overdue') return 'text-red-500 bg-red-50';
+        return 'text-amber-500 bg-amber-50';
+    }
+    return 'text-slate-500 bg-slate-50';
+}
+
+// Helper: Format relative time
+function formatRelativeTime(timestamp) {
+    if (!timestamp) return '-';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffHours < 1) return 'Baru saja';
+    if (diffHours < 24) return `${diffHours} jam lalu`;
+    if (diffDays === 1) return 'Kemarin';
+    return `${diffDays} hari lalu`;
+}
 
 function HomeStatCard({ card }) {
     return (
@@ -217,7 +229,49 @@ function ShipmentStatusCard() {
     );
 }
 
-function TransactionsCard() {
+function TransactionsCard({ activities = [], loading = false, itemsPerPage = 5 }) {
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Calculate pagination
+    const totalItems = activities.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentActivities = activities.slice(startIndex, endIndex);
+
+    const handlePrevPage = () => {
+        setCurrentPage(prev => Math.max(prev - 1, 1));
+    };
+
+    const handleNextPage = () => {
+        setCurrentPage(prev => Math.min(prev + 1, totalPages));
+    };
+
+    if (loading) {
+        return (
+            <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+                <div className='animate-pulse space-y-4'>
+                    <div className='flex items-center justify-between'>
+                        <div className='h-4 w-48 rounded bg-slate-200'></div>
+                        <div className='h-4 w-20 rounded bg-slate-200'></div>
+                    </div>
+                    <div className='space-y-3'>
+                        {[...Array(itemsPerPage)].map((_, i) => (
+                            <div key={i} className='flex items-center gap-3 rounded-2xl border border-slate-100 p-4'>
+                                <div className='h-10 w-10 rounded-full bg-slate-200'></div>
+                                <div className='flex-1 space-y-2'>
+                                    <div className='h-4 w-32 rounded bg-slate-200'></div>
+                                    <div className='h-3 w-24 rounded bg-slate-200'></div>
+                                </div>
+                                <div className='h-6 w-20 rounded bg-slate-200'></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex items-center justify-between'>
@@ -230,42 +284,108 @@ function TransactionsCard() {
                 </button>
             </div>
             <div className='mt-6 space-y-3'>
-                {transactions.map((transaction) => (
-                    <article
-                        key={transaction.code}
-                        className='flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-4 transition hover:border-slate-200'
-                    >
-                        <div className='flex items-center gap-3'>
-                            <div className='flex h-10 w-10 items-center justify-center rounded-full bg-slate-100'>
-                                <HiClipboardDocumentList className='h-5 w-5 text-indigo-500' />
+                {currentActivities.length > 0 ? (
+                    currentActivities.map((activity, idx) => (
+                        <article
+                            key={`${activity.type}-${startIndex + idx}`}
+                            className='flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-4 transition hover:border-slate-200'
+                        >
+                            <div className='flex items-center gap-3'>
+                                <div className='flex h-10 w-10 items-center justify-center rounded-full bg-slate-100'>
+                                    {getActivityIcon(activity.type)}
+                                </div>
+                                <div>
+                                    <p className='text-sm font-semibold text-slate-800'>{activity.title}</p>
+                                    <p className='text-xs text-slate-400'>
+                                        {activity.description} | {formatRelativeTime(activity.timestamp)}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className='text-sm font-semibold text-slate-800'>{transaction.company}</p>
-                                <p className='text-xs text-slate-400'>
-                                    {transaction.code} | {transaction.time}
-                                </p>
+                            <div className='flex items-center gap-4'>
+                                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getActivityStatusStyle(activity.type, activity.status)}`}>
+                                    {activity.status}
+                                </span>
                             </div>
+                        </article>
+                    ))
+                ) : (
+                    <div className='flex items-center justify-center py-8 text-center'>
+                        <div>
+                            <div className='mx-auto h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center'>
+                                <HiClipboardDocumentList className='h-6 w-6 text-slate-400' />
+                            </div>
+                            <p className='mt-3 text-sm font-medium text-slate-800'>Belum ada aktivitas</p>
+                            <p className='text-xs text-slate-500'>Aktivitas terbaru akan muncul di sini.</p>
                         </div>
-                        <div className='flex items-center gap-4'>
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${transaction.statusColor}`}>
-                                {transaction.status}
-                            </span>
-                            <p className='text-sm font-semibold text-slate-800'>{transaction.amount}</p>
-                            <button
-                                type='button'
-                                className='text-xs font-medium text-indigo-500 transition hover:text-indigo-400'
-                            >
-                                Detail
-                            </button>
-                        </div>
-                    </article>
-                ))}
+                    </div>
+                )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalItems > 0 && (
+                <div className='mt-6 flex items-center justify-between border-t border-slate-100 pt-4'>
+                    <p className='text-xs text-slate-400'>
+                        Menampilkan {startIndex + 1}-{Math.min(endIndex, totalItems)} dari {totalItems} transaksi
+                    </p>
+                    <div className='flex items-center gap-2'>
+                        <button
+                            type='button'
+                            onClick={handlePrevPage}
+                            disabled={currentPage === 1}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${currentPage === 1
+                                ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                        >
+                            <HiChevronLeft className='h-4 w-4' />
+                        </button>
+                        <span className='px-3 py-1 text-xs font-medium text-slate-600'>
+                            {currentPage} / {totalPages}
+                        </span>
+                        <button
+                            type='button'
+                            onClick={handleNextPage}
+                            disabled={currentPage === totalPages}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${currentPage === totalPages
+                                ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                        >
+                            <HiChevronRight className='h-4 w-4' />
+                        </button>
+                    </div>
+                </div>
+            )}
         </section>
     );
 }
 
 export default function HomeContent() {
+    const [loading, setLoading] = useState(true);
+    const [activeAssignments, setActiveAssignments] = useState([]);
+    const [recentActivities, setRecentActivities] = useState([]);
+
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                setLoading(true);
+                const response = await axios.get('/dashboard');
+
+                if (response.data?.success) {
+                    const { widgets } = response.data.data;
+                    setActiveAssignments(widgets?.active_assignments || []);
+                    setRecentActivities(widgets?.recent_activities || []);
+                }
+            } catch (error) {
+                console.error('Failed to fetch dashboard data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, []);
+
     return (
         <>
             <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
@@ -280,8 +400,17 @@ export default function HomeContent() {
                 <ShipmentStatusCard />
             </section>
             <section className='grid grid-cols-1 gap-6 xl:grid-cols-2'>
-                <AssignmentWidget limit={3} showMetrics={true} />
-                <TransactionsCard />
+                <AssignmentWidget
+                    itemsPerPage={4}
+                    showMetrics={true}
+                    assignments={activeAssignments}
+                    loading={loading}
+                />
+                <TransactionsCard
+                    activities={recentActivities}
+                    loading={loading}
+                    itemsPerPage={5}
+                />
             </section>
         </>
     );

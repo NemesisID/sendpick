@@ -63,9 +63,13 @@ import ManifestContent from '../../manifests/components/Manifest';
 import DeliveryOrderContent from '../../orders/components/DeliveryOrder';
 import ProfileContent from '../../../features/auth/components/Profile';
 import NotificationsContent, { unreadNotificationsCount as dashboardUnreadNotifications } from '../../../pages/Notifications';
+import Pagination from '../../../components/common/Pagination';
 import { useDrivers } from '../hooks/useDrivers';
 import { useDriversCRUD } from '../hooks/useDriversCrud';
 import { useVehicles } from '../../vehicles/hooks/useVehicles';
+
+// Jumlah data per halaman untuk Driver
+const ITEMS_PER_PAGE = 6;
 
 const navigationIcons = {
     home: HiHome,
@@ -649,7 +653,25 @@ function DriverTableSkeleton({ rows = 6 }) {
     );
 }
 
-function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShiftChange, onAdd, onEdit, onDelete, loading }) {
+
+function DriverTable({
+    drivers,
+    searchTerm,
+    onSearchChange,
+    shiftFilter,
+    onShiftChange,
+    onAdd,
+    onEdit,
+    onDelete,
+    loading,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
 
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -710,7 +732,7 @@ function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShift
                         </tr>
                     </thead>
                     {loading ? (
-                        <DriverTableSkeleton rows={6} />
+                        <DriverTableSkeleton rows={ITEMS_PER_PAGE} />
                     ) : (
                         <tbody className='divide-y divide-slate-100'>
                             {drivers.length > 0 ? (
@@ -724,7 +746,7 @@ function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShift
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                    <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
                                         Tidak ada driver yang sesuai dengan filter saat ini.
                                     </td>
                                 </tr>
@@ -733,9 +755,21 @@ function DriverTable({ drivers, searchTerm, onSearchChange, shiftFilter, onShift
                     )}
                 </table>
             </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
         </section>
     );
 }
+
 
 function DriverActivityTimeline() {
     return (
@@ -816,6 +850,7 @@ function DriverManagementContent() {
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [driversList, setDriversList] = useState([]);
     const [notification, setNotification] = useState({ type: null, message: null });
+    const [currentPage, setCurrentPage] = useState(1);
     const filterEffectInitialized = useRef(false);
 
     const { drivers, loading, error: fetchError, refetch } = useDrivers({ per_page: 15 });
@@ -900,6 +935,22 @@ function DriverManagementContent() {
         });
     }, [searchTerm, shiftFilter, driversList]);
 
+    // Pagination calculations
+    const totalItems = filteredDrivers.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedDrivers = filteredDrivers.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, shiftFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
     // Generate real-time summary cards from driver data
     const driverSummaryCards = useMemo(() => generateDriverSummaryCards(driversList), [driversList]);
 
@@ -912,7 +963,7 @@ function DriverManagementContent() {
             </section>
             <section className='grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'>
                 <DriverTable
-                    drivers={filteredDrivers}
+                    drivers={paginatedDrivers}
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     shiftFilter={shiftFilter}
@@ -921,6 +972,12 @@ function DriverManagementContent() {
                     onEdit={handleEditDriver}
                     onDelete={handleDeleteDriver}
                     loading={loading}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    startIndex={startIndex}
+                    endIndex={endIndex}
+                    onPageChange={handlePageChange}
                 />
                 <div className='space-y-6'>
                     <DriverActivityTimeline />

@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Layers, CheckCircle2, XCircle, Truck, Plus, Pencil, Trash2, Search } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
+import Pagination from '../../../components/common/Pagination';
 import { useVehicleTypes } from '../hooks/useVehicleTypes';
 import { useVehicleTypesCrud } from '../hooks/useVehicleTypesCrud';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 // Generate real-time summary cards from vehicle types data
 const generateSummaryCards = (vehicleTypes = []) => {
@@ -23,14 +28,7 @@ const generateSummaryCards = (vehicleTypes = []) => {
             description: 'Kategori terdaftar',
             iconBg: 'bg-blue-100',
             iconColor: 'text-blue-600',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2l-2 2H5l-2-2z' strokeLinecap='round' strokeLinejoin='round' />
-                    <path d='M3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2l-2-2H5l-2 2z' strokeLinecap='round' strokeLinejoin='round' />
-                    <path d='M9 7v10' strokeLinecap='round' />
-                    <path d='M15 7v10' strokeLinecap='round' />
-                </svg>
-            ),
+            icon: <Layers className='h-5 w-5' />,
         },
         {
             title: 'Aktif',
@@ -38,12 +36,7 @@ const generateSummaryCards = (vehicleTypes = []) => {
             description: 'Sedang digunakan',
             iconBg: 'bg-emerald-100',
             iconColor: 'text-emerald-600',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M9 12l2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-                    <circle cx='12' cy='12' r='9' />
-                </svg>
-            ),
+            icon: <CheckCircle2 className='h-5 w-5' />,
         },
         {
             title: 'Non-Aktif',
@@ -51,13 +44,7 @@ const generateSummaryCards = (vehicleTypes = []) => {
             description: 'Tidak digunakan',
             iconBg: 'bg-slate-100',
             iconColor: 'text-slate-600',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <circle cx='12' cy='12' r='9' />
-                    <path d='M9 9l6 6' strokeLinecap='round' strokeLinejoin='round' />
-                    <path d='M15 9l-6 6' strokeLinecap='round' strokeLinejoin='round' />
-                </svg>
-            ),
+            icon: <XCircle className='h-5 w-5' />,
         },
         {
             title: 'Kendaraan Terdaftar',
@@ -65,14 +52,7 @@ const generateSummaryCards = (vehicleTypes = []) => {
             description: 'Total unit',
             iconBg: 'bg-amber-100',
             iconColor: 'text-amber-600',
-            icon: (
-                <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                    <path d='M3 13h18l-2-6H5z' strokeLinecap='round' strokeLinejoin='round' />
-                    <path d='M5 17h14' strokeLinecap='round' />
-                    <circle cx='7.5' cy='17.5' r='1.5' />
-                    <circle cx='16.5' cy='17.5' r='1.5' />
-                </svg>
-            ),
+            icon: <Truck className='h-5 w-5' />,
         },
     ];
 };
@@ -83,25 +63,11 @@ const statusOptions = [
     { value: 'Tidak Aktif', label: 'Non-Aktif' },
 ];
 
-const PlusIcon = () => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-        <path d='M12 5v14M5 12h14' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const EditIcon = () => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-        <path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const DeleteIcon = () => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-        <path d='M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M10 11v6M14 11v6' strokeLinecap='round' />
-    </svg>
-);
+// Icon wrappers using Lucide React
+const PlusIcon = () => <Plus className='h-4 w-4' />;
+const EditIcon = () => <Pencil className='h-4 w-4' />;
+const DeleteIcon = () => <Trash2 className='h-4 w-4' />;
+const SearchIcon = ({ className = 'h-4 w-4' }) => <Search className={className} />;
 
 function SummaryCard({ card }) {
     return (
@@ -142,12 +108,12 @@ function VehicleTypeRow({ vehicleType, onEdit, onDelete }) {
             <td className='px-6 py-4'>
                 <div className='text-sm text-slate-900'>{vehicleType.capacity_range}</div>
                 <div className='text-xs text-slate-500'>
-                    {vehicleType.capacity_min_kg}kg - {vehicleType.capacity_max_kg}kg
+                    Maks: {vehicleType.capacity_max_kg} kg
                 </div>
             </td>
             <td className='px-6 py-4'>
                 <div className='text-sm text-slate-900'>
-                    {vehicleType.volume_min_m3}m³ - {vehicleType.volume_max_m3}m³
+                    Maks: {vehicleType.volume_max_m3} m³
                 </div>
             </td>
             <td className='px-6 py-4'>
@@ -193,73 +159,99 @@ function VehicleTypeRow({ vehicleType, onEdit, onDelete }) {
     );
 }
 
-function VehicleTypeTable({ vehicleTypes, onEdit, onDelete, loading }) {
+function VehicleTypeTable({
+    vehicleTypes,
+    onEdit,
+    onDelete,
+    loading,
+    // Pagination props
+    currentPage,
+    totalPages,
+    totalItems,
+    startIndex,
+    endIndex,
+    onPageChange,
+}) {
     return (
-        <div className='overflow-x-auto'>
-            <table className='w-full'>
-                <thead>
-                    <tr className='border-b border-slate-200'>
-                        <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
-                            Nama & Deskripsi
-                        </th>
-                        <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
-                            Kapasitas Berat
-                        </th>
-                        <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
-                            Volume
-                        </th>
-                        <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
-                            Status
-                        </th>
-                        <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
-                            Kendaraan
-                        </th>
-                        <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
-                            Dibuat
-                        </th>
-                        <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody className='divide-y divide-slate-100'>
-                    {loading ? (
-                        <tr>
-                            <td colSpan="7" className='px-6 py-12 text-center text-slate-500'>
-                                Memuat data tipe kendaraan...
-                            </td>
+        <>
+            <div className='overflow-x-auto'>
+                <table className='w-full'>
+                    <thead>
+                        <tr className='border-b border-slate-200'>
+                            <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                Nama & Deskripsi
+                            </th>
+                            <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                Kapasitas Berat
+                            </th>
+                            <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                Volume
+                            </th>
+                            <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                Status
+                            </th>
+                            <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                Kendaraan
+                            </th>
+                            <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                Dibuat
+                            </th>
+                            <th className='px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500'>
+                                Aksi
+                            </th>
                         </tr>
-                    ) : vehicleTypes.length > 0 ? (
-                        vehicleTypes.map((vehicleType) => (
-                            <VehicleTypeRow
-                                key={vehicleType.id}
-                                vehicleType={vehicleType}
-                                onEdit={onEdit}
-                                onDelete={onDelete}
-                            />
-                        ))
-                    ) : (
-                        <tr>
-                            <td colSpan="7" className='px-6 py-12 text-center text-slate-500'>
-                                <div className='flex flex-col items-center'>
-                                    <svg className='h-12 w-12 text-slate-300 mb-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-                                        <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1} d='M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-5v2a1 1 0 01-1 1h-2a1 1 0 01-1-1V8a1 1 0 011-1h2a1 1 0 011 1z' />
-                                    </svg>
-                                    <p className='text-sm font-medium text-slate-900 mb-1'>Belum ada tipe kendaraan</p>
-                                    <p className='text-sm text-slate-500'>Mulai dengan menambahkan tipe kendaraan pertama</p>
-                                </div>
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
+                    </thead>
+                    <tbody className='divide-y divide-slate-100'>
+                        {loading ? (
+                            <tr>
+                                <td colSpan="7" className='px-6 py-12 text-center text-slate-500'>
+                                    Memuat data tipe kendaraan...
+                                </td>
+                            </tr>
+                        ) : vehicleTypes.length > 0 ? (
+                            vehicleTypes.map((vehicleType) => (
+                                <VehicleTypeRow
+                                    key={vehicleType.id}
+                                    vehicleType={vehicleType}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                />
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="7" className='px-6 py-12 text-center text-slate-500'>
+                                    <div className='flex flex-col items-center'>
+                                        <svg className='h-12 w-12 text-slate-300 mb-4' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                            <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1} d='M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-5v2a1 1 0 01-1 1h-2a1 1 0 01-1-1V8a1 1 0 011-1h2a1 1 0 011 1z' />
+                                        </svg>
+                                        <p className='text-sm font-medium text-slate-900 mb-1'>Belum ada tipe kendaraan</p>
+                                        <p className='text-sm text-slate-500'>Mulai dengan menambahkan tipe kendaraan pertama</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Pagination */}
+            <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={ITEMS_PER_PAGE}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={onPageChange}
+            />
+        </>
     );
 }
 
 export default function VehicleTypesContent({ showPopup = false, setShowPopup = () => { } }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [currentPage, setCurrentPage] = useState(1);
 
     // Hooks integration
     const { vehicleTypes, loading, error, refetch, setParams } = useVehicleTypes();
@@ -283,6 +275,22 @@ export default function VehicleTypesContent({ showPopup = false, setShowPopup = 
         }, 500);
         return () => clearTimeout(timer);
     }, [searchTerm, statusFilter, setParams]);
+
+    // Pagination calculations
+    const totalItems = vehicleTypes.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedVehicleTypes = vehicleTypes.slice(startIndex, endIndex);
+
+    // Reset ke halaman 1 saat filter/search berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, statusFilter]);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
 
     // Edit modal handlers
     const handleAdd = () => {
@@ -343,25 +351,11 @@ export default function VehicleTypesContent({ showPopup = false, setShowPopup = 
             placeholder: 'Deskripsi singkat tentang tipe kendaraan'
         },
         {
-            name: 'capacity_min_kg',
-            label: 'Kapasitas Minimum (Kg)',
-            type: 'number',
-            required: false,
-            placeholder: '1000'
-        },
-        {
             name: 'capacity_max_kg',
             label: 'Kapasitas Maksimum (Kg)',
             type: 'number',
             required: false,
             placeholder: '5000'
-        },
-        {
-            name: 'volume_min_m3',
-            label: 'Volume Minimum (m³)',
-            type: 'number',
-            required: false,
-            placeholder: '5'
         },
         {
             name: 'volume_max_m3',
@@ -412,9 +406,9 @@ export default function VehicleTypesContent({ showPopup = false, setShowPopup = 
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className='w-full sm:w-64 rounded-2xl border border-slate-200 bg-white px-4 py-2 pl-10 text-sm placeholder-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100'
                             />
-                            <svg className='absolute left-3 top-2.5 h-4 w-4 text-slate-400' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' />
-                            </svg>
+                            <span className='absolute left-3 top-2.5 text-slate-400'>
+                                <SearchIcon className='h-4 w-4' />
+                            </span>
                         </div>
 
                         <FilterDropdown
@@ -436,10 +430,16 @@ export default function VehicleTypesContent({ showPopup = false, setShowPopup = 
                 </div>
 
                 <VehicleTypeTable
-                    vehicleTypes={vehicleTypes}
+                    vehicleTypes={paginatedVehicleTypes}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     loading={loading}
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    startIndex={startIndex}
+                    endIndex={endIndex}
+                    onPageChange={handlePageChange}
                 />
             </section>
 
