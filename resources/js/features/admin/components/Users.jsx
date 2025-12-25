@@ -1,4 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Search,
+    Mail,
+    Phone,
+    Pencil,
+    Trash2,
+    Plus,
+    Users,
+    CheckCircle,
+    Monitor,
+    Shield,
+} from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
@@ -71,42 +83,6 @@ const roleConfig = {
     },
 };
 
-const SearchIcon = ({ className = 'h-5 w-5' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <circle cx='11' cy='11' r='6' />
-        <path d='m20 20-3.5-3.5' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const MailIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <rect x='3' y='5' width='18' height='14' rx='2' />
-        <path d='m4 7 8 6 8-6' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const PhoneIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M6.5 3h2a1 1 0 0 1 1 .72c.23.92.65 2.19 1.3 3.5a1 1 0 0 1-.23 1.15L9.1 10.04c1.4 2.3 3.2 4.1 5.5 5.5l1.67-1.47a1 1 0 0 1 1.15-.23c1.3.65 2.58 1.07 3.5 1.3a1 1 0 0 1 .72 1v2a1 1 0 0 1-1.05 1 16 16 0 0 1-14.5-14.45A1 1 0 0 1 6.5 3z' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const EditIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M4 15.5V20h4.5L19 9.5l-4.5-4.5L4 15.5z' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='m14.5 5.5 4 4' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
-const TrashIcon = ({ className = 'h-4 w-4' }) => (
-    <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={className}>
-        <path d='M5 7h14' strokeLinecap='round' />
-        <path d='M10 11v6M14 11v6' strokeLinecap='round' />
-        <path d='M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12' strokeLinecap='round' strokeLinejoin='round' />
-        <path d='M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2' strokeLinecap='round' strokeLinejoin='round' />
-    </svg>
-);
-
 const getRoleKey = (roleName) => {
     if (!roleName) return 'superAdmin';
     const normalized = roleName.toLowerCase();
@@ -172,11 +148,11 @@ function AdminRow({ admin, onEdit, onDelete }) {
             <td className='px-6 py-4'>
                 <div className='space-y-1 text-sm text-slate-600'>
                     <div className='flex items-center gap-2 text-slate-400'>
-                        <MailIcon />
+                        <Mail className='h-4 w-4' />
                         <span className='truncate'>{admin.email}</span>
                     </div>
                     <div className='flex items-center gap-2'>
-                        <PhoneIcon className='h-4 w-4 text-slate-400' />
+                        <Phone className='h-4 w-4 text-slate-400' />
                         <span>{admin.phone}</span>
                     </div>
                 </div>
@@ -204,7 +180,7 @@ function AdminRow({ admin, onEdit, onDelete }) {
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
                         aria-label={`Edit ${admin.name}`}
                     >
-                        <EditIcon />
+                        <Pencil className='h-4 w-4' />
                     </button>
                     <button
                         type='button'
@@ -215,7 +191,7 @@ function AdminRow({ admin, onEdit, onDelete }) {
                         className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
                         aria-label={`Hapus ${admin.name}`}
                     >
-                        <TrashIcon />
+                        <Trash2 className='h-4 w-4' />
                     </button>
                 </div>
             </td>
@@ -298,7 +274,7 @@ function AdminTable({
                 <div className='flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-center'>
                     <div className='group relative min-w-[260px] flex-1'>
                         <span className='pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400'>
-                            <SearchIcon />
+                            <Search className='h-5 w-5' />
                         </span>
                         <input
                             type='text'
@@ -319,9 +295,7 @@ function AdminTable({
                         onClick={onAdd}
                         className='inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:w-auto'
                     >
-                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-4 w-4'>
-                            <path d='M12 5v14M5 12h14' strokeLinecap='round' strokeLinejoin='round' />
-                        </svg>
+                        <Plus className='h-4 w-4' />
                         Tambah Admin
                     </button>
                 </div>
@@ -704,14 +678,7 @@ export default function AdminContent() {
                         description: 'Jumlah admin terdaftar',
                         iconBg: 'bg-sky-100',
                         iconColor: 'text-sky-600',
-                        icon: (
-                            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                                <path d='M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1' strokeLinecap='round' strokeLinejoin='round' />
-                                <circle cx='10' cy='7' r='3' />
-                                <path d='M20 19v-1a4 4 0 0 0-2.62-3.73' strokeLinecap='round' strokeLinejoin='round' />
-                                <path d='M16 4a3 3 0 1 1 0 6' strokeLinecap='round' strokeLinejoin='round' />
-                            </svg>
-                        ),
+                        icon: <Users className='h-5 w-5' />,
                     },
                     {
                         title: 'Admin Aktif',
@@ -719,12 +686,7 @@ export default function AdminContent() {
                         description: 'Memiliki status aktif',
                         iconBg: 'bg-emerald-100',
                         iconColor: 'text-emerald-500',
-                        icon: (
-                            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                                <circle cx='12' cy='12' r='8' />
-                                <path d='m9 12 2 2 4-4' strokeLinecap='round' strokeLinejoin='round' />
-                            </svg>
-                        ),
+                        icon: <CheckCircle className='h-5 w-5' />,
                     },
                     {
                         title: 'Online Hari Ini',
@@ -732,12 +694,7 @@ export default function AdminContent() {
                         description: 'Aktif hari ini',
                         iconBg: 'bg-amber-100',
                         iconColor: 'text-amber-500',
-                        icon: (
-                            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                                <path d='M7 4h10l3 5v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z' strokeLinecap='round' strokeLinejoin='round' />
-                                <path d='M7 9h13' strokeLinecap='round' />
-                            </svg>
-                        ),
+                        icon: <Monitor className='h-5 w-5' />,
                     },
                     {
                         title: 'Total Role',
@@ -745,12 +702,7 @@ export default function AdminContent() {
                         description: 'Role aktif dalam sistem',
                         iconBg: 'bg-purple-100',
                         iconColor: 'text-purple-500',
-                        icon: (
-                            <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-                                <path d='M12 3a4 4 0 0 1 4 4v2h2a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-4' strokeLinecap='round' strokeLinejoin='round' />
-                                <path d='M12 3a4 4 0 0 0-4 4v2H6a3 3 0 0 0-3 3v6a3 3 0 0 0 3 3h4' strokeLinecap='round' strokeLinejoin='round' />
-                            </svg>
-                        ),
+                        icon: <Shield className='h-5 w-5' />,
                     },
                 ].map((card) => (
                     <SummaryCard key={card.title} card={card} />

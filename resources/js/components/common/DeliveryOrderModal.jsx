@@ -76,13 +76,19 @@ const DeliveryOrderModal = ({
                     // The filtering happens at the Job Order level, not Manifest level
                     const mfResponse = await import('../../features/manifests/services/manifestService').then(module => module.fetchManifests({ per_page: 100 }));
                     const mfOptions = mfResponse.items
+                        // ✅ Filter out Cancelled manifests and manifests without job_orders
+                        .filter(mf => {
+                            const isCancelled = mf.status?.toLowerCase() === 'cancelled';
+                            const hasJobOrders = mf.job_orders && Array.isArray(mf.job_orders) && mf.job_orders.length > 0;
+                            return !isCancelled && hasJobOrders;
+                        })
                         .map(mf => ({
                             value: mf.manifest_id,
                             label: `${mf.manifest_id} (${mf.job_orders?.length || '?'} muatan)`,  // Show manifest ID with job order count
                             details: mf // Store full details for auto-fill logic (driver_id, vehicle_id, drivers, vehicles, job_orders)
                         }));
                     setManifests(mfOptions);
-                    console.log('[DeliveryOrderModal] Manifests available (all):', mfOptions.length, 'items');
+                    console.log('[DeliveryOrderModal] Manifests available (excluding cancelled):', mfOptions.length, 'items');
 
                     // Fetch ALL Drivers (tanpa filter status agar semua driver tersedia)
                     const driverRes = await fetchDrivers({ per_page: 200 });
@@ -496,7 +502,7 @@ const DeliveryOrderModal = ({
         if (formData.source_type) {
             fields.push({
                 name: 'source_id',
-                label: formData.source_type === 'JO' ? 'Pilih Job Order' : 'Pilih Manifest',
+                label: formData.source_type === 'JO' ? 'Job Order' : 'Manifest',
                 type: 'select',
                 required: true,
                 options: formData.source_type === 'JO' ? jobOrders : manifests,

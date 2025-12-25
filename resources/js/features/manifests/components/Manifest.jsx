@@ -91,10 +91,11 @@ const extractCity = (address) => {
 
 /**
  * Menentukan label "Rute Manifest" secara dinamis berdasarkan daftar Job Order yang dipilih (Case LTL).
+ * ✅ UPDATED: Prioritaskan field kota (pickup_city, delivery_city) sebelum alamat
  * 
  * @param {Array} jobOrders - Array Job Orders dengan properties:
- *   - origin_city atau pickup_address
- *   - destination_city atau delivery_address  
+ *   - pickup_city atau origin_city
+ *   - delivery_city atau destination_city  
  *   - pickup_datetime (Date/String)
  *   - delivery_datetime_estimation (Date/String)
  * @returns {String} - Route name label, contoh: "Jakarta -> Surabaya (Multi-stop)"
@@ -112,17 +113,17 @@ const getManifestRouteName = (jobOrders) => {
         return dateA - dateB;
     });
 
-    // 2. TENTUKAN START NODE: origin_city dari item pertama (index 0) setelah sorting pickup
+    // 2. TENTUKAN START NODE: prioritaskan pickup_city (field khusus kota)
     const firstJob = sortedByPickup[0];
     const startNode = extractCity(
-        firstJob.origin_city ||
-        firstJob.pickup_address ||
-        firstJob.pickup_city ||
-        firstJob.origin ||
+        firstJob.pickup_city ||          // Field kota khusus (prioritas 1)
+        firstJob.origin_city ||          // Legacy field (prioritas 2)
+        firstJob.origin ||               // Fallback (prioritas 3)
+        firstJob.pickup_address ||       // Alamat lengkap (prioritas terakhir)
         '-'
     );
 
-    // 3. TENTUKAN END NODE: destination_city dari item dengan delivery time paling akhir
+    // 3. TENTUKAN END NODE: prioritaskan delivery_city (field khusus kota)
     // Sort by delivery time untuk menentukan EndNode yang paling akurat jika rutenya bercabang
     const sortedByDelivery = [...jobOrders].sort((a, b) => {
         const dateA = new Date(a.delivery_datetime_estimation || a.delivery_date || a.estimated_delivery || 0);
@@ -132,10 +133,10 @@ const getManifestRouteName = (jobOrders) => {
 
     const lastDeliveryJob = sortedByDelivery[0]; // Item dengan delivery time paling akhir
     const endNode = extractCity(
-        lastDeliveryJob.destination_city ||
-        lastDeliveryJob.delivery_address ||
-        lastDeliveryJob.delivery_city ||
-        lastDeliveryJob.destination ||
+        lastDeliveryJob.delivery_city ||    // Field kota khusus (prioritas 1)
+        lastDeliveryJob.destination_city || // Legacy field (prioritas 2)
+        lastDeliveryJob.destination ||      // Fallback (prioritas 3)
+        lastDeliveryJob.delivery_address || // Alamat lengkap (prioritas terakhir)
         '-'
     );
 
@@ -162,6 +163,7 @@ const getManifestRouteName = (jobOrders) => {
 /**
  * Versi ringkas getManifestRouteName untuk tampilan tabel
  * Menggunakan format "Jakarta --> Surabaya" tanpa suffix
+ * ✅ UPDATED: Prioritaskan field kota (pickup_city, delivery_city) sebelum alamat
  * 
  * @param {Array} jobOrders - Array Job Orders
  * @returns {String} - Route name untuk tabel
@@ -179,11 +181,12 @@ const getManifestRouteForTable = (jobOrders) => {
     });
 
     const firstJob = sortedByPickup[0];
+    // ✅ UPDATED: Prioritaskan pickup_city terlebih dahulu (field khusus kota)
     const startNode = extractCity(
-        firstJob.origin_city ||
-        firstJob.pickup_address ||
-        firstJob.pickup_city ||
-        firstJob.origin ||
+        firstJob.pickup_city ||          // Field kota khusus (prioritas 1)
+        firstJob.origin_city ||          // Legacy field (prioritas 2)
+        firstJob.origin ||               // Fallback (prioritas 3)
+        firstJob.pickup_address ||       // Alamat lengkap (prioritas terakhir)
         '-'
     );
 
@@ -195,11 +198,12 @@ const getManifestRouteForTable = (jobOrders) => {
     });
 
     const lastDeliveryJob = sortedByDelivery[0];
+    // ✅ UPDATED: Prioritaskan delivery_city terlebih dahulu (field khusus kota)
     const endNode = extractCity(
-        lastDeliveryJob.destination_city ||
-        lastDeliveryJob.delivery_address ||
-        lastDeliveryJob.delivery_city ||
-        lastDeliveryJob.destination ||
+        lastDeliveryJob.delivery_city ||    // Field kota khusus (prioritas 1)
+        lastDeliveryJob.destination_city || // Legacy field (prioritas 2)
+        lastDeliveryJob.destination ||      // Fallback (prioritas 3)
+        lastDeliveryJob.delivery_address || // Alamat lengkap (prioritas terakhir)
         '-'
     );
 
@@ -335,10 +339,27 @@ const mapManifestFromApi = (manifest) => {
         // Raw values from database for form editing
         origin: manifest.origin_city || '',
         destination: manifest.dest_city || '',
-        // Display values for table (processed/extracted city names)
-        // Always show actual city name, not "Mixed Origins"
-        originDisplay: extractCity(manifest.origin_city),
-        destinationDisplay: extractCity(manifest.dest_city),
+        // ✅ UPDATED: Display values for table - prioritize Job Order city fields
+        // Use city from first job order's pickup_city, or extract from manifest.origin_city
+        originDisplay: jobOrders.length > 0
+            ? extractCity(
+                jobOrders[0].pickup_city ||
+                jobOrders[0].origin_city ||
+                jobOrders[0].origin ||
+                jobOrders[0].pickup_address ||
+                manifest.origin_city
+            )
+            : extractCity(manifest.origin_city),
+        // Use city from last job order's delivery_city, or extract from manifest.dest_city
+        destinationDisplay: jobOrders.length > 0
+            ? extractCity(
+                jobOrders[jobOrders.length - 1].delivery_city ||
+                jobOrders[jobOrders.length - 1].destination_city ||
+                jobOrders[jobOrders.length - 1].destination ||
+                jobOrders[jobOrders.length - 1].delivery_address ||
+                manifest.dest_city
+            )
+            : extractCity(manifest.dest_city),
         // ✅ NEW: Dynamic route display for LTL multi-stop
         // Uses getManifestRouteForTable to determine route based on Job Orders
         routeDisplay: jobOrders.length > 0

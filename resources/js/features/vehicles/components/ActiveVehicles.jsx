@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Truck, Check, Settings, BarChart3, Search } from 'lucide-react';
+import { Truck, Check, Package, BarChart3, Search } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import Pagination from '../../../components/common/Pagination';
 import LiveTrackingMap from '../../tracking/components/LiveTrackingMap';
@@ -9,15 +9,12 @@ import { fetchActiveVehicles } from '../services/vehicleService';
 const ITEMS_PER_PAGE = 6;
 
 // Generate real-time summary cards from active vehicles data
-const generateSummaryCards = (vehicles = []) => {
+const generateSummaryCards = (vehicles = [], activeLoadTon = 0) => {
     // Count vehicles on route (status = onRoute)
     const onRouteVehicles = vehicles.filter(v => v.status === 'onRoute').length;
 
     // Count idle vehicles (status = idle or assigned)
     const idleVehicles = vehicles.filter(v => v.status === 'idle' || v.status === 'assigned').length;
-
-    // Count maintenance vehicles
-    const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance').length;
 
     // Calculate average utilization
     const totalVehicles = vehicles.length;
@@ -43,12 +40,12 @@ const generateSummaryCards = (vehicles = []) => {
             icon: <Check className='h-5 w-5' />,
         },
         {
-            title: 'Maintenance Ringan',
-            value: maintenanceVehicles.toString(),
-            description: 'Terjadwal hari ini',
+            title: 'Muatan Aktif',
+            value: `${activeLoadTon} Ton`,
+            description: 'Total berat dalam pengiriman',
             iconBg: 'bg-amber-100',
             iconColor: 'text-amber-500',
-            icon: <Settings className='h-5 w-5' />,
+            icon: <Package className='h-5 w-5' />,
         },
         {
             title: 'Utilisasi Rata-rata',
@@ -249,6 +246,7 @@ export default function ActiveVehiclesContent() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [regionFilter, setRegionFilter] = useState('all');
     const [vehicles, setVehicles] = useState([]);
+    const [activeLoadTon, setActiveLoadTon] = useState(0);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -258,6 +256,8 @@ export default function ActiveVehiclesContent() {
                 const response = await fetchActiveVehicles();
                 if (response.success) {
                     setVehicles(response.data);
+                    // Extract active load ton from summary
+                    setActiveLoadTon(response.summary?.active_load_ton ?? 0);
                 }
             } catch (error) {
                 console.error('Error fetching active vehicles:', error);
@@ -290,7 +290,7 @@ export default function ActiveVehiclesContent() {
     }, [searchTerm, statusFilter, regionFilter, vehicles]);
 
     // Generate real-time summary cards from vehicles data
-    const summaryCards = useMemo(() => generateSummaryCards(vehicles), [vehicles]);
+    const summaryCards = useMemo(() => generateSummaryCards(vehicles, activeLoadTon), [vehicles, activeLoadTon]);
 
     // Pagination calculations
     const totalItems = filteredVehicles.length;

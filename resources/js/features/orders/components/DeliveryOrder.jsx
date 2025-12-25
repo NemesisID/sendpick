@@ -1,5 +1,5 @@
 ﻿import React, { useMemo, useState, useEffect } from 'react';
-import { Search, Phone, MapPin, Truck, ChevronDown, Pencil, Users, Eye, XCircle, Clock, ArrowRight, Printer, Plus } from 'lucide-react';
+import { Search, User, MapPin, Truck, ChevronDown, Pencil, Users, Eye, XCircle, Clock, ArrowRight, Printer, Plus } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import DeliveryOrderModal from '../../../components/common/DeliveryOrderModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
@@ -260,7 +260,7 @@ const mapDeliveryOrderFromApi = (deliveryOrder) => {
 
 // Icon wrappers using Lucide React
 const SearchIcon = ({ className = 'h-5 w-5' }) => <Search className={className} />;
-const PhoneIcon = ({ className = 'h-4 w-4' }) => <Phone className={className} />;
+const UserIcon = ({ className = 'h-4 w-4' }) => <User className={className} />;
 const MapPinIcon = ({ className = 'h-4 w-4' }) => <MapPin className={className} />;
 const TruckIcon = ({ className = 'h-4 w-4' }) => <Truck className={className} />;
 const ChevronDownIcon = ({ className = 'h-4 w-4' }) => <ChevronDown className={className} />;
@@ -346,7 +346,7 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel, onPrint })
                         <span>{delivery.vehicle}</span>
                     </div>
                     <div className='flex items-center gap-2'>
-                        <PhoneIcon className='h-4 w-4 text-slate-400' />
+                        <UserIcon className='h-4 w-4 text-slate-400' />
                         <span>{delivery.driver}</span>
                     </div>
                 </div>
@@ -811,7 +811,7 @@ export default function DeliveryOrderContent() {
         },
         {
             name: 'source_id',
-            label: formData.source_type === 'JO' ? 'Pilih Job Order' : formData.source_type === 'MF' ? 'Pilih Manifest' : 'Pilih Sumber',
+            label: formData.source_type === 'JO' ? 'Job Order' : formData.source_type === 'MF' ? 'Manifest' : 'Sumber',
             type: 'select',
             required: true,
             options: []

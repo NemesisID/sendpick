@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Vehicles;
 use App\Models\VehicleTypes;
+use App\Models\JobOrder;
+use App\Models\Manifests;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 /**
  * VehicleController - Controller untuk mengelola data Kendaraan
@@ -389,13 +392,32 @@ class VehicleController extends Controller
  */
 public function getActiveVehicles(Request $request): JsonResponse
 {
-    // Include driver relationship (directly assigned driver) and assignments
-    $vehicles = Vehicles::with(['driver', 'assignments' => function ($query) {
+    // Include driver relationship, vehicle type (for capacity), manifests with job orders, and assignments
+    $vehicles = Vehicles::with(['driver', 'vehicleType', 'manifests' => function ($query) {
+        // Get manifests that are in transit or on delivery
+        $query->whereIn('status', ['In Transit', 'On Delivery'])
+              ->with('jobOrders');
+    }, 'assignments' => function ($query) {
         $query->where('status', 'Active')
               ->with(['driver', 'jobOrder']);
     }, 'gpsLogs' => function ($query) {
         $query->latest()->limit(1);
     }])->get();
+
+    // Calculate total active load (Muatan Aktif) in Kg
+    // Sum all goods_weight from Job Orders linked to Manifests with status "In Transit" or "On Delivery"
+    $activeManifests = Manifests::whereIn('status', ['In Transit', 'On Delivery'])
+        ->with('jobOrders')
+        ->get();
+    
+    $totalActiveLoadKg = 0;
+    foreach ($activeManifests as $manifest) {
+        foreach ($manifest->jobOrders as $jo) {
+            $totalActiveLoadKg += $jo->goods_weight ?? 0;
+        }
+    }
+    // Convert to Ton
+    $activeLoadTon = round($totalActiveLoadKg / 1000, 1);
 
     // Transform data
     $data = $vehicles->map(function ($vehicle) {
@@ -415,13 +437,33 @@ public function getActiveVehicles(Request $request): JsonResponse
         $status = 'idle';
         $statusLabel = 'Idle';
 
+        // Get vehicle max capacity from vehicle type
+        $maxCapacityKg = $vehicle->vehicleType?->capacity_max_kg ?? 0;
+
         // Define active statuses that should show data
         $activeStatuses = ['Assigned', 'Pickup', 'On Delivery'];
+
+        // Calculate total weight from active manifest job orders
+        $totalLoadKg = 0;
+        foreach ($vehicle->manifests as $manifest) {
+            foreach ($manifest->jobOrders as $jo) {
+                $totalLoadKg += $jo->goods_weight ?? 0;
+            }
+        }
 
         // Only populate route/load data if we have a Job Order in an active state
         if ($jobOrder && in_array($jobOrder->status, $activeStatuses)) {
             $displayRoute = "{$jobOrder->pickup_city} - {$jobOrder->delivery_city}";
-            $displayLoad = ($jobOrder->goods_weight / 1000) . ' Ton';
+            
+            // Calculate load percentage: (Total_JO_Weight / Max_Capacity) * 100%
+            if ($maxCapacityKg > 0) {
+                // Use totalLoadKg from manifest if available, fallback to single job order weight
+                $loadWeight = $totalLoadKg > 0 ? $totalLoadKg : ($jobOrder->goods_weight ?? 0);
+                $loadPercentage = min(100, round(($loadWeight / $maxCapacityKg) * 100));
+                $displayLoad = $loadPercentage . '%';
+            } else {
+                $displayLoad = '-';
+            }
             
             // Map Status
             if ($jobOrder->status === 'On Delivery') {
@@ -459,7 +501,177 @@ public function getActiveVehicles(Request $request): JsonResponse
 
     return response()->json([
         'success' => true,
-        'data' => $data
+        'data' => $data,
+        'summary' => [
+            'active_load_ton' => $activeLoadTon,
+        ]
     ], 200);
 }
+
+    /**
+     * Get delivery history for Vehicle History page
+     * Provides KPIs and a list of completed/cancelled deliveries
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getDeliveryHistory(Request $request): JsonResponse
+    {
+        // Determine date range based on filter
+        $timeFilter = $request->get('time_filter', '30d');
+        $dateFrom = match($timeFilter) {
+            '30d' => Carbon::now()->subDays(30),
+            '90d' => Carbon::now()->subDays(90),
+            '12m' => Carbon::now()->subMonths(12),
+            default => null, // 'all' - no date filter
+        };
+
+        // ==================== KPI CALCULATIONS ====================
+        
+        // 1. Pengiriman Selesai (Delivered Job Orders in period)
+        $deliveredQuery = JobOrder::where('status', 'Delivered');
+        if ($dateFrom) {
+            $deliveredQuery->where('completed_at', '>=', $dateFrom);
+        }
+        $completedDeliveries = $deliveredQuery->count();
+
+        // 2. Utilisasi Armada (Active vehicles in Manifests / Total Vehicles)
+        $totalVehicles = Vehicles::where('status', 'Aktif')->count();
+        $activeManifestVehicles = Manifests::whereNotIn('status', ['Completed', 'Cancelled', 'Delivered'])
+            ->whereNotNull('vehicle_id')
+            ->distinct('vehicle_id')
+            ->count('vehicle_id');
+        $fleetUtilization = $totalVehicles > 0 
+            ? round(($activeManifestVehicles / $totalVehicles) * 100) 
+            : 0;
+
+        // 3. Total Muatan (Sum of goods_weight from Delivered Job Orders)
+        $totalCargoQuery = JobOrder::where('status', 'Delivered');
+        if ($dateFrom) {
+            $totalCargoQuery->where('completed_at', '>=', $dateFrom);
+        }
+        $totalCargoKg = $totalCargoQuery->sum('goods_weight');
+        $totalCargoTon = round($totalCargoKg / 1000, 1);
+
+        // 4. Tepat Waktu (%) - On-time delivery rate
+        // Comparing completed_at with ship_date
+        $onTimeQuery = JobOrder::where('status', 'Delivered')
+            ->whereNotNull('completed_at')
+            ->whereNotNull('ship_date');
+        if ($dateFrom) {
+            $onTimeQuery->where('completed_at', '>=', $dateFrom);
+        }
+        
+        $totalWithDates = (clone $onTimeQuery)->count();
+        $onTimeCount = (clone $onTimeQuery)
+            ->whereColumn('completed_at', '<=', \DB::raw("ship_date + INTERVAL '1 day'"))
+            ->count();
+        
+        $onTimeRate = $totalWithDates > 0 
+            ? round(($onTimeCount / $totalWithDates) * 100) 
+            : 0;
+
+        // ==================== HISTORY RECORDS ====================
+        
+        $historyQuery = JobOrder::with([
+            'customer',
+            'manifests.drivers',
+            'manifests.vehicles',
+            'assignments.driver',
+            'assignments.vehicle'
+        ])
+        ->whereIn('status', ['Delivered', 'Cancelled']);
+
+        // Apply date filter
+        if ($dateFrom) {
+            $historyQuery->where(function($q) use ($dateFrom) {
+                $q->where('completed_at', '>=', $dateFrom)
+                  ->orWhere('cancelled_at', '>=', $dateFrom);
+            });
+        }
+
+        // Apply status filter
+        $statusFilter = $request->get('status_filter');
+        if ($statusFilter && $statusFilter !== 'all') {
+            $historyQuery->where('status', ucfirst($statusFilter));
+        }
+
+        // Apply search filter
+        $search = $request->get('search');
+        if ($search) {
+            $historyQuery->where(function($q) use ($search) {
+                $q->where('job_order_id', 'ILIKE', "%{$search}%")
+                  ->orWhere('goods_desc', 'ILIKE', "%{$search}%")
+                  ->orWhere('pickup_city', 'ILIKE', "%{$search}%")
+                  ->orWhere('delivery_city', 'ILIKE', "%{$search}%")
+                  ->orWhereHas('manifests.vehicles', function($vq) use ($search) {
+                      $vq->where('plate_no', 'ILIKE', "%{$search}%");
+                  })
+                  ->orWhereHas('manifests.drivers', function($dq) use ($search) {
+                      $dq->where('driver_name', 'ILIKE', "%{$search}%");
+                  })
+                  ->orWhereHas('assignments.driver', function($dq) use ($search) {
+                      $dq->where('driver_name', 'ILIKE', "%{$search}%");
+                  })
+                  ->orWhereHas('assignments.vehicle', function($vq) use ($search) {
+                      $vq->where('plate_no', 'ILIKE', "%{$search}%");
+                  });
+            });
+        }
+
+        // Order by most recent first
+        $historyQuery->orderByRaw('COALESCE(completed_at, cancelled_at, created_at) DESC');
+
+        // Get paginated results
+        $perPage = $request->get('per_page', 10);
+        $history = $historyQuery->paginate($perPage);
+
+        // Transform records for frontend
+        $records = collect($history->items())->map(function($jo) {
+            // Get driver and vehicle from manifest first, fallback to direct assignment
+            $manifest = $jo->manifests->first();
+            $assignment = $jo->assignments->first();
+            
+            $driver = $manifest?->drivers ?? $assignment?->driver;
+            $vehicle = $manifest?->vehicles ?? $assignment?->vehicle;
+
+            // Determine the relevant date
+            $relevantDate = $jo->completed_at ?? $jo->cancelled_at ?? $jo->created_at;
+            $daysAgo = $relevantDate ? Carbon::parse($relevantDate)->diffInDays(Carbon::now()) : 0;
+
+            // Build activity description
+            $activity = $jo->status === 'Delivered' 
+                ? "Delivery selesai - {$jo->customer?->company_name}"
+                : "Dibatalkan - {$jo->cancellation_reason}";
+
+            return [
+                'id' => $jo->job_order_id,
+                'date' => $relevantDate ? Carbon::parse($relevantDate)->format('d M Y') : '-',
+                'vehicle' => $vehicle?->plate_no ?? '-',
+                'driver' => $driver?->driver_name ?? '-',
+                'route' => "{$jo->pickup_city} → {$jo->delivery_city}",
+                'activity' => $activity,
+                'docNumber' => $jo->job_order_id,
+                'status' => strtolower($jo->status),
+                'daysAgo' => $daysAgo,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'kpi' => [
+                'completed_deliveries' => $completedDeliveries,
+                'fleet_utilization' => $fleetUtilization,
+                'total_cargo_ton' => $totalCargoTon,
+                'on_time_rate' => $onTimeRate,
+            ],
+            'records' => $records,
+            'pagination' => [
+                'current_page' => $history->currentPage(),
+                'per_page' => $history->perPage(),
+                'total' => $history->total(),
+                'last_page' => $history->lastPage()
+            ]
+        ], 200);
+    }
 }

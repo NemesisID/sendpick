@@ -13,6 +13,14 @@ import {
     LabelList,
     Cell
 } from 'recharts';
+import {
+    TrendingUp,
+    ShoppingCart,
+    Users,
+    CheckCircle,
+    RefreshCw,
+    Download
+} from 'lucide-react';
 
 // Helper function to format currency - exact format matching Invoice module
 const formatCurrency = (value) => {
@@ -27,33 +35,12 @@ const formatNumber = (value) => {
     return parseInt(value).toLocaleString('id-ID');
 };
 
-// Static icon definitions for KPI cards
+// Static icon definitions for KPI cards using lucide-react
 const kpiIcons = {
-    revenue: (
-        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-            <path d='M4 19h16' strokeLinecap='round' />
-            <path d='M7 15v-6l4 3 4-3v6' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M12 4v7' strokeLinecap='round' />
-        </svg>
-    ),
-    orders: (
-        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-            <path d='M3 7h18l-2 10H5L3 7Z' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='M7 7V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2' />
-        </svg>
-    ),
-    delivery: (
-        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-            <circle cx='12' cy='12' r='8' />
-            <path d='M12 7v5l3 2' strokeLinecap='round' strokeLinejoin='round' />
-        </svg>
-    ),
-    satisfaction: (
-        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className='h-5 w-5'>
-            <path d='M12 21a9 9 0 1 1 9-9' strokeLinecap='round' strokeLinejoin='round' />
-            <path d='m16 11-3 3-1.5-1.5' strokeLinecap='round' strokeLinejoin='round' />
-        </svg>
-    ),
+    revenue: <TrendingUp className='h-5 w-5' />,
+    orders: <ShoppingCart className='h-5 w-5' />,
+    delivery: <Users className='h-5 w-5' />,
+    satisfaction: <CheckCircle className='h-5 w-5' />,
 };
 
 const exportOptions = [
@@ -321,10 +308,7 @@ function ExportReportsPanel() {
                     console.log('Quick export all data...');
                 }}
             >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
-                    <path d="M12 5v14" strokeLinecap="round" />
-                    <path d="M5 12h14" strokeLinecap="round" />
-                </svg>
+                <Download className="h-4 w-4" />
                 Export All Data
             </button>
         </section>
@@ -527,9 +511,7 @@ export default function ReportContent() {
                         onClick={fetchReportData}
                         className='inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600'
                     >
-                        <svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.5' className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}>
-                            <path d='M4 4v5h.582m15.356 2A8 8 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8 8 0 0 1-15.357-2m15.357 2H15' strokeLinecap='round' strokeLinejoin='round' />
-                        </svg>
+                        <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
                     </button>
                 </div>

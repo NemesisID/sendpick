@@ -567,12 +567,7 @@ function DriverRow({ driver, onEdit, onDelete }) {
                     <span className='text-xs font-bold text-slate-600'>{driver.shift}</span>
                 </div>
             </td>
-            <td className='px-6 py-4'>
-                <div className='flex items-center gap-1'>
-                    <StarIcon className='h-4 w-4 text-amber-400' />
-                    <span className='text-sm font-medium text-slate-600'>0.0</span>
-                </div>
-            </td>
+
             <td className='px-6 py-4'>
                 <div className='flex items-center gap-2'>
                     <button
@@ -635,12 +630,7 @@ function DriverTableSkeleton({ rows = 6 }) {
                     <td className='px-6 py-4'>
                         <div className='h-3 w-16 rounded bg-slate-200' />
                     </td>
-                    <td className='px-6 py-4'>
-                        <div className='inline-flex items-center gap-1'>
-                            <div className='h-3 w-3 rounded-full bg-slate-200' />
-                            <div className='h-3 w-10 rounded bg-slate-200' />
-                        </div>
-                    </td>
+
                     <td className='px-6 py-4'>
                         <div className='flex items-center gap-2'>
                             <div className='h-9 w-9 rounded-full bg-slate-200' />
@@ -727,7 +717,7 @@ function DriverTable({
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Order</th>
                             <th className='px-6 py-3'>Shift</th>
-                            <th className='px-6 py-3'>Rating</th>
+
                             <th className='px-6 py-3'>Aksi</th>
                         </tr>
                     </thead>
@@ -746,7 +736,7 @@ function DriverTable({
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={9} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                    <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
                                         Tidak ada driver yang sesuai dengan filter saat ini.
                                     </td>
                                 </tr>

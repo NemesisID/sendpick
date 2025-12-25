@@ -98,6 +98,8 @@ class DeliveryOrder extends Model
                     'customer_name' => $jobOrder->customer?->customer_name,
                     'pickup_city' => $jobOrder->pickup_city,
                     'delivery_city' => $jobOrder->delivery_city,
+                    'pickup_address' => $jobOrder->pickup_address,    // ✅ NEW: Full pickup address
+                    'delivery_address' => $jobOrder->delivery_address, // ✅ NEW: Full delivery address
                     'goods_desc' => $jobOrder->goods_desc,
                     'goods_weight' => $jobOrder->goods_weight,
                     'goods_volume' => $jobOrder->goods_volume,
@@ -126,6 +128,8 @@ class DeliveryOrder extends Model
                             'dest_city' => $selectedJO->delivery_city ?? $manifest->dest_city,
                             'pickup_city' => $selectedJO->pickup_city,
                             'delivery_city' => $selectedJO->delivery_city,
+                            'pickup_address' => $selectedJO->pickup_address,    // ✅ NEW: Full pickup address
+                            'delivery_address' => $selectedJO->delivery_address, // ✅ NEW: Full delivery address
                             'goods_desc' => $selectedJO->goods_desc,
                             'goods_weight' => $selectedJO->goods_weight, // Weight of SELECTED JO only
                             'goods_volume' => $selectedJO->goods_volume, // Volume of SELECTED JO only
@@ -172,10 +176,16 @@ class DeliveryOrder extends Model
                     $combinedDesc .= '...';
                 }
                 
+                // Get first and last job order for address info
+                $firstJO = $manifest->jobOrders->first();
+                $lastJO = $manifest->jobOrders->last();
+                
                 return [
                     'manifest_id' => $manifest->manifest_id,
                     'origin_city' => $manifest->origin_city,
                     'dest_city' => $manifest->dest_city,
+                    'pickup_address' => $firstJO?->pickup_address ?? $manifest->origin_city,  // ✅ NEW
+                    'delivery_address' => $lastJO?->delivery_address ?? $manifest->dest_city, // ✅ NEW
                     'goods_desc' => $combinedDesc,
                     'goods_weight' => $totalWeight > 0 ? $totalWeight : null,
                     'goods_volume' => $totalVolume > 0 ? $totalVolume : null,
