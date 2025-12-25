@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Modal from './Modal';
+import InlineMapPicker from './InlineMapPicker';
 
 const EditModal = ({
     isOpen,
@@ -27,6 +28,7 @@ const EditModal = ({
     const [passwordVisibility, setPasswordVisibility] = useState({});
     // State untuk general error dari server (e.g., validation errors tanpa field spesifik)
     const [generalError, setGeneralError] = useState('');
+
 
     // Ref to track if modal was already open (prevent reset on field changes)
     const wasOpenRef = useRef(false);
@@ -568,6 +570,33 @@ const EditModal = ({
                     </div>
                 );
 
+            case 'location-picker':
+                // Location picker with inline map
+                const latValue = formData[field.latField] || '';
+                const lngValue = formData[field.lngField] || '';
+                const currentPosition = latValue && lngValue
+                    ? { lat: parseFloat(latValue), lng: parseFloat(lngValue) }
+                    : null;
+
+                // Get address value from related address field for auto-geocoding
+                const addressFieldValue = field.addressField ? (formData[field.addressField] || '') : '';
+
+                return (
+                    <InlineMapPicker
+                        position={currentPosition}
+                        onPositionChange={(coords) => {
+                            setFormData(prev => ({
+                                ...prev,
+                                [field.latField]: coords.lat.toFixed(8),
+                                [field.lngField]: coords.lng.toFixed(8)
+                            }));
+                        }}
+                        type={field.locationType || 'pickup'}
+                        disabled={isLoading}
+                        address={addressFieldValue}
+                    />
+                );
+
             default:
                 return (
                     <input
@@ -581,164 +610,166 @@ const EditModal = ({
     };
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={title}
-            size={size || "lg"}
-            closeOnBackdropClick={!isLoading}
-            backdropOpacity={backdropOpacity}
-            disableScroll={disableScroll}
-            hideContentScrollbar={hideContentScrollbar}
-        >
-            {children ? (
-                children
-            ) : (
-                <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-                    {/* General Error Alert */}
-                    {generalError && (
-                        <div className="mb-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl animate-pulse">
-                            <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                            <div className="flex-1">
-                                <p className="text-sm font-semibold text-red-800">Terjadi Kesalahan</p>
-                                <p className="text-sm text-red-700 mt-1">{generalError}</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setGeneralError('')}
-                                className="text-red-400 hover:text-red-600 transition-colors"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <>
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title={title}
+                size={size || "lg"}
+                closeOnBackdropClick={!isLoading}
+                backdropOpacity={backdropOpacity}
+                disableScroll={disableScroll}
+                hideContentScrollbar={hideContentScrollbar}
+            >
+                {children ? (
+                    children
+                ) : (
+                    <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
+                        {/* General Error Alert */}
+                        {generalError && (
+                            <div className="mb-4 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl animate-pulse">
+                                <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                 </svg>
-                            </button>
-                        </div>
-                    )}
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-red-800">Terjadi Kesalahan</p>
+                                    <p className="text-sm text-red-700 mt-1">{generalError}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setGeneralError('')}
+                                    className="text-red-400 hover:text-red-600 transition-colors"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        )}
 
-                    {/* Scrollable form fields dengan desain yang lebih menarik */}
-                    <div className={`flex-1 ${hideContentScrollbar ? 'space-y-4 overflow-hidden' : 'space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[60vh]'}`}>
-                        {fields.map((field, index) => {
-                            const fieldKey = field.key || field.name;
+                        {/* Scrollable form fields dengan desain yang lebih menarik */}
+                        <div className={`flex-1 ${hideContentScrollbar ? 'space-y-4 overflow-hidden' : 'space-y-6 overflow-y-auto pr-2 custom-scrollbar max-h-[60vh]'}`}>
+                            {fields.map((field, index) => {
+                                const fieldKey = field.key || field.name;
 
-                            // If hidden field, render directly without wrapper/label
-                            if (field.type === 'hidden') {
+                                // If hidden field, render directly without wrapper/label
+                                if (field.type === 'hidden') {
+                                    return (
+                                        <input
+                                            key={fieldKey}
+                                            type="hidden"
+                                            name={fieldKey}
+                                            value={formData[fieldKey] || ''}
+                                        />
+                                    );
+                                }
+
+                                // ✅ NEW: Support for dynamic hidden property (can be function)
+                                const isHidden = typeof field.hidden === 'function'
+                                    ? field.hidden(formData)
+                                    : field.hidden;
+                                if (isHidden) {
+                                    return null; // Don't render this field at all
+                                }
+
+                                const staggerClass = `field-stagger-${Math.min(index + 1, 8)}`;
                                 return (
-                                    <input
-                                        key={fieldKey}
-                                        type="hidden"
-                                        name={fieldKey}
-                                        value={formData[fieldKey] || ''}
-                                    />
-                                );
-                            }
+                                    <div key={fieldKey} className={`group field-wrapper ${staggerClass}`}>
+                                        <label
+                                            htmlFor={fieldKey}
+                                            className={`${hideContentScrollbar ? 'mb-2' : 'mb-3'} block text-sm font-semibold text-slate-700 group-focus-within:text-indigo-600 transition-colors`}
+                                        >
+                                            {field.label}
+                                            {field.required && (
+                                                <span className="ml-1 text-red-500 font-medium">*</span>
+                                            )}
+                                        </label>
 
-                            // ✅ NEW: Support for dynamic hidden property (can be function)
-                            const isHidden = typeof field.hidden === 'function'
-                                ? field.hidden(formData)
-                                : field.hidden;
-                            if (isHidden) {
-                                return null; // Don't render this field at all
-                            }
+                                        <div className="relative">
+                                            {renderField(field)}
+                                            {/* Icon untuk field yang required - tidak tampil untuk password karena sudah ada eye icon */}
+                                            {field.required && !errors[fieldKey] && formData[fieldKey] && field.type !== 'date' && field.type !== 'password' && (
+                                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                                    <svg className="w-5 h-5 text-green-500 animate-checkmark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </div>
+                                            )}
+                                        </div>
 
-                            const staggerClass = `field-stagger-${Math.min(index + 1, 8)}`;
-                            return (
-                                <div key={fieldKey} className={`group field-wrapper ${staggerClass}`}>
-                                    <label
-                                        htmlFor={fieldKey}
-                                        className={`${hideContentScrollbar ? 'mb-2' : 'mb-3'} block text-sm font-semibold text-slate-700 group-focus-within:text-indigo-600 transition-colors`}
-                                    >
-                                        {field.label}
-                                        {field.required && (
-                                            <span className="ml-1 text-red-500 font-medium">*</span>
-                                        )}
-                                    </label>
-
-                                    <div className="relative">
-                                        {renderField(field)}
-                                        {/* Icon untuk field yang required - tidak tampil untuk password karena sudah ada eye icon */}
-                                        {field.required && !errors[fieldKey] && formData[fieldKey] && field.type !== 'date' && field.type !== 'password' && (
-                                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                                                <svg className="w-5 h-5 text-green-500 animate-checkmark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        {errors[fieldKey] && (
+                                            <div className={`${hideContentScrollbar ? 'mt-1' : 'mt-2'} flex items-center gap-2 error-shake`}>
+                                                <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
+                                                <p className="text-sm text-red-600 font-medium">
+                                                    {errors[fieldKey]}
+                                                </p>
                                             </div>
                                         )}
-                                    </div>
 
-                                    {errors[fieldKey] && (
-                                        <div className={`${hideContentScrollbar ? 'mt-1' : 'mt-2'} flex items-center gap-2 error-shake`}>
-                                            <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <p className="text-sm text-red-600 font-medium">
-                                                {errors[fieldKey]}
+                                        {/* ✅ UPDATED: Support dynamic description (can be function) */}
+                                        {field.description && (
+                                            <p className="mt-2 text-xs text-slate-500 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-lg border border-blue-200">
+                                                ℹ️ {typeof field.description === 'function' ? field.description(formData) : field.description}
                                             </p>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {/* ✅ UPDATED: Support dynamic description (can be function) */}
-                                    {field.description && (
-                                        <p className="mt-2 text-xs text-slate-500 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 rounded-lg border border-blue-200">
-                                            ℹ️ {typeof field.description === 'function' ? field.description(formData) : field.description}
-                                        </p>
-                                    )}
+                                        {field.help && (
+                                            <p className="mt-2 text-xs text-slate-500 bg-gradient-to-r from-slate-50 to-blue-50 px-3 py-2 rounded-lg border border-slate-200">
+                                                💡 {field.help}
+                                            </p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
 
-                                    {field.help && (
-                                        <p className="mt-2 text-xs text-slate-500 bg-gradient-to-r from-slate-50 to-blue-50 px-3 py-2 rounded-lg border border-slate-200">
-                                            💡 {field.help}
-                                        </p>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Fixed action buttons dengan desain yang lebih menarik */}
-                    <div className={`flex justify-end gap-4 border-t border-slate-200 ${hideContentScrollbar ? 'pt-4 mt-6' : 'pt-6 mt-8'} shrink-0 bg-gradient-to-r from-slate-50 to-white px-1`}>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={isLoading}
-                            className="group relative px-6 py-3 rounded-xl border-2 border-slate-300 bg-white text-slate-700 font-semibold transition-all duration-200 hover:border-slate-400 hover:bg-slate-50 btn-interactive focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
-                        >
-                            <span className="relative z-10">Batal</span>
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="group relative px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold btn-interactive shadow-glow focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
-                        >
-                            {isLoading && (
-                                <svg
-                                    className="mr-3 h-5 w-5 animate-spin inline"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <circle
-                                        className="opacity-25"
-                                        cx="12"
-                                        cy="12"
-                                        r="10"
-                                        stroke="currentColor"
-                                        strokeWidth="4"
-                                    />
-                                    <path
-                                        className="opacity-75"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    />
-                                </svg>
-                            )}
-                            <span className="relative z-10">
-                                {isLoading ? 'Menyimpan...' : '✨ Simpan Perubahan'}
-                            </span>
-                        </button>
-                    </div>
-                </form>
-            )}
-        </Modal>
+                        {/* Fixed action buttons dengan desain yang lebih menarik */}
+                        <div className={`flex justify-end gap-4 border-t border-slate-200 ${hideContentScrollbar ? 'pt-4 mt-6' : 'pt-6 mt-8'} shrink-0 bg-gradient-to-r from-slate-50 to-white px-1`}>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={isLoading}
+                                className="group relative px-6 py-3 rounded-xl border-2 border-slate-300 bg-white text-slate-700 font-semibold transition-all duration-200 hover:border-slate-400 hover:bg-slate-50 btn-interactive focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                            >
+                                <span className="relative z-10">Batal</span>
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="group relative px-8 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold btn-interactive shadow-glow focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:hover:scale-100"
+                            >
+                                {isLoading && (
+                                    <svg
+                                        className="mr-3 h-5 w-5 animate-spin inline"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                        />
+                                        <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                        />
+                                    </svg>
+                                )}
+                                <span className="relative z-10">
+                                    {isLoading ? 'Menyimpan...' : '✨ Simpan Perubahan'}
+                                </span>
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </Modal>
+        </>
     );
 };
 

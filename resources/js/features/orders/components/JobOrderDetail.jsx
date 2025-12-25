@@ -47,11 +47,15 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                     type: data.order_type || 'job_order',
                     origin: data.pickup_city || data.pickup_address || '-',
                     originAddress: data.pickup_address || '-',
+                    pickupContact: data.pickup_contact || '-',
+                    pickupPhone: data.pickup_phone || '-',
                     destination: data.delivery_city || data.delivery_address || '-',
                     destinationAddress: data.delivery_address || '-',
+                    recipientName: data.recipient_name || '-',
+                    recipientPhone: data.recipient_phone || '-',
                     createdAt: new Date(data.created_at).toLocaleString('id-ID'),
                     estimatedDelivery: data.ship_date ? new Date(data.ship_date).toLocaleDateString('id-ID') : '-',
-                    packages: '-', // Not in API
+                    packages: data.goods_qty || '-', // Koli from API
                     totalWeight: `${data.goods_weight} kg`,
                     goodsWeight: data.goods_weight || 0, // Raw weight for filtering vehicles
                     totalValue: data.order_value ? `Rp ${Number(data.order_value).toLocaleString('id-ID')}` : '-',
@@ -200,6 +204,66 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                             <p className="font-medium text-slate-900">{jobOrder.destination}</p>
                                             <p className="text-xs text-slate-500 mt-1">{jobOrder.destinationAddress}</p>
                                         </div>
+
+                                        {/* Pickup Contact Info */}
+                                        <div className="sm:col-span-2 border-t border-slate-200 pt-4 mt-2">
+                                            <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                                <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 text-emerald-600">
+                                                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                </span>
+                                                Kontak Pickup
+                                            </p>
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pl-8">
+                                                <div>
+                                                    <p className="text-sm text-slate-500">Nama Kontak</p>
+                                                    <p className="font-medium text-slate-900">{jobOrder.pickupContact}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm text-slate-500">No. Telepon</p>
+                                                    <p className="font-medium text-slate-900">
+                                                        {jobOrder.pickupPhone !== '-' ? (
+                                                            <a href={`tel:${jobOrder.pickupPhone}`} className="text-indigo-600 hover:underline">
+                                                                {jobOrder.pickupPhone}
+                                                            </a>
+                                                        ) : '-'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Recipient/Delivery Contact Info */}
+                                        <div className="sm:col-span-2 border-t border-slate-200 pt-4 mt-2">
+                                            <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                                                <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-sky-100 text-sky-600">
+                                                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                </span>
+                                                Kontak Penerima
+                                            </p>
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pl-8">
+                                                <div>
+                                                    <p className="text-sm text-slate-500">Nama Penerima</p>
+                                                    <p className="font-medium text-slate-900">{jobOrder.recipientName}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm text-slate-500">No. Telepon</p>
+                                                    <p className="font-medium text-slate-900">
+                                                        {jobOrder.recipientPhone !== '-' ? (
+                                                            <a href={`tel:${jobOrder.recipientPhone}`} className="text-indigo-600 hover:underline">
+                                                                {jobOrder.recipientPhone}
+                                                            </a>
+                                                        ) : '-'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Separator */}
+                                        <div className="sm:col-span-2 border-t border-slate-200 pt-4 mt-2"></div>
+
                                         <div>
                                             <p className="text-sm text-slate-500">Volume</p>
                                             <p className="font-medium text-slate-900">{jobOrder.volume}</p>
@@ -225,12 +289,18 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                             </p>
                                         </div>
                                     </div>
-                                    {jobOrder.notes && (
-                                        <div className="mt-4">
-                                            <p className="text-sm text-slate-500">Notes</p>
-                                            <p className="font-medium text-slate-900">{jobOrder.notes}</p>
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
+                                        {jobOrder.notes && (
+                                            <div>
+                                                <p className="text-sm text-slate-500">Notes</p>
+                                                <p className="font-medium text-slate-900">{jobOrder.notes}</p>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="text-sm text-slate-500">Koli</p>
+                                            <p className="font-medium text-slate-900">{jobOrder.packages} Koli</p>
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
 

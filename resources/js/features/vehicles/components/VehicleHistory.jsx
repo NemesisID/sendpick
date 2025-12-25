@@ -1,41 +1,7 @@
-import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Activity, Package, Clock, Search } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { CheckCircle2, Activity, Package, Clock, Search, Loader2 } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
-
-const summaryCards = [
-    {
-        title: 'Pengiriman Selesai',
-        value: '128',
-        description: '30 hari terakhir',
-        iconBg: 'bg-emerald-100',
-        iconColor: 'text-emerald-500',
-        icon: <CheckCircle2 className='h-5 w-5' />,
-    },
-    {
-        title: 'Utilisasi Armada',
-        value: '89%',
-        description: 'Armada aktif dari Manifest',
-        iconBg: 'bg-indigo-100',
-        iconColor: 'text-indigo-500',
-        icon: <Activity className='h-5 w-5' />,
-    },
-    {
-        title: 'Total Muatan',
-        value: '45,2 Ton',
-        description: 'Akumulasi berat JO selesai',
-        iconBg: 'bg-sky-100',
-        iconColor: 'text-sky-600',
-        icon: <Package className='h-5 w-5' />,
-    },
-    {
-        title: 'Tepat Waktu (%)',
-        value: '94%',
-        description: 'On-time delivery rate',
-        iconBg: 'bg-purple-100',
-        iconColor: 'text-purple-500',
-        icon: <Clock className='h-5 w-5' />,
-    },
-];
+import api from '../../../utils/api';
 
 const timeFilterOptions = [
     { value: '30d', label: '30 Hari Terakhir' },
@@ -45,161 +11,33 @@ const timeFilterOptions = [
 ];
 
 const activityFilterOptions = [
-    { value: 'all', label: 'Semua Aktivitas' },
-    { value: 'delivery', label: 'Delivery' },
-    { value: 'maintenance', label: 'Maintenance' },
-    { value: 'incident', label: 'Insiden' },
+    { value: 'all', label: 'Semua Status' },
+    { value: 'delivered', label: 'Delivered' },
+    { value: 'cancelled', label: 'Cancelled' },
 ];
 
 const statusStyles = {
-    delivery: {
-        label: 'Delivery',
+    delivered: {
+        label: 'Delivered',
         bg: 'bg-emerald-50',
         text: 'text-emerald-600',
     },
-    maintenance: {
-        label: 'Maintenance',
-        bg: 'bg-sky-50',
-        text: 'text-sky-600',
-    },
-    incident: {
-        label: 'Insiden',
+    cancelled: {
+        label: 'Cancelled',
         bg: 'bg-rose-50',
         text: 'text-rose-600',
     },
+    inProgress: {
+        label: 'In Progress',
+        bg: 'bg-amber-50',
+        text: 'text-amber-600',
+    },
 };
-
-const historyRecords = [
-    {
-        id: 'hist-001',
-        date: '12 Jan 2024',
-        vehicle: 'B 1234 AB',
-        driver: 'Ahmad Subandi',
-        activity: 'Delivery selesai - PT Maju Jaya',
-        status: 'delivery',
-        cost: 'Rp 1,2 jt',
-        location: 'Jakarta - Bandung',
-        daysAgo: 8,
-    },
-    {
-        id: 'hist-002',
-        date: '10 Jan 2024',
-        vehicle: 'B 9981 SPM',
-        driver: 'Dewi Anggraini',
-        activity: 'Servis berkala 10.000 km',
-        status: 'maintenance',
-        cost: 'Rp 4,8 jt',
-        location: 'Workshop BSD',
-        daysAgo: 10,
-    },
-    {
-        id: 'hist-003',
-        date: '4 Jan 2024',
-        vehicle: 'B 5678 CD',
-        driver: 'Budi Santoso',
-        activity: 'Insiden ban pecah - penanganan darurat',
-        status: 'incident',
-        cost: 'Rp 650 rb',
-        location: 'Tol Cipularang KM 72',
-        daysAgo: 16,
-    },
-    {
-        id: 'hist-004',
-        date: '18 Des 2023',
-        vehicle: 'D 8876 KX',
-        driver: 'Siti Kurnia',
-        activity: 'Delivery selesai - PT Sejahtera',
-        status: 'delivery',
-        cost: 'Rp 950 rb',
-        location: 'Surabaya',
-        daysAgo: 33,
-    },
-    {
-        id: 'hist-005',
-        date: '9 Des 2023',
-        vehicle: 'B 4321 ZZ',
-        driver: 'Rudi Hartono',
-        activity: 'Penggantian oli & filter',
-        status: 'maintenance',
-        cost: 'Rp 1,7 jt',
-        location: 'Bengkel Mitra - Bekasi',
-        daysAgo: 42,
-    },
-];
-
-const recapHighlights = [
-    {
-        id: 'recap-001',
-        title: 'Utilisasi Armada',
-        value: '89%',
-        change: '+4% mom',
-        description: 'Rata-rata beban kerja kendaraan selama periode terpilih.',
-    },
-    {
-        id: 'recap-002',
-        title: 'On-Time Delivery',
-        value: '94%',
-        change: '+8% mom',
-        description: 'Persentase pengiriman tepat waktu.',
-    },
-    {
-        id: 'recap-003',
-        title: 'Lead Time Pengiriman',
-        value: '7 jam',
-        change: '-12% mom',
-        description: 'Waktu rata-rata dari pickup ke delivery.',
-    },
-];
-
-const maintenancePipeline = [
-    {
-        id: 'mt-001',
-        vehicle: 'B 7712 TK',
-        schedule: '20 Jan 2024',
-        task: 'Servis berkala + balancing roda',
-        garage: 'Bengkel Mitra - Depok',
-    },
-    {
-        id: 'mt-002',
-        vehicle: 'F 9081 LP',
-        schedule: '24 Jan 2024',
-        task: 'Penggantian kampas rem',
-        garage: 'Workshop Internal',
-    },
-    {
-        id: 'mt-003',
-        vehicle: 'B 2165 XR',
-        schedule: '27 Jan 2024',
-        task: 'Kalibrasi GPS & sensor bahan bakar',
-        garage: 'Vendor Teknologi',
-    },
-    {
-        id: 'mt-004',
-        vehicle: 'B 8934 JD',
-        schedule: '31 Jan 2024',
-        task: 'Pengecekan sistem pendingin',
-        garage: 'Bengkel Mitra - Depok',
-    },
-    {
-        id: 'mt-005',
-        vehicle: 'F 5123 NX',
-        schedule: '03 Feb 2024',
-        task: 'Perawatan filter dan oli mesin',
-        garage: 'Workshop Internal',
-    },
-    {
-        id: 'mt-006',
-        vehicle: 'B 1234 CD',
-        schedule: '06 Feb 2024',
-        task: 'Inspeksi ban dan suspensi',
-        garage: 'Bengkel Mitra - Depok',
-    },
-];
 
 // Icon wrappers using Lucide React
 const SearchIcon = ({ className = 'h-4 w-4' }) => <Search className={className} />;
 
-function SummaryCard({ card }) {
+function SummaryCard({ card, loading }) {
     return (
         <article className='flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor}`}>
@@ -207,7 +45,9 @@ function SummaryCard({ card }) {
             </div>
             <div>
                 <p className='text-sm text-slate-400'>{card.title}</p>
-                <p className='mt-1 text-2xl font-semibold text-slate-900'>{card.value}</p>
+                <p className='mt-1 text-2xl font-semibold text-slate-900'>
+                    {loading ? <span className='animate-pulse'>...</span> : card.value}
+                </p>
                 <p className='text-xs text-slate-500'>{card.description}</p>
             </div>
         </article>
@@ -215,7 +55,7 @@ function SummaryCard({ card }) {
 }
 
 function StatusBadge({ status }) {
-    const style = statusStyles[status] ?? statusStyles.delivery;
+    const style = statusStyles[status] ?? statusStyles.delivered;
 
     return (
         <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${style.bg} ${style.text}`}>
@@ -230,31 +70,33 @@ function HistoryRow({ record }) {
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='px-6 py-4'>
                 <p className='text-sm font-semibold text-slate-900'>{record.date}</p>
-                <p className='text-xs text-slate-400'>{record.location}</p>
+                <p className='text-xs text-slate-400'>{record.route}</p>
             </td>
             <td className='px-6 py-4'>
                 <div className='space-y-1'>
                     <p className='text-sm font-semibold text-slate-800'>{record.vehicle}</p>
-                    <p className='text-xs text-slate-400'>Driver: {record.driver}</p>
+                    <p className='text-xs text-slate-400'>{record.driver}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{record.activity}</td>
             <td className='px-6 py-4'>
+                <p className='text-sm font-medium text-indigo-600'>{record.docNumber}</p>
+            </td>
+            <td className='px-6 py-4'>
                 <StatusBadge status={record.status} />
             </td>
-            <td className='px-6 py-4 text-sm font-semibold text-slate-800'>{record.cost}</td>
         </tr>
     );
 }
 
-function HistoryTable({ records, searchTerm, onSearchChange, statusFilter, onStatusChange, timeFilter, onTimeChange }) {
+function HistoryTable({ records, searchTerm, onSearchChange, statusFilter, onStatusChange, timeFilter, onTimeChange, loading, pagination, onPageChange }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='space-y-4'>
                 <div className='flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between'>
                     <div>
-                        <h2 className='text-lg font-semibold text-slate-900'>Histori Armada</h2>
-                        <p className='text-sm text-slate-400'>Ringkasan aktivitas operasional dan perawatan kendaraan.</p>
+                        <h2 className='text-lg font-semibold text-slate-900'>Histori Pengiriman</h2>
+                        <p className='text-sm text-slate-400'>Riwayat pengiriman yang telah selesai atau dibatalkan.</p>
                     </div>
                 </div>
 
@@ -295,15 +137,24 @@ function HistoryTable({ records, searchTerm, onSearchChange, statusFilter, onSta
                 <table className='w-full min-w-[880px] border-collapse'>
                     <thead>
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
-                            <th className='px-6 py-3'>Tanggal & Lokasi</th>
+                            <th className='px-6 py-3'>Tanggal & Rute</th>
                             <th className='px-6 py-3'>Kendaraan</th>
                             <th className='px-6 py-3'>Aktivitas</th>
-                            <th className='px-6 py-3'>Kategori</th>
-                            <th className='px-6 py-3'>Biaya</th>
+                            <th className='px-6 py-3'>No. Dokumen</th>
+                            <th className='px-6 py-3'>Status</th>
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
-                        {records.length > 0 ? (
+                        {loading ? (
+                            <tr>
+                                <td colSpan={5} className='px-6 py-12 text-center'>
+                                    <div className='flex items-center justify-center gap-2 text-slate-400'>
+                                        <Loader2 className='h-5 w-5 animate-spin' />
+                                        <span>Memuat data...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : records.length > 0 ? (
                             records.map((record) => <HistoryRow key={record.id} record={record} />)
                         ) : (
                             <tr>
@@ -315,35 +166,35 @@ function HistoryTable({ records, searchTerm, onSearchChange, statusFilter, onSta
                     </tbody>
                 </table>
             </div>
+
+            {/* Pagination */}
+            {pagination && pagination.last_page > 1 && (
+                <div className='mt-4 flex items-center justify-between border-t border-slate-100 pt-4'>
+                    <p className='text-sm text-slate-500'>
+                        Menampilkan {records.length} dari {pagination.total} data
+                    </p>
+                    <div className='flex gap-2'>
+                        <button
+                            onClick={() => onPageChange(pagination.current_page - 1)}
+                            disabled={pagination.current_page === 1}
+                            className='rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
+                        >
+                            Sebelumnya
+                        </button>
+                        <span className='flex items-center px-3 text-sm text-slate-600'>
+                            {pagination.current_page} / {pagination.last_page}
+                        </span>
+                        <button
+                            onClick={() => onPageChange(pagination.current_page + 1)}
+                            disabled={pagination.current_page === pagination.last_page}
+                            className='rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
+                        >
+                            Selanjutnya
+                        </button>
+                    </div>
+                </div>
+            )}
         </section>
-    );
-}
-
-function RecapCard({ highlight }) {
-    return (
-        <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-200'>
-            <p className='text-xs font-semibold uppercase tracking-wide text-indigo-500'>{highlight.title}</p>
-            <p className='mt-3 text-2xl font-semibold text-slate-900'>{highlight.value}</p>
-            <span className='mt-1 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600'>
-                {highlight.change}
-            </span>
-            <p className='mt-3 text-sm text-slate-500'>{highlight.description}</p>
-        </article>
-    );
-}
-
-function MaintenanceItem({ item }) {
-    return (
-        <div className='flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between'>
-            <div>
-                <p className='text-sm font-semibold text-slate-900'>{item.vehicle}</p>
-                <p className='text-xs text-slate-400'>{item.task}</p>
-            </div>
-            <div className='mt-3 flex flex-col gap-1 text-xs text-slate-500 sm:mt-0 sm:text-right'>
-                <span className='font-semibold text-slate-700'>{item.schedule}</span>
-                <span>{item.garage}</span>
-            </div>
-        </div>
     );
 }
 
@@ -351,82 +202,120 @@ export default function VehicleHistoryContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [timeFilter, setTimeFilter] = useState('30d');
+    const [currentPage, setCurrentPage] = useState(1);
 
-    const filteredRecords = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
+    const [loading, setLoading] = useState(true);
+    const [kpiData, setKpiData] = useState({
+        completed_deliveries: 0,
+        fleet_utilization: 0,
+        total_cargo_ton: 0,
+        on_time_rate: 0,
+    });
+    const [records, setRecords] = useState([]);
+    const [pagination, setPagination] = useState(null);
 
-        return historyRecords.filter((record) => {
-            const matchesSearch =
-                term.length === 0 ||
-                record.vehicle.toLowerCase().includes(term) ||
-                record.driver.toLowerCase().includes(term) ||
-                record.activity.toLowerCase().includes(term);
+    // Debounce search term
+    const [debouncedSearch, setDebouncedSearch] = useState('');
 
-            const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+            setCurrentPage(1); // Reset page on search
+        }, 500);
+        return () => clearTimeout(handler);
+    }, [searchTerm]);
 
-            const matchesTime =
-                timeFilter === 'all' ||
-                (timeFilter === '30d' && record.daysAgo <= 30) ||
-                (timeFilter === '90d' && record.daysAgo <= 90) ||
-                (timeFilter === '12m' && record.daysAgo <= 365);
+    // Fetch data from API
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = {
+                time_filter: timeFilter,
+                status_filter: statusFilter,
+                search: debouncedSearch,
+                page: currentPage,
+                per_page: 10,
+            };
 
-            return matchesSearch && matchesStatus && matchesTime;
-        });
-    }, [searchTerm, statusFilter, timeFilter]);
+            const response = await api.get('/vehicles/delivery-history', { params });
+
+            if (response.data.success) {
+                setKpiData(response.data.kpi);
+                setRecords(response.data.records);
+                setPagination(response.data.pagination);
+            }
+        } catch (error) {
+            console.error('Error fetching delivery history:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [timeFilter, statusFilter, debouncedSearch, currentPage]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    // Reset page when filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [timeFilter, statusFilter]);
+
+    // Build summary cards with dynamic data
+    const summaryCards = [
+        {
+            title: 'Pengiriman Selesai',
+            value: kpiData.completed_deliveries.toLocaleString('id-ID'),
+            description: timeFilter === '30d' ? '30 hari terakhir' : timeFilter === '90d' ? '90 hari terakhir' : timeFilter === '12m' ? '12 bulan terakhir' : 'Semua waktu',
+            iconBg: 'bg-emerald-100',
+            iconColor: 'text-emerald-500',
+            icon: <CheckCircle2 className='h-5 w-5' />,
+        },
+        {
+            title: 'Utilisasi Armada',
+            value: `${kpiData.fleet_utilization}%`,
+            description: 'Armada aktif dari Manifest',
+            iconBg: 'bg-indigo-100',
+            iconColor: 'text-indigo-500',
+            icon: <Activity className='h-5 w-5' />,
+        },
+        {
+            title: 'Total Muatan',
+            value: `${kpiData.total_cargo_ton.toLocaleString('id-ID', { minimumFractionDigits: 1 })} Ton`,
+            description: 'Akumulasi berat JO selesai',
+            iconBg: 'bg-sky-100',
+            iconColor: 'text-sky-600',
+            icon: <Package className='h-5 w-5' />,
+        },
+        {
+            title: 'Tepat Waktu (%)',
+            value: `${kpiData.on_time_rate}%`,
+            description: 'On-time delivery rate',
+            iconBg: 'bg-purple-100',
+            iconColor: 'text-purple-500',
+            icon: <Clock className='h-5 w-5' />,
+        },
+    ];
 
     return (
         <div className='flex flex-col gap-8'>
             <section className='grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4'>
                 {summaryCards.map((card) => (
-                    <SummaryCard key={card.title} card={card} />
+                    <SummaryCard key={card.title} card={card} loading={loading} />
                 ))}
             </section>
 
             <HistoryTable
-                records={filteredRecords}
+                records={records}
                 searchTerm={searchTerm}
                 onSearchChange={setSearchTerm}
                 statusFilter={statusFilter}
                 onStatusChange={setStatusFilter}
                 timeFilter={timeFilter}
                 onTimeChange={setTimeFilter}
+                loading={loading}
+                pagination={pagination}
+                onPageChange={setCurrentPage}
             />
-
-            <section className='grid grid-cols-1 gap-6 xl:grid-cols-2'>
-                <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <h3 className='text-sm font-semibold text-slate-800'>Recap Insight</h3>
-                            <p className='text-xs text-slate-400'>Perbandingan performa operasional periode terpilih.</p>
-                        </div>
-                        <span className='text-xs font-semibold text-slate-400'>Auto update mingguan</span>
-                    </div>
-                    <div className='mt-5 grid grid-cols-1 gap-4'>
-                        {recapHighlights.map((highlight) => (
-                            <RecapCard key={highlight.id} highlight={highlight} />
-                        ))}
-                    </div>
-                </section>
-                <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm h-fit'>
-                    <div className='flex items-center justify-between'>
-                        <div>
-                            <h3 className='text-sm font-semibold text-slate-800'>Maintenance Mendatang</h3>
-                            <p className='text-xs text-slate-400'>Pastikan unit siap jalan sesuai jadwal.</p>
-                        </div>
-                        <button
-                            type='button'
-                            className='text-xs font-semibold text-indigo-600 transition hover:text-indigo-500'
-                        >
-                            Lihat semua
-                        </button>
-                    </div>
-                    <div className='mt-15 space-y-3'>
-                        {maintenancePipeline.map((item) => (
-                            <MaintenanceItem key={item.id} item={item} />
-                        ))}
-                    </div>
-                </section>
-            </section>
         </div>
     );
 }

@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Search, Eye, Pencil, XCircle, ClipboardList, Clock, Truck, CheckCircle2, ArrowDown } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
-import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
+import CancelConfirmModal from '../../../components/common/CancelConfirmModal';
 import Pagination from '../../../components/common/Pagination';
 import JobOrderDetail from './JobOrderDetail';
 import { fetchJobOrders, createJobOrder, updateJobOrder, cancelJobOrder } from '../services/jobOrderService';
@@ -546,8 +546,16 @@ export default function JobOrderContent() {
             customer_id: order.customer_id ?? '',
             origin: order.pickup_address ?? order.origin ?? '-',
             pickup_city: order.pickup_city ?? '',
+            pickup_lat: order.pickup_lat ?? '',
+            pickup_lng: order.pickup_lng ?? '',
+            pickup_contact: order.pickup_contact ?? '',
+            pickup_phone: order.pickup_phone ?? '',
             destination: order.delivery_address ?? order.destination ?? '-',
             delivery_city: order.delivery_city ?? '',
+            delivery_lat: order.delivery_lat ?? '',
+            delivery_lng: order.delivery_lng ?? '',
+            recipient_name: order.recipient_name ?? '',
+            recipient_phone: order.recipient_phone ?? '',
             commodity: order.goods_desc ?? order.commodity ?? '-',
             goods_qty: order.goods_qty ?? '', // Add goods_qty mapping
             weight: order.goods_weight != null ? `${order.goods_weight}` : order.weight ?? '',
@@ -651,8 +659,16 @@ export default function JobOrderContent() {
             jobOrderType: order.jobOrderType || 'LTL',
             pickup_address: order.origin || '', // Map origin back to pickup_address for edit
             pickup_city: order.pickup_city || '',
+            pickup_lat: order.pickup_lat || '',
+            pickup_lng: order.pickup_lng || '',
+            pickup_contact: order.pickup_contact || '',
+            pickup_phone: order.pickup_phone || '',
             delivery_address: order.destination || '', // Map destination back to delivery_address for edit
             delivery_city: order.delivery_city || '',
+            delivery_lat: order.delivery_lat || '',
+            delivery_lng: order.delivery_lng || '',
+            recipient_name: order.recipient_name || '',
+            recipient_phone: order.recipient_phone || '',
             items: order.items || order.commodity || '',
             goods_desc: order.items || order.commodity || '', // Ensure goods_desc is set
             goods_qty: order.goods_qty || '', // Add goods_qty mapping for edit
@@ -829,6 +845,9 @@ export default function JobOrderContent() {
                 { value: 'FTL', label: 'FTL (Full Truckload)' }
             ]
         },
+        // =====================================================
+        // PICKUP LOCATION SECTION
+        // =====================================================
         {
             name: 'pickup_address',
             label: 'Alamat Lengkap Pickup',
@@ -846,6 +865,45 @@ export default function JobOrderContent() {
             placeholder: 'Pilih Kota Pickup'
         },
         {
+            name: 'pickup_coordinates',
+            label: 'Koordinat Lokasi Pickup',
+            type: 'location-picker',
+            locationType: 'pickup',
+            latField: 'pickup_lat',
+            lngField: 'pickup_lng',
+            addressField: 'pickup_address',
+            mapTitle: 'Pilih Lokasi Penjemputan',
+            description: 'Koordinat akan otomatis diisi berdasarkan alamat di atas, atau klik di peta'
+        },
+        {
+            name: 'pickup_contact',
+            label: 'Nama Kontak Pickup',
+            type: 'text',
+            required: false,
+            placeholder: 'Nama orang yang dihubungi di lokasi pickup',
+            description: 'PIC yang akan menyerahkan barang'
+        },
+        {
+            name: 'pickup_phone',
+            label: 'No. Telepon Kontak Pickup',
+            type: 'text',
+            required: false,
+            placeholder: 'Contoh: 08123456789',
+            description: 'Nomor telepon untuk koordinasi pickup'
+        },
+        // Hidden fields for pickup coordinates
+        {
+            name: 'pickup_lat',
+            type: 'hidden'
+        },
+        {
+            name: 'pickup_lng',
+            type: 'hidden'
+        },
+        // =====================================================
+        // DELIVERY LOCATION SECTION
+        // =====================================================
+        {
             name: 'delivery_address',
             label: 'Alamat Lengkap Tujuan',
             type: 'textarea',
@@ -861,6 +919,45 @@ export default function JobOrderContent() {
             options: INDONESIA_CITIES,
             placeholder: 'Pilih Kota Tujuan'
         },
+        {
+            name: 'delivery_coordinates',
+            label: 'Koordinat Lokasi Tujuan',
+            type: 'location-picker',
+            locationType: 'delivery',
+            latField: 'delivery_lat',
+            lngField: 'delivery_lng',
+            addressField: 'delivery_address',
+            mapTitle: 'Pilih Lokasi Tujuan',
+            description: 'Koordinat akan otomatis diisi berdasarkan alamat di atas, atau klik di peta'
+        },
+        {
+            name: 'recipient_name',
+            label: 'Nama Penerima',
+            type: 'text',
+            required: false,
+            placeholder: 'Nama orang yang akan menerima barang',
+            description: 'PIC penerima di lokasi tujuan'
+        },
+        {
+            name: 'recipient_phone',
+            label: 'No. Telepon Penerima',
+            type: 'text',
+            required: false,
+            placeholder: 'Contoh: 08123456789',
+            description: 'Nomor telepon untuk koordinasi pengiriman'
+        },
+        // Hidden fields for delivery coordinates
+        {
+            name: 'delivery_lat',
+            type: 'hidden'
+        },
+        {
+            name: 'delivery_lng',
+            type: 'hidden'
+        },
+        // =====================================================
+        // GOODS INFORMATION SECTION
+        // =====================================================
         {
             name: 'goods_desc',
             label: 'Deskripsi Barang',
@@ -1078,27 +1175,21 @@ export default function JobOrderContent() {
                 onFieldChange={handleFieldChange}
             />
 
-            {/* Cancel Modal (using EditModal for reason input) */}
-            <EditModal
+            {/* Cancel Modal */}
+            <CancelConfirmModal
                 isOpen={deleteModal.isOpen}
                 onClose={handleCancelClose}
-                onSubmit={handleCancelConfirm}
+                onConfirm={handleCancelConfirm}
                 title="Batalkan Job Order"
-                data={{}} // Empty data, we only need the reason
-                fields={[
-                    {
-                        name: 'cancellation_reason',
-                        label: 'Alasan Pembatalan',
-                        type: 'textarea',
-                        required: true,
-                        placeholder: 'Contoh: Stok barang kosong / Customer request cancel',
-                        rows: 3,
-                        description: 'Wajib diisi untuk keperluan audit trail.'
-                    }
-                ]}
+                itemId={deleteModal.order?.id || ''}
+                message="Apakah Anda yakin ingin membatalkan Job Order ini?"
+                statusText="Cancelled"
+                reasonLabel="Alasan Pembatalan"
+                reasonPlaceholder="Contoh: Stok barang kosong / Customer request cancel..."
+                reasonRequired={true}
                 isLoading={isLoading}
-                submitLabel="Confirm Cancel"
-                submitButtonClass="bg-red-600 hover:bg-red-700 text-white"
+                confirmLabel="Konfirmasi Pembatalan"
+                cancelLabel="Batal"
             />
         </div>
     );

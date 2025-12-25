@@ -152,11 +152,15 @@ const monthFilterOptions = [
 
 
 function SummaryCard({ card }) {
+    // Dynamic font size: smaller for long values (like currency), larger for short values
+    const valueLength = card.value?.toString().length || 0;
+    const valueFontSize = valueLength > 8 ? 'text-xl' : 'text-3xl';
+
     return (
         <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div>
                 <p className='text-sm text-slate-400'>{card.title}</p>
-                <p className='mt-2 text-3xl font-semibold text-slate-900'>{card.value}</p>
+                <p className={`mt-2 ${valueFontSize} font-semibold text-slate-900`}>{card.value}</p>
                 <p className='mt-1 text-xs text-slate-400'>{card.description}</p>
             </div>
             <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor}`}>
@@ -616,7 +620,7 @@ export default function InvoiceContent() {
 
     return (
         <>
-            <div className="mb-6 flex items-center justify-between">
+            <div className="-mt-4 mb-6 flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Invoices</h1>
                     <p className="text-sm text-slate-500">Kelola tagihan, pembayaran, dan status penagihan</p>

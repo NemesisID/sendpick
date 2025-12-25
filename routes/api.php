@@ -129,7 +129,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/vehicles/{vehicleId}/maintenance', [VehicleController::class, 'updateMaintenance'])->name('api.vehicles.update-maintenance')->withoutMiddleware('auth:sanctum');
     // 3. Mendapatkan daftar kendaraan aktif dengan status real-time
     Route::get('/vehicles/active', [VehicleController::class, 'getActiveVehicles'])->name('api.vehicles.active')->withoutMiddleware('auth:sanctum');
-    // 3. Memperbarui level bahan bakar kendaraan (Tidak perlu, karena Controller ini bisa digunakan untuk keperluan lain atau controller lain seperti DriverAppController)
+    // 4. Mendapatkan histori pengiriman kendaraan (Vehicle History page)
+    Route::get('/vehicles/delivery-history', [VehicleController::class, 'getDeliveryHistory'])->name('api.vehicles.delivery-history')->withoutMiddleware('auth:sanctum');
+    // 5. Memperbarui level bahan bakar kendaraan (Tidak perlu, karena Controller ini bisa digunakan untuk keperluan lain atau controller lain seperti DriverAppController)
     // Route::patch('/vehicles/{vehicleId}/fuel', [VehicleController::class, 'updateFuelLevel'])->name('api.vehicles.update-fuel')->withoutMiddleware('auth:sanctum');
 
     // Vehicles (apiResource)
