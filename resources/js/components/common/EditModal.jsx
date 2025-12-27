@@ -591,6 +591,26 @@ const EditModal = ({
                                 [field.lngField]: coords.lng.toFixed(8)
                             }));
                         }}
+                        // ✅ NEW: Callback untuk reverse geocoding - auto-fill alamat
+                        onAddressChange={(newAddress) => {
+                            if (field.addressField && newAddress) {
+                                console.log(`📍 Auto-filling address field "${field.addressField}" with: "${newAddress}"`);
+                                setFormData(prev => ({
+                                    ...prev,
+                                    [field.addressField]: newAddress
+                                }));
+                            }
+                        }}
+                        // ✅ NEW: Callback untuk reverse geocoding - auto-fill kota
+                        onCityChange={(newCity) => {
+                            if (field.cityField && newCity) {
+                                console.log(`🏙️ Auto-filling city field "${field.cityField}" with: "${newCity}"`);
+                                setFormData(prev => ({
+                                    ...prev,
+                                    [field.cityField]: newCity
+                                }));
+                            }
+                        }}
                         type={field.locationType || 'pickup'}
                         disabled={isLoading}
                         address={addressFieldValue}

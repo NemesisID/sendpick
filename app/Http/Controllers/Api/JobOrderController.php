@@ -258,7 +258,8 @@ class JobOrderController extends Controller
 
             // 2. Inject "Virtual Assignment" jika belum ada assignment manual
             // Ini agar di tab "Assignment Management" muncul card driver manifest
-            if ($jobOrder->assignments->isEmpty() && $activeManifest->drivers) {
+            // ✅ SKIP untuk FTL - FTL sudah punya assignment sendiri via halaman detail Job Order
+            if ($jobOrder->order_type !== 'FTL' && $jobOrder->assignments->isEmpty() && $activeManifest->drivers) {
                 $virtualAssignment = [
                     'assignment_id' => 'manifest-' . $activeManifest->manifest_id,
                     'status' => 'Active', // Dianggap Active karena Manifest berjalan
@@ -854,37 +855,43 @@ class JobOrderController extends Controller
 
         // ✅ INJECT VIRTUAL ASSIGNMENT FROM MANIFEST
         // Cek apakah Job Order ini punya Manifest aktif
+        // ⚠️ SKIP untuk FTL - FTL sudah punya assignment sendiri via halaman detail Job Order
         $jobOrder = JobOrder::with(['manifests.drivers', 'manifests.vehicles'])
             ->where('job_order_id', $jobOrderId)
             ->first();
             
         if ($jobOrder) {
-            $activeManifest = $jobOrder->manifests
-                ->whereIn('status', ['Pending', 'In Transit', 'Arrived', 'Completed'])
-                ->sortByDesc('created_at')
-                ->first();
+            // ✅ Skip Virtual Assignment untuk FTL type
+            // FTL memiliki flow assignment driver sendiri langsung dari Job Order
+            // Hanya LTL yang perlu virtual assignment dari Manifest
+            if ($jobOrder->order_type !== 'FTL') {
+                $activeManifest = $jobOrder->manifests
+                    ->whereIn('status', ['Pending', 'In Transit', 'Arrived', 'Completed'])
+                    ->sortByDesc('created_at')
+                    ->first();
 
-            // Jika ada manifest dengan driver, tambahkan sebagai "Assignment"
-            if ($activeManifest && $activeManifest->drivers) {
-                // Buat object yang strukturnya mirip dengan Assignment Model
-                $virtualAssignment = new \stdClass();
-                $virtualAssignment->assignment_id = 'manifest-' . $activeManifest->manifest_id;
-                $virtualAssignment->job_order_id = $jobOrderId;
-                $virtualAssignment->assignment_type = 'driver_assignment';
-                $virtualAssignment->status = 'active'; // Lowercase agar sesuai filter frontend
-                $virtualAssignment->assigned_at = $activeManifest->created_at;
-                $virtualAssignment->notes = "Assigned via Manifest #{$activeManifest->manifest_id}";
-                
-                // Relasi
-                $virtualAssignment->driver = $activeManifest->drivers;   // Relation is 'drivers'
-                $virtualAssignment->vehicle = $activeManifest->vehicles; // Relation is 'vehicles'
-                
-                // Tambahan field untuk Frontend
-                $virtualAssignment->created_by_name = 'System (Manifest)';
-                $virtualAssignment->created_by_role = 'System';
+                // Jika ada manifest dengan driver, tambahkan sebagai "Assignment"
+                if ($activeManifest && $activeManifest->drivers) {
+                    // Buat object yang strukturnya mirip dengan Assignment Model
+                    $virtualAssignment = new \stdClass();
+                    $virtualAssignment->assignment_id = 'manifest-' . $activeManifest->manifest_id;
+                    $virtualAssignment->job_order_id = $jobOrderId;
+                    $virtualAssignment->assignment_type = 'driver_assignment';
+                    $virtualAssignment->status = 'active'; // Lowercase agar sesuai filter frontend
+                    $virtualAssignment->assigned_at = $activeManifest->created_at;
+                    $virtualAssignment->notes = "Assigned via Manifest #{$activeManifest->manifest_id}";
+                    
+                    // Relasi
+                    $virtualAssignment->driver = $activeManifest->drivers;   // Relation is 'drivers'
+                    $virtualAssignment->vehicle = $activeManifest->vehicles; // Relation is 'vehicles'
+                    
+                    // Tambahan field untuk Frontend
+                    $virtualAssignment->created_by_name = 'System (Manifest)';
+                    $virtualAssignment->created_by_role = 'System';
 
-                // Tambahkan ke paling atas list
-                $assignments->prepend($virtualAssignment);
+                    // Tambahkan ke paling atas list
+                    $assignments->prepend($virtualAssignment);
+                }
             }
         }
 

@@ -66,7 +66,7 @@ export default function Auth({ }) {
                     {/* Brand Header */}
                     <div className="login-brand-header">
                         <img
-                            src="/sendpick.png"
+                            src="/build/assets/logo_sendpick.aea87447-400x150.png"
                             alt="Sendpick Logo"
                             className="login-brand-logo"
                         />

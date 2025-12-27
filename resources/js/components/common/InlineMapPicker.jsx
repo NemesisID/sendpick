@@ -21,13 +21,19 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // Component to handle map click events
-function LocationMarker({ position, setPosition }) {
+function LocationMarker({ position, setPosition, onReverseGeocode }) {
     useMapEvents({
         click(e) {
-            setPosition({
+            const newPos = {
                 lat: e.latlng.lat,
                 lng: e.latlng.lng
-            });
+            };
+            setPosition(newPos);
+
+            // ✅ Trigger reverse geocoding when user clicks on map
+            if (onReverseGeocode && typeof onReverseGeocode === 'function') {
+                onReverseGeocode(newPos);
+            }
         },
     });
 
@@ -50,7 +56,7 @@ function FlyToPosition({ position }) {
 }
 
 // Component to handle current location
-function CurrentLocationButton({ setPosition }) {
+function CurrentLocationButton({ setPosition, onReverseGeocode }) {
     const map = useMap();
 
     const handleClick = () => {
@@ -63,6 +69,11 @@ function CurrentLocationButton({ setPosition }) {
                     };
                     setPosition(newPos);
                     map.flyTo([newPos.lat, newPos.lng], 16);
+
+                    // ✅ Trigger reverse geocoding when user uses current location
+                    if (onReverseGeocode && typeof onReverseGeocode === 'function') {
+                        onReverseGeocode(newPos);
+                    }
                 },
                 (err) => {
                     console.error('Error getting location:', err);
@@ -91,6 +102,8 @@ function CurrentLocationButton({ setPosition }) {
  * 
  * @param {object} position - Posisi saat ini {lat, lng}
  * @param {function} onPositionChange - Callback saat posisi berubah
+ * @param {function} onAddressChange - Callback saat alamat berubah (dari reverse geocoding)
+ * @param {function} onCityChange - Callback saat kota berubah (dari reverse geocoding)
  * @param {string} type - Tipe lokasi: 'pickup' atau 'delivery'
  * @param {boolean} disabled - Apakah picker disabled
  * @param {string} address - Alamat yang akan di-geocode otomatis
@@ -98,6 +111,8 @@ function CurrentLocationButton({ setPosition }) {
 const InlineMapPicker = ({
     position,
     onPositionChange,
+    onAddressChange,
+    onCityChange,
     type = 'pickup',
     disabled = false,
     address = ''
@@ -204,6 +219,75 @@ const InlineMapPicker = ({
             setGeocodeStatus('error');
         } finally {
             setIsGeocodingAddress(false);
+        }
+    };
+
+    // ✅ NEW: Reverse Geocode function - Koordinat ke Alamat
+    const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
+    const [reverseGeocodeStatus, setReverseGeocodeStatus] = useState(''); // 'success', 'error', ''
+
+    const reverseGeocode = async (coords) => {
+        if (!coords?.lat || !coords?.lng) return;
+
+        setIsReverseGeocoding(true);
+        setReverseGeocodeStatus('');
+
+        try {
+            const response = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+
+            if (data && data.address) {
+                // Ekstrak informasi alamat
+                const addressParts = [];
+
+                // Ambil detail alamat (dari yang paling spesifik ke umum)
+                if (data.address.road) addressParts.push(data.address.road);
+                if (data.address.house_number) addressParts[0] = `${data.address.road} No. ${data.address.house_number}`;
+                if (data.address.neighbourhood) addressParts.push(data.address.neighbourhood);
+                if (data.address.suburb) addressParts.push(data.address.suburb);
+                if (data.address.village) addressParts.push(data.address.village);
+                if (data.address.city_district) addressParts.push(data.address.city_district);
+
+                // Buat alamat lengkap
+                const fullAddress = addressParts.length > 0
+                    ? addressParts.join(', ')
+                    : data.display_name.split(',').slice(0, 4).join(',');
+
+                // Ekstrak nama kota
+                const city = data.address.city
+                    || data.address.town
+                    || data.address.municipality
+                    || data.address.county
+                    || data.address.state
+                    || '';
+
+                console.log(`🔄 Reverse geocoded to: "${fullAddress}" | City: "${city}"`);
+
+                // Panggil callback untuk update alamat di parent form
+                if (onAddressChange && typeof onAddressChange === 'function') {
+                    onAddressChange(fullAddress);
+                }
+
+                // Panggil callback untuk update kota di parent form
+                if (onCityChange && typeof onCityChange === 'function') {
+                    onCityChange(city);
+                }
+
+                // Update ref agar tidak trigger geocode lagi
+                lastGeocodedAddressRef.current = fullAddress;
+
+                setReverseGeocodeStatus('success');
+            } else {
+                console.log('❌ Reverse geocode: No address found');
+                setReverseGeocodeStatus('error');
+            }
+        } catch (error) {
+            console.error('Error reverse geocoding:', error);
+            setReverseGeocodeStatus('error');
+        } finally {
+            setIsReverseGeocoding(false);
         }
     };
 
@@ -421,9 +505,16 @@ const InlineMapPicker = ({
                                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                             />
-                            <LocationMarker position={internalPosition} setPosition={setInternalPosition} />
+                            <LocationMarker
+                                position={internalPosition}
+                                setPosition={setInternalPosition}
+                                onReverseGeocode={reverseGeocode}
+                            />
                             {internalPosition && <FlyToPosition position={internalPosition} />}
-                            <CurrentLocationButton setPosition={setInternalPosition} />
+                            <CurrentLocationButton
+                                setPosition={setInternalPosition}
+                                onReverseGeocode={reverseGeocode}
+                            />
                         </MapContainer>
 
                         {/* Click instruction overlay */}
@@ -453,14 +544,35 @@ const InlineMapPicker = ({
                                     </span>
                                 </div>
                             </div>
-                            {internalPosition && (
-                                <span className="text-xs text-green-600 flex items-center gap-1">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Lokasi dipilih
-                                </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {/* Reverse Geocoding Status */}
+                                {isReverseGeocoding && (
+                                    <span className="text-xs text-amber-600 flex items-center gap-1">
+                                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        Mengisi alamat...
+                                    </span>
+                                )}
+                                {!isReverseGeocoding && reverseGeocodeStatus === 'success' && (
+                                    <span className="text-xs text-blue-600 flex items-center gap-1">
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Alamat diperbarui
+                                    </span>
+                                )}
+                                {/* Position Status */}
+                                {internalPosition && !isReverseGeocoding && (
+                                    <span className="text-xs text-green-600 flex items-center gap-1">
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Lokasi dipilih
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

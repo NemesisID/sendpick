@@ -872,8 +872,9 @@ export default function JobOrderContent() {
             latField: 'pickup_lat',
             lngField: 'pickup_lng',
             addressField: 'pickup_address',
+            cityField: 'pickup_city', // ✅ NEW: Auto-fill kota dari reverse geocoding
             mapTitle: 'Pilih Lokasi Penjemputan',
-            description: 'Koordinat akan otomatis diisi berdasarkan alamat di atas, atau klik di peta'
+            description: 'Koordinat akan otomatis diisi berdasarkan alamat di atas, atau klik di peta untuk auto-fill alamat & kota'
         },
         {
             name: 'pickup_contact',
@@ -927,8 +928,9 @@ export default function JobOrderContent() {
             latField: 'delivery_lat',
             lngField: 'delivery_lng',
             addressField: 'delivery_address',
+            cityField: 'delivery_city', // ✅ NEW: Auto-fill kota dari reverse geocoding
             mapTitle: 'Pilih Lokasi Tujuan',
-            description: 'Koordinat akan otomatis diisi berdasarkan alamat di atas, atau klik di peta'
+            description: 'Koordinat akan otomatis diisi berdasarkan alamat di atas, atau klik di peta untuk auto-fill alamat & kota'
         },
         {
             name: 'recipient_name',

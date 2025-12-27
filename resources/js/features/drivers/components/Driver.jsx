@@ -299,9 +299,9 @@ const driverStatusStyles = {
 
 const driverShiftOptions = [
     { value: 'all', label: 'Semua Shift' },
-    { value: 'morning', label: 'Pagi' },
-    { value: 'afternoon', label: 'Siang' },
-    { value: 'night', label: 'Malam' },
+    { value: 'pagi', label: 'Pagi' },
+    { value: 'siang', label: 'Siang' },
+    { value: 'malam', label: 'Malam' },
 ];
 
 const driverRecords = [];

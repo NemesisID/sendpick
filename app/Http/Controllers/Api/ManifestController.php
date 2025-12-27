@@ -1056,7 +1056,16 @@ class ManifestController extends Controller
         }
 
         // Create status history for each Job Order in the manifest
+        // ✅ SKIP FTL Job Orders - FTL already has its own driver assignment via Job Order page
         foreach ($jobOrderIds as $jobOrderId) {
+            $jobOrder = JobOrder::where('job_order_id', $jobOrderId)->first();
+            
+            // Skip FTL type Job Orders - they have their own driver assignment flow
+            if ($jobOrder && $jobOrder->order_type === 'FTL') {
+                \Log::info("Skipped driver assignment history for FTL Job Order {$jobOrderId} (via Manifest {$manifest->manifest_id})");
+                continue;
+            }
+            
             $this->createStatusHistory(
                 $jobOrderId,
                 'Driver Assigned',
@@ -1065,6 +1074,6 @@ class ManifestController extends Controller
             );
         }
 
-        \Log::info("Created driver assignment history for " . count($jobOrderIds) . " job orders in Manifest {$manifest->manifest_id}");
+        \Log::info("Created driver assignment history for LTL job orders in Manifest {$manifest->manifest_id} (FTL orders skipped)");
     }
 }

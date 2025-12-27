@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 /**
  * ReportController - Controller untuk mengelola Laporan dan Analytics
@@ -732,5 +733,155 @@ class ReportController extends Controller
             })
             ->get()
             ->toArray();
+    }
+
+    /**
+     * Export Analytics Report as PDF
+     * 
+     * Generates a professionally designed PDF report with:
+     * - Executive Summary (KPI Cards, Sales & Operational Summary)
+     * - Top Customers by Revenue
+     * - Detail Job Orders Table with Zebra Striping
+     * - Status Distribution
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function exportAnalyticsPdf(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date'
+        ]);
+
+        $startDate = Carbon::parse($request->start_date)->startOfDay();
+        $endDate = Carbon::parse($request->end_date)->endOfDay();
+
+        // ==========================================
+        // GATHER ALL DATA FOR PDF
+        // ==========================================
+
+        // 1. Sales Summary Data (from Invoices for accuracy)
+        $paidInvoices = Invoices::where('status', 'Paid')
+            ->whereBetween('created_at', [$startDate, $endDate]);
+        
+        $activeJobOrders = JobOrder::whereNotIn('status', ['Cancelled'])
+            ->whereBetween('created_at', [$startDate, $endDate]);
+        
+        $completedJobOrders = JobOrder::where('status', 'Completed')
+            ->whereBetween('created_at', [$startDate, $endDate]);
+
+        $totalJoCount = (clone $activeJobOrders)->count();
+        $completedJoCount = (clone $completedJobOrders)->count();
+        $completionRate = $totalJoCount > 0 ? round(($completedJoCount / $totalJoCount) * 100, 1) : 0;
+
+        $activeInvoicedCustomers = Invoices::whereNotIn('status', ['Cancelled'])
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->distinct('customer_id')
+            ->count('customer_id');
+
+        $summary = [
+            'total_revenue' => (clone $paidInvoices)->sum('paid_amount'),
+            'total_orders' => $totalJoCount,
+            'total_customers' => $activeInvoicedCustomers,
+            'avg_order_value' => (clone $paidInvoices)->avg('paid_amount') ?? 0,
+            'completion_rate' => $completionRate,
+        ];
+
+        // 2. Operational Summary Data
+        $deliveryOrders = DeliveryOrder::whereBetween('created_at', [$startDate, $endDate])->get();
+        $allManifests = Manifests::whereBetween('created_at', [$startDate, $endDate])->get();
+        
+        $manifests = Manifests::with('drivers')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotNull('driver_id')
+            ->get();
+        
+        $driverPerformance = $manifests->groupBy('driver_id')->map(function ($driverManifests) {
+            return ['total_deliveries' => $driverManifests->count()];
+        });
+
+        $operational = [
+            'delivery_success_rate' => $deliveryOrders->count() > 0 
+                ? round(($deliveryOrders->where('status', 'Delivered')->count() / $deliveryOrders->count()) * 100, 1) 
+                : 0,
+            'active_drivers' => Drivers::whereIn('status', ['Available', 'On Duty'])->count(),
+            'active_vehicles' => Vehicles::where('status', 'Available')->count(),
+            'avg_deliveries_per_driver' => $driverPerformance->count() > 0 
+                ? round($driverPerformance->avg('total_deliveries'), 1) 
+                : 0,
+            'manifest_completion_rate' => $allManifests->count() > 0 
+                ? round(($allManifests->where('status', 'Completed')->count() / $allManifests->count()) * 100, 1) 
+                : 0,
+        ];
+
+        // 3. Top Customers Data
+        $topCustomers = Customers::select('customers.customer_name')
+            ->selectRaw('COUNT(invoices.invoice_id) as order_count')
+            ->selectRaw('SUM(CASE WHEN invoices.status = ? THEN invoices.paid_amount ELSE 0 END) as total_revenue', ['Paid'])
+            ->leftJoin('invoices', 'customers.customer_id', '=', 'invoices.customer_id')
+            ->where(function($q) use ($startDate, $endDate) {
+                $q->whereBetween('invoices.created_at', [$startDate, $endDate])
+                  ->whereNotIn('invoices.status', ['Cancelled']);
+            })
+            ->groupBy('customers.customer_id', 'customers.customer_name')
+            ->havingRaw('COUNT(invoices.invoice_id) > 0')
+            ->orderByDesc('total_revenue')
+            ->limit(10)
+            ->get()
+            ->map(function($customer) {
+                return [
+                    'customer_name' => $customer->customer_name,
+                    'order_count' => $customer->order_count,
+                    'total_revenue' => $customer->total_revenue,
+                ];
+            });
+
+        // 4. Job Orders for Detail Table
+        $jobOrders = JobOrder::with('customer')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereNotIn('status', ['Cancelled'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // ==========================================
+        // PREPARE PDF DATA
+        // ==========================================
+        
+        $data = [
+            'dateRange' => [
+                'start' => $startDate->format('Y-m-d'),
+                'end' => $endDate->format('Y-m-d'),
+                'formatted_start' => $startDate->locale('id')->translatedFormat('d F Y'),
+                'formatted_end' => $endDate->locale('id')->translatedFormat('d F Y'),
+            ],
+            'generatedAt' => Carbon::now()->locale('id')->translatedFormat('d F Y, H:i') . ' WIB',
+            'summary' => $summary,
+            'operational' => $operational,
+            'topCustomers' => $topCustomers,
+            'jobOrders' => $jobOrders,
+        ];
+
+        // ==========================================
+        // GENERATE PDF
+        // ==========================================
+        
+        $pdf = Pdf::loadView('pdf.analytics_report', $data);
+        
+        // Set paper size and orientation
+        $pdf->setPaper('A4', 'portrait');
+        
+        // Optional: Set PDF options for better rendering
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'defaultFont' => 'sans-serif',
+        ]);
+
+        // Generate filename
+        $filename = 'Laporan_Analitik_' . $startDate->format('Ymd') . '_' . $endDate->format('Ymd') . '.pdf';
+
+        // Return as download
+        return $pdf->download($filename);
     }
 }

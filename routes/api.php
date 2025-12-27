@@ -256,7 +256,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/financial/export', [ReportController::class, 'exportFinancial'])->name('api.reports.financial.export');
     Route::get('/reports/operational/export', [ReportController::class, 'exportOperational'])->name('api.reports.operational.export');
     Route::get('/reports/customer-analytics/export', [ReportController::class, 'exportCustomerAnalytics'])->name('api.reports.customer-analytics.export');
-
+    
+    // Reports Export - PDF Analytics Report
+    Route::get('/reports/analytics/pdf', [ReportController::class, 'exportAnalyticsPdf'])->name('api.reports.analytics.pdf')->withoutMiddleware('auth:sanctum');
 
 
     // ============================================
