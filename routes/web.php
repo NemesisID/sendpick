@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PdfController;
+use App\Http\Controllers\Api\ReportController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -26,5 +27,9 @@ Route::get('/print/delivery-order/{doId}', [PdfController::class, 'printDelivery
 // Cetak Manifest ke PDF
 Route::get('/print/manifest/{manifestId}', [PdfController::class, 'printManifest'])
     ->name('print.manifest');
+
+// Export Analytics Report ke PDF (from Report & Analytics page)
+Route::get('/reports/analytics/pdf', [ReportController::class, 'exportAnalyticsPdf'])
+    ->name('reports.analytics.pdf');
 
 require __DIR__.'/auth.php';

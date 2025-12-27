@@ -176,7 +176,7 @@ function AssignmentMetrics({ metrics }) {
             </div>
             <div className='text-center'>
                 <p className='text-2xl font-bold text-blue-600'>{metrics.active}</p>
-                <p className='text-xs text-slate-500'>Active</p>
+                <p className='text-xs text-slate-500'>Assigned</p>
             </div>
             <div className='text-center'>
                 <p className='text-2xl font-bold text-emerald-600'>{metrics.completed}</p>
@@ -184,7 +184,7 @@ function AssignmentMetrics({ metrics }) {
             </div>
             <div className='text-center'>
                 <p className='text-2xl font-bold text-amber-600'>{metrics.pending}</p>
-                <p className='text-xs text-slate-500'>Pending</p>
+                <p className='text-xs text-slate-500'>In Transit</p>
             </div>
         </div>
     );

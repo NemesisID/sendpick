@@ -368,7 +368,7 @@ export default function HomeContent() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                setLoading(true);
+                // Only show loading on initial load, not on refresh
                 const response = await axios.get('/dashboard');
 
                 if (response.data?.success) {
@@ -383,7 +383,16 @@ export default function HomeContent() {
             }
         };
 
+        // Initial fetch
         fetchDashboardData();
+
+        // Auto-refresh every 30 seconds for real-time updates
+        const refreshInterval = setInterval(() => {
+            fetchDashboardData();
+        }, 30000); // 30 seconds
+
+        // Cleanup interval on component unmount
+        return () => clearInterval(refreshInterval);
     }, []);
 
     return (

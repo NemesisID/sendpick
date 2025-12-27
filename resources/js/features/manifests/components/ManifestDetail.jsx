@@ -252,8 +252,8 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                     <div>
                                         <p className="text-sm text-slate-500">Kapasitas Terpakai</p>
                                         <p className={`font-medium ${parseFloat(capacityUsed) > 90 ? 'text-red-600' :
-                                                parseFloat(capacityUsed) > 70 ? 'text-amber-600' :
-                                                    'text-emerald-600'
+                                            parseFloat(capacityUsed) > 70 ? 'text-amber-600' :
+                                                'text-emerald-600'
                                             }`}>
                                             {capacityUsed}%
                                         </p>
@@ -274,36 +274,123 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                                     <th className="pb-3 pr-4">#</th>
                                                     <th className="pb-3 pr-4">Job Order</th>
                                                     <th className="pb-3 pr-4">Customer</th>
+                                                    <th className="pb-3 pr-4">Penerima</th>
+                                                    <th className="pb-3 pr-4">No. Telp</th>
                                                     <th className="pb-3 pr-4">Barang</th>
+                                                    <th className="pb-3 pr-4">Lokasi Pickup</th>
+                                                    <th className="pb-3 pr-4">Lokasi Tujuan</th>
                                                     <th className="pb-3 pr-4 text-right">Berat</th>
-                                                    <th className="pb-3 text-right">Koli</th>
+                                                    <th className="pb-3 pr-4 text-right">Koli</th>
+                                                    <th className="pb-3 text-center">Titik Lokasi</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                {jobOrders.map((jo, index) => (
-                                                    <tr key={jo.job_order_id || index} className="hover:bg-white/50">
-                                                        <td className="py-3 pr-4 text-slate-500">{index + 1}</td>
-                                                        <td className="py-3 pr-4">
-                                                            <span className="font-medium text-indigo-600">{jo.job_order_id}</span>
-                                                            <span className={`ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${jo.order_type === 'FTL' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                                                                }`}>
-                                                                {jo.order_type || 'LTL'}
-                                                            </span>
-                                                        </td>
-                                                        <td className="py-3 pr-4 text-slate-700">{jo.customer?.customer_name || jo.customer_name || '-'}</td>
-                                                        <td className="py-3 pr-4 text-slate-600 truncate max-w-[150px]" title={jo.goods_desc}>
-                                                            {jo.goods_desc || '-'}
-                                                        </td>
-                                                        <td className="py-3 pr-4 text-right text-slate-700">{jo.goods_weight || 0} kg</td>
-                                                        <td className="py-3 text-right text-slate-700">{jo.goods_qty || '-'}</td>
-                                                    </tr>
-                                                ))}
+                                                {jobOrders.map((jo, index) => {
+                                                    // Prepare location URL for OpenStreetMap
+                                                    const hasCoordinates = jo.delivery_lat && jo.delivery_lng;
+                                                    const osmUrl = hasCoordinates
+                                                        ? `https://www.openstreetmap.org/?mlat=${jo.delivery_lat}&mlon=${jo.delivery_lng}#map=17/${jo.delivery_lat}/${jo.delivery_lng}`
+                                                        : null;
+
+                                                    // Extract pickup location
+                                                    const pickupCity = jo.pickup_city || extractCity(jo.pickup_address) || '-';
+                                                    const pickupAddress = jo.pickup_address || '';
+
+                                                    // Extract delivery location
+                                                    const deliveryCity = jo.delivery_city || extractCity(jo.delivery_address) || '-';
+                                                    const deliveryAddress = jo.delivery_address || '';
+
+                                                    return (
+                                                        <tr key={jo.job_order_id || index} className="hover:bg-white/50">
+                                                            <td className="py-3 pr-4 text-slate-500">{index + 1}</td>
+                                                            <td className="py-3 pr-4">
+                                                                <span className="font-medium text-indigo-600">{jo.job_order_id}</span>
+                                                                <span className={`ml-2 inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${jo.order_type === 'FTL' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                                    }`}>
+                                                                    {jo.order_type || 'LTL'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3 pr-4 text-slate-700">{jo.customer?.customer_name || jo.customer_name || '-'}</td>
+                                                            <td className="py-3 pr-4 text-slate-700">
+                                                                {jo.recipient_name || '-'}
+                                                            </td>
+                                                            <td className="py-3 pr-4">
+                                                                {jo.recipient_phone ? (
+                                                                    <a
+                                                                        href={`tel:${jo.recipient_phone}`}
+                                                                        className="text-indigo-600 hover:underline"
+                                                                    >
+                                                                        {jo.recipient_phone}
+                                                                    </a>
+                                                                ) : (
+                                                                    <span className="text-slate-400">-</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 pr-4 text-slate-600 truncate max-w-[120px]" title={jo.goods_desc}>
+                                                                {jo.goods_desc || '-'}
+                                                            </td>
+                                                            {/* Lokasi Pickup */}
+                                                            <td className="py-3 pr-4">
+                                                                <div>
+                                                                    <p className="font-medium text-slate-700">{pickupCity}</p>
+                                                                    {pickupAddress && pickupAddress !== pickupCity && (
+                                                                        <p className="text-xs text-slate-400 truncate max-w-[150px]" title={pickupAddress}>
+                                                                            {pickupAddress}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            {/* Lokasi Tujuan */}
+                                                            <td className="py-3 pr-4">
+                                                                <div>
+                                                                    <p className="font-medium text-slate-700">{deliveryCity}</p>
+                                                                    {deliveryAddress && deliveryAddress !== deliveryCity && (
+                                                                        <p className="text-xs text-slate-400 truncate max-w-[150px]" title={deliveryAddress}>
+                                                                            {deliveryAddress}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            {/* Berat & Koli */}
+                                                            <td className="py-3 pr-4 text-right text-slate-700">{jo.goods_weight || 0} kg</td>
+                                                            <td className="py-3 pr-4 text-right text-slate-700">{jo.goods_qty || '-'}</td>
+                                                            {/* Titik Lokasi */}
+                                                            <td className="py-3 text-center">
+                                                                {hasCoordinates ? (
+                                                                    <a
+                                                                        href={osmUrl}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        title={`Buka di Maps: ${jo.delivery_lat}, ${jo.delivery_lng}`}
+                                                                        className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-emerald-100 text-emerald-600 hover:bg-emerald-200 transition"
+                                                                    >
+                                                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                        </svg>
+                                                                    </a>
+                                                                ) : (
+                                                                    <span
+                                                                        className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-slate-100 text-slate-400 cursor-not-allowed"
+                                                                        title="Koordinat tidak tersedia"
+                                                                    >
+                                                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                        </svg>
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                             <tfoot>
                                                 <tr className="border-t border-slate-300 font-semibold">
-                                                    <td colSpan="4" className="pt-3 text-slate-700">Total</td>
+                                                    <td colSpan="8" className="pt-3 text-slate-700">Total</td>
                                                     <td className="pt-3 text-right text-slate-900">{totalWeight.toLocaleString('id-ID')} kg</td>
                                                     <td className="pt-3 text-right text-slate-900">{totalKoli}</td>
+                                                    <td></td>
                                                 </tr>
                                             </tfoot>
                                         </table>
@@ -348,8 +435,8 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                         <div className="mt-1">
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className={`text-sm font-medium ${parseFloat(capacityUsed) > 90 ? 'text-red-600' :
-                                                        parseFloat(capacityUsed) > 70 ? 'text-amber-600' :
-                                                            'text-emerald-600'
+                                                    parseFloat(capacityUsed) > 70 ? 'text-amber-600' :
+                                                        'text-emerald-600'
                                                     }`}>
                                                     {capacityUsed}%
                                                 </span>
@@ -357,8 +444,8 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                             <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
                                                 <div
                                                     className={`h-full rounded-full transition-all ${parseFloat(capacityUsed) > 90 ? 'bg-red-500' :
-                                                            parseFloat(capacityUsed) > 70 ? 'bg-amber-500' :
-                                                                'bg-emerald-500'
+                                                        parseFloat(capacityUsed) > 70 ? 'bg-amber-500' :
+                                                            'bg-emerald-500'
                                                         }`}
                                                     style={{ width: `${Math.min(parseFloat(capacityUsed), 100)}%` }}
                                                 ></div>
