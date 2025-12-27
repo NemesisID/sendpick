@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import axios from 'axios';
 
 export default function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
     const [dataForm, setDataForm] = useState({
         email: '',
         password: '',
@@ -12,10 +14,42 @@ export default function LoginForm() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsLoading(true);
+        setError('');
+
         try {
-            // Handle login logic here
-        } catch (error) {
-            console.error('Login error:', error);
+            // Hit API Login
+            const response = await axios.post('/auth/login', {
+                email: dataForm.email,
+                password: dataForm.password,
+                type: 'admin' // Login sebagai admin (bukan driver)
+            });
+
+            if (response.data.success) {
+                // Clear old localStorage keys (if any)
+                localStorage.removeItem('sendpick_user');
+
+                // Simpan token dan user data ke localStorage
+                localStorage.setItem('auth_token', response.data.data.token);
+                localStorage.setItem('user', JSON.stringify(response.data.data.user));
+                localStorage.setItem('user_type', response.data.data.user_type);
+
+                // Set default axios header untuk request selanjutnya
+                axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.data.token}`;
+
+                // Redirect ke dashboard
+                window.location.href = '/dashboard';
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+
+            // Handle error response
+            if (err.response?.data?.errors?.email) {
+                setError(err.response.data.errors.email[0]);
+            } else if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError('Terjadi kesalahan. Silakan coba lagi.');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -30,6 +64,16 @@ export default function LoginForm() {
                     Please enter your credentials to access your account.
                 </p>
             </div>
+
+            {/* Error Message */}
+            {error && (
+                <div className="login-error-alert">
+                    <svg className="login-error-icon" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span>{error}</span>
+                </div>
+            )}
 
             <form className="login-form" onSubmit={handleSubmit}>
                 {/* Email Field */}
@@ -150,6 +194,38 @@ export default function LoginForm() {
                 
                 .login-link:hover {
                     color: #3b5de7;
+                }
+                
+                .login-error-alert {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 12px 16px;
+                    background: #fee2e2;
+                    border: 1px solid #fca5a5;
+                    border-radius: 8px;
+                    color: #991b1b;
+                    font-size: 0.875rem;
+                    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+                    margin-bottom: 20px;
+                    animation: slideDown 0.3s ease-out;
+                }
+                
+                .login-error-icon {
+                    width: 20px;
+                    height: 20px;
+                    flex-shrink: 0;
+                }
+                
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
                 }
                 
                 .login-form {

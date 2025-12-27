@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
 
 const UserContext = createContext();
 
@@ -11,33 +12,90 @@ export const useUser = () => {
 };
 
 export const UserProvider = ({ children }) => {
-    // Initial mock data
-    const initialUser = {
-        fullName: 'Gultom',
-        username: 'admin@patralogistik.com',
-        phone: '081234567890',
-        role: 'Admin',
-        branch: 'PT Global Pilar Media',
-        photo: 'https://ui-avatars.com/api/?name=Gultom&background=6366f1&color=fff',
-    };
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    // Try to load from localStorage to persist across reloads
-    const [user, setUser] = useState(() => {
-        const savedUser = localStorage.getItem('sendpick_user');
-        return savedUser ? JSON.parse(savedUser) : initialUser;
-    });
-
-    // Update localStorage whenever user changes
     useEffect(() => {
-        localStorage.setItem('sendpick_user', JSON.stringify(user));
-    }, [user]);
+        const loadUserData = async () => {
+            try {
+                // Try to get user from localStorage first (saved during login)
+                const savedUser = localStorage.getItem('user');
+
+                if (savedUser) {
+                    const userData = JSON.parse(savedUser);
+
+                    // Transform to match expected format
+                    setUser({
+                        fullName: userData.name || 'User',
+                        username: userData.email || '',
+                        phone: userData.phone || '',
+                        role: userData.roles?.[0] || 'Admin',
+                        branch: 'SendPick Logistics',
+                        photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.name || 'User')}&background=6366f1&color=fff`,
+                        userId: userData.user_id,
+                    });
+                } else {
+                    // If no localStorage, try to fetch from API
+                    const token = localStorage.getItem('auth_token');
+                    if (token) {
+                        const response = await axios.get('/auth/me');
+                        if (response.data?.success) {
+                            const apiUser = response.data.data.user;
+                            const transformedUser = {
+                                fullName: apiUser.name || 'User',
+                                username: apiUser.email || '',
+                                phone: apiUser.phone || '',
+                                role: apiUser.roles?.[0] || 'Admin',
+                                branch: 'SendPick Logistics',
+                                photo: `https://ui-avatars.com/api/?name=${encodeURIComponent(apiUser.name || 'User')}&background=6366f1&color=fff`,
+                                userId: apiUser.user_id,
+                            };
+
+                            setUser(transformedUser);
+                            // Save to localStorage for next time
+                            localStorage.setItem('user', JSON.stringify(apiUser));
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load user data:', error);
+                // If all fails, set default fallback
+                setUser({
+                    fullName: 'User',
+                    username: 'user@sendpick.com',
+                    phone: '',
+                    role: 'Admin',
+                    branch: 'SendPick Logistics',
+                    photo: 'https://ui-avatars.com/api/?name=User&background=6366f1&color=fff',
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadUserData();
+    }, []);
 
     const updateUser = (newData) => {
         setUser((prev) => ({
             ...prev,
             ...newData,
         }));
+
+        // Update localStorage as well
+        const savedUser = localStorage.getItem('user');
+        if (savedUser) {
+            const userData = JSON.parse(savedUser);
+            localStorage.setItem('user', JSON.stringify({
+                ...userData,
+                ...newData,
+            }));
+        }
     };
+
+    if (loading) {
+        return null; // Or a loading spinner
+    }
 
     return (
         <UserContext.Provider value={{ user, updateUser }}>

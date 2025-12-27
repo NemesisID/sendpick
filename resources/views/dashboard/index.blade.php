@@ -9,5 +9,15 @@
 </head>
 <body class='antialiased overflow-hidden'>
     <div id='dashboard'></div>
+    
+    <!-- Authentication Check -->
+    <script>
+        // Check if user is authenticated
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            // Redirect to login if no token found
+            window.location.href = '/';
+        }
+    </script>
 </body>
 </html>
