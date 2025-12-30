@@ -244,7 +244,7 @@ class DriverAppController extends Controller
                 $q->where('driver_id', $driver->driver_id)
                   ->where('status', 'Active');
             })
-            ->whereIn('status', ['Processing', 'In Transit', 'Pickup Complete'])
+            ->whereIn('status', ['Assigned', 'Processing', 'In Transit', 'Pickup Complete'])
             ->with(['customer', 'assignments' => function($q) use ($driver) {
                 $q->where('driver_id', $driver->driver_id);
             }])
