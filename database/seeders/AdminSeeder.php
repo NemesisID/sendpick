@@ -25,7 +25,7 @@ class AdminSeeder extends Seeder
         $admin = Admin::updateOrCreate(
             ['email' => 'admin@sendpick.com'],
             [
-                'user_id' => 'USR001',
+                'user_id' => 'ADM001', // ✅ Harus ADM001 agar sesuai dengan referensi di seeder lain
                 'name' => 'Super Admin',
                 'email' => 'admin@sendpick.com',
                 'password' => Hash::make('password'), // Default password
