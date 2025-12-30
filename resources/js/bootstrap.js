@@ -27,8 +27,8 @@ window.axios.interceptors.response.use(
             localStorage.removeItem('user_type');
 
             // Only redirect if not already on login page
-            if (window.location.pathname !== '/') {
-                window.location.href = '/';
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
             }
         }
         return Promise.reject(error);
