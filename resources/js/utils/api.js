@@ -2,15 +2,12 @@
 
 import axios from 'axios';
 
-// Untuk development, pakai base URL local:
-const localBaseUrl = 'http://127.0.0.1:8000/api';
-
 // Untuk production, pakai base URL production:
 const productionBaseUrl = 'https://sendpick.isslab.web.id/api';
 
 // Buat instance axios dengan base URL yang sesuai
 const api = axios.create({
-    baseURL: import.meta.env?.VITE_API_BASE_URL ?? localBaseUrl,
+    baseURL: import.meta.env?.VITE_API_BASE_URL ?? productionBaseUrl,
     withCredentials: true,
     headers: {
         Accept: 'application/json',
