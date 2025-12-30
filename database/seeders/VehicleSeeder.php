@@ -19,7 +19,7 @@ class VehicleSeeder extends Seeder
             return;
         }
 
-        // ✅ Data sesuai dengan migration vehicles (semua kolom)
+        // ✅ Data sesuai dengan migration vehicles + kolom baru dari migration terpisah
         $vehicles = [
             [
                 'vehicle_id' => 'VEH001',
@@ -32,6 +32,7 @@ class VehicleSeeder extends Seeder
                 'odometer_km' => 15000,
                 'status' => 'Aktif',
                 'condition_label' => 'Baik',
+                'driver_id' => 'DRV001', // ✅ Kolom baru - terhubung ke Budi Santoso
                 'fuel_level_pct' => 80,
                 'last_maintenance_date' => '2025-10-15',
                 'next_maintenance_date' => '2025-12-15',
@@ -49,6 +50,7 @@ class VehicleSeeder extends Seeder
                 'odometer_km' => 8000,
                 'status' => 'Aktif',
                 'condition_label' => 'Sangat Baik',
+                'driver_id' => 'DRV002', // ✅ Kolom baru - terhubung ke Ahmad Hidayat
                 'fuel_level_pct' => 90,
                 'last_maintenance_date' => '2025-10-20',
                 'next_maintenance_date' => '2025-12-20',
@@ -66,6 +68,7 @@ class VehicleSeeder extends Seeder
                 'odometer_km' => 45000,
                 'status' => 'Aktif',
                 'condition_label' => 'Baik',
+                'driver_id' => 'DRV003', // ✅ Kolom baru - terhubung ke Eko Prasetyo
                 'fuel_level_pct' => 60,
                 'last_maintenance_date' => '2025-09-10',
                 'next_maintenance_date' => '2025-11-10',
@@ -83,6 +86,7 @@ class VehicleSeeder extends Seeder
                 'odometer_km' => 5000,
                 'status' => 'Aktif',
                 'condition_label' => 'Sangat Baik',
+                'driver_id' => 'DRV004', // ✅ Kolom baru - terhubung ke Dedi Kurniawan
                 'fuel_level_pct' => 100,
                 'last_maintenance_date' => '2025-10-25',
                 'next_maintenance_date' => '2025-12-25',
@@ -100,6 +104,7 @@ class VehicleSeeder extends Seeder
                 'odometer_km' => 20000,
                 'status' => 'Tidak Aktif',
                 'condition_label' => 'Perlu Perbaikan',
+                'driver_id' => null, // ✅ Kolom baru - kendaraan tidak aktif, tidak ada driver
                 'fuel_level_pct' => 30,
                 'last_maintenance_date' => '2025-08-01',
                 'next_maintenance_date' => '2025-10-01',

@@ -19,7 +19,7 @@ class DriverSeeder extends Seeder
             return;
         }
 
-        // ✅ Data sesuai catatan arsitektur (TANPA vehicle_id, TANPA password)
+        // ✅ Data sesuai catatan arsitektur + kolom baru dari migration terpisah
         $drivers = [
             [
                 'driver_id' => 'DRV001',
@@ -31,6 +31,9 @@ class DriverSeeder extends Seeder
                 'shift' => 'Pagi',
                 'last_lat' => -6.200000, // Jakarta Pusat
                 'last_lng' => 106.816666,
+                'last_location_city' => 'Jakarta Pusat', // ✅ Kolom baru
+                'delivery_count' => 45, // ✅ Kolom baru
+                'fcm_token' => null, // ✅ Kolom baru (diisi saat login dari mobile app)
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -44,6 +47,9 @@ class DriverSeeder extends Seeder
                 'shift' => 'Siang',
                 'last_lat' => -6.175110, // Jakarta Timur
                 'last_lng' => 106.865036,
+                'last_location_city' => 'Jakarta Timur', // ✅ Kolom baru
+                'delivery_count' => 32, // ✅ Kolom baru
+                'fcm_token' => null, // ✅ Kolom baru
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -57,6 +63,9 @@ class DriverSeeder extends Seeder
                 'shift' => 'Pagi',
                 'last_lat' => -6.121435, // Jakarta Barat
                 'last_lng' => 106.774124,
+                'last_location_city' => 'Jakarta Barat', // ✅ Kolom baru
+                'delivery_count' => 28, // ✅ Kolom baru
+                'fcm_token' => null, // ✅ Kolom baru
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -70,6 +79,9 @@ class DriverSeeder extends Seeder
                 'shift' => 'Malam',
                 'last_lat' => -6.238270, // Bekasi
                 'last_lng' => 106.975571,
+                'last_location_city' => 'Bekasi', // ✅ Kolom baru
+                'delivery_count' => 51, // ✅ Kolom baru
+                'fcm_token' => null, // ✅ Kolom baru
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
@@ -83,6 +95,9 @@ class DriverSeeder extends Seeder
                 'shift' => null,
                 'last_lat' => -6.597147, // Bogor
                 'last_lng' => 106.806039,
+                'last_location_city' => 'Bogor', // ✅ Kolom baru
+                'delivery_count' => 15, // ✅ Kolom baru
+                'fcm_token' => null, // ✅ Kolom baru
                 'created_at' => now(),
                 'updated_at' => now(),
             ],

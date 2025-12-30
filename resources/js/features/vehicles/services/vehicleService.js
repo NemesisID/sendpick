@@ -51,6 +51,7 @@ export async function fetchVehicles(params = {}) {
     }
 }
 
+// Perlu diubah
 export async function getVehicle(vehicleId, params = {}) {
     try {
         const response = await api.get(`${VEHICLES_ENDPOINT}/${vehicleId}`, { params });

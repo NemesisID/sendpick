@@ -1372,7 +1372,7 @@ function Sidebar({ activeView, onNavigate, isOpen, onToggle, isTransitioning }) 
                 <div className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-white overflow-hidden sidebar-hover-smooth ${collapsed ? 'scale-100' : 'scale-100'
                     }`}>
                     <img
-                        src="/build/assets/logo_sendpick.aea87447-400x150.png"
+                        src="/assets/logo_sendpick.aea87447-400x150.png"
                         alt="Sendpick Logo"
                         className="h-8 w-auto object-contain"
                     />

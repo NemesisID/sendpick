@@ -57,6 +57,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[0] ?? 'CUST001',
                 'status' => 'Pending',
                 'do_date' => Carbon::now()->format('Y-m-d'),
+                'departure_date' => Carbon::now()->addHours(2), // ✅ Kolom baru
+                'eta' => Carbon::now()->addHours(6), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Elektronik - Laptop Dell 15 unit, Aksesoris IT',
                 'priority' => 'Normal',
@@ -73,6 +75,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[1] ?? 'CUST002',
                 'status' => 'In Progress',
                 'do_date' => Carbon::now()->subDays(1)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(1)->addHours(3), // ✅ Kolom baru
+                'eta' => Carbon::now()->subDays(1)->addHours(10), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Furniture - Meja Kantor 50 unit, Kursi 100 unit',
                 'priority' => 'High',
@@ -89,6 +93,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[2] ?? 'CUST003',
                 'status' => 'Delivered',
                 'do_date' => Carbon::now()->subDays(3)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(3)->addHours(4), // ✅ Kolom baru
+                'eta' => Carbon::now()->subDays(2)->addHours(8), // ✅ Kolom baru
                 'delivered_date' => Carbon::now()->subDays(1)->format('Y-m-d'),
                 'goods_summary' => 'Pakaian - Fashion Items 500 pcs',
                 'priority' => 'Normal',
@@ -107,6 +113,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[0] ?? 'CUST001',
                 'status' => 'Pending',
                 'do_date' => Carbon::now()->format('Y-m-d'),
+                'departure_date' => Carbon::now()->addHours(4), // ✅ Kolom baru
+                'eta' => Carbon::now()->addHours(12), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Makanan Beku - Frozen Food 100 kg',
                 'priority' => 'High',
@@ -123,6 +131,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[1] ?? 'CUST002',
                 'status' => 'In Progress',
                 'do_date' => Carbon::now()->subDays(2)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(2)->addHours(5), // ✅ Kolom baru
+                'eta' => Carbon::now()->subDay()->addHours(3), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Buku - Educational Books 200 pcs',
                 'priority' => 'Normal',
@@ -139,6 +149,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[2] ?? 'CUST003',
                 'status' => 'Delivered',
                 'do_date' => Carbon::now()->subDays(4)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(4)->addHours(6), // ✅ Kolom baru
+                'eta' => Carbon::now()->subDays(3)->addHours(2), // ✅ Kolom baru
                 'delivered_date' => Carbon::now()->subDays(2)->format('Y-m-d'),
                 'goods_summary' => 'Obat-obatan - Medical Supplies',
                 'priority' => 'High',
@@ -155,6 +167,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[1] ?? 'CUST002',
                 'status' => 'Pending',
                 'do_date' => Carbon::now()->addDay()->format('Y-m-d'),
+                'departure_date' => Carbon::now()->addDay()->addHours(6), // ✅ Kolom baru
+                'eta' => Carbon::now()->addDays(2)->addHours(8), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Manifest Grouping - Multiple Job Orders Jakarta-Surabaya',
                 'priority' => 'Normal',
@@ -171,6 +185,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[2] ?? 'CUST003',
                 'status' => 'Delivered',
                 'do_date' => Carbon::now()->subDays(5)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(5)->addHours(3), // ✅ Kolom baru
+                'eta' => Carbon::now()->subDays(4)->addHours(6), // ✅ Kolom baru
                 'delivered_date' => Carbon::now()->subDays(2)->format('Y-m-d'),
                 'goods_summary' => 'Manifest Grouping - Multiple Job Orders Bandung-Yogyakarta',
                 'priority' => 'High',
@@ -188,6 +204,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[0] ?? 'CUST001',
                 'status' => 'Pending',
                 'do_date' => Carbon::now()->addDays(2)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->addDays(2)->addHours(4), // ✅ Kolom baru
+                'eta' => Carbon::now()->addDays(2)->addHours(10), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Makanan Beku - Ice Cream 200 box, Frozen Food 150 box',
                 'priority' => 'Urgent',
@@ -205,6 +223,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[0] ?? 'CUST001',
                 'status' => 'Cancelled',
                 'do_date' => Carbon::now()->subDays(5)->format('Y-m-d'),
+                'departure_date' => null, // ✅ Kolom baru - dibatalkan
+                'eta' => null, // ✅ Kolom baru - dibatalkan
                 'delivered_date' => null,
                 'goods_summary' => 'Spare Parts - Automotive Parts',
                 'priority' => 'Normal',
@@ -221,6 +241,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[1] ?? 'CUST002',
                 'status' => 'Pending',
                 'do_date' => Carbon::now()->format('Y-m-d'),
+                'departure_date' => Carbon::now()->addHours(8), // ✅ Kolom baru
+                'eta' => Carbon::now()->addHours(16), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Alat Tulis - Stationery 300 pcs',
                 'priority' => 'Low',
@@ -237,6 +259,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[2] ?? 'CUST003',
                 'status' => 'Delivered',
                 'do_date' => Carbon::now()->subDays(6)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(6)->addHours(5), // ✅ Kolom baru
+                'eta' => Carbon::now()->subDays(5)->addHours(4), // ✅ Kolom baru
                 'delivered_date' => Carbon::now()->subDays(3)->format('Y-m-d'),
                 'goods_summary' => 'Kosmetik - Beauty Products 200 items',
                 'priority' => 'High',
@@ -253,6 +277,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[0] ?? 'CUST001',
                 'status' => 'In Progress',
                 'do_date' => Carbon::now()->subDays(1)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(1)->addHours(4), // ✅ Kolom baru
+                'eta' => Carbon::now()->addHours(2), // ✅ Kolom baru
                 'delivered_date' => null,
                 'goods_summary' => 'Peralatan Dapur - Kitchen Equipment',
                 'priority' => 'Normal',
@@ -269,6 +295,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[2] ?? 'CUST003',
                 'status' => 'Cancelled',
                 'do_date' => Carbon::now()->subDays(2)->format('Y-m-d'),
+                'departure_date' => null, // ✅ Kolom baru - dibatalkan
+                'eta' => null, // ✅ Kolom baru - dibatalkan
                 'delivered_date' => null,
                 'goods_summary' => 'Manifest Cancelled - Customer Request',
                 'priority' => 'Low',
@@ -285,6 +313,8 @@ class DeliveryOrderSeeder extends Seeder
                 'customer_id' => $customers[0] ?? 'CUST001',
                 'status' => 'Delivered',
                 'do_date' => Carbon::now()->subDays(7)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subDays(7)->addHours(2), // ✅ Kolom baru
+                'eta' => Carbon::now()->subDays(6)->addHours(10), // ✅ Kolom baru
                 'delivered_date' => Carbon::now()->subDays(4)->format('Y-m-d'),
                 'goods_summary' => 'Dokumen Penting - Kontrak & Legal Documents',
                 'priority' => 'Urgent',
