@@ -261,6 +261,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/reports/analytics/pdf', [ReportController::class, 'exportAnalyticsPdf'])->name('api.reports.analytics.pdf')->withoutMiddleware('auth:sanctum');
 
 
+});
+
     // ============================================
     // DRIVER MOBILE APP ROUTES
     // ============================================
@@ -268,7 +270,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Authentication: Sanctum Bearer Token
     // Platform: Mobile App Flutter (Android/iOS)
 
-    Route::prefix('driver')->name('driver.')->group(function () {
+    Route::prefix('driver')->name('driver.')->middleware('auth:sanctum')->group(function () {
         // Authentication
         Route::post('/login', [DriverAppController::class, 'login'])->withoutMiddleware('auth:sanctum')->name('login');
         Route::post('/logout', [DriverAppController::class, 'logout'])->name('logout');
@@ -301,4 +303,3 @@ Route::middleware('auth:sanctum')->group(function () {
         // Vehicle Availability Check
         Route::get('/vehicles/{vehicleId}/check', [DriverAppController::class, 'checkVehicleAvailability'])->name('vehicles.check');
     });
-});

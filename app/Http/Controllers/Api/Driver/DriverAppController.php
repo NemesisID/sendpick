@@ -266,10 +266,15 @@ class DriverAppController extends Controller
             });
 
         // Get pending orders (available for this driver to accept)
-        // These are orders without assignment or rejected by other drivers
+        // These are orders assigned to this driver (Standby) OR unassigned (Open Pool)
+        // Exclude orders assigned to OTHER drivers
         $pendingOrders = JobOrder::where('status', 'Pending')
-            ->whereDoesntHave('assignments', function($q) {
-                $q->where('status', 'Active');
+            ->where(function($query) use ($driver) {
+                $query->whereHas('assignments', function($q) use ($driver) {
+                    $q->where('driver_id', $driver->driver_id)
+                      ->where('status', '!=', 'Active');
+                })
+                ->orWhereDoesntHave('assignments');
             })
             ->with('customer')
             ->limit(5)
@@ -423,14 +428,28 @@ class DriverAppController extends Controller
 
         DB::beginTransaction();
         try {
-            // Create assignment
-            $assignment = Assignment::create([
-                'job_order_id' => $jobOrderId,
-                'driver_id' => $driver->driver_id,
-                'vehicle_id' => $request->vehicle_id ?? null, // Optional, bisa diisi nanti
-                'status' => 'Active',
-                'assigned_at' => now()
-            ]);
+            // Check for existing assignment (e.g. Standby)
+            $existingAssignment = Assignment::where('job_order_id', $jobOrderId)
+                ->where('driver_id', $driver->driver_id)
+                ->first();
+
+            if ($existingAssignment) {
+                $existingAssignment->update([
+                    'status' => 'Active',
+                    'vehicle_id' => $request->vehicle_id ?? $existingAssignment->vehicle_id,
+                    'assigned_at' => now()
+                ]);
+                $assignment = $existingAssignment;
+            } else {
+                // Create assignment
+                $assignment = Assignment::create([
+                    'job_order_id' => $jobOrderId,
+                    'driver_id' => $driver->driver_id,
+                    'vehicle_id' => $request->vehicle_id ?? null, // Optional, bisa diisi nanti
+                    'status' => 'Active',
+                    'assigned_at' => now()
+                ]);
+            }
 
             // Update job order status
             $jobOrder->update(['status' => 'Assigned']);
