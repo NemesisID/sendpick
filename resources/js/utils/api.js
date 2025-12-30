@@ -2,24 +2,23 @@
 
 import axios from 'axios';
 
-// URL Production
-const productionBaseUrl = 'https://sendpick.isslab.web.id/api';
+// 1. Dapatkan hostname saat ini dari browser
+const hostname = window.location.hostname;
 
-// Cek apakah kita sedang berada di domain production
-// Ini mencegah localhost "terbakar" saat build local
-const isProduction = window.location.hostname === 'sendpick.isslab.web.id';
+// 2. Cek apakah sedang berjalan di Localhost / 127.0.0.1
+const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
 
-// Tentukan Base URL
-// 1. Jika domain browser adalah sendpick.isslab.web.id, PAKSA pakai productionBaseUrl
-// 2. Jika bukan (misal localhost), baru cek .env atau fallback ke localhost
-const baseURL = isProduction 
-    ? productionBaseUrl 
-    : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api');
+// 3. Tentukan Base URL
+// Jika Local -> Pakai port 8000
+// Jika Production (apapun domainnya) -> Pakai https://sendpick.isslab.web.id/api
+const baseURL = isLocal 
+    ? 'http://127.0.0.1:8000/api' 
+    : 'https://sendpick.isslab.web.id/api';
 
-console.log(`🌍 Environment: ${isProduction ? 'Production' : 'Development'}`);
-console.log(`🔗 API Base URL: ${baseURL}`);
+console.log(`🌍 Hostname detected: ${hostname}`);
+console.log(`🔗 API Base URL set to: ${baseURL}`);
 
-// Buat instance axios dengan base URL yang sesuai
+// Buat instance axios
 const api = axios.create({
     baseURL: baseURL,
     withCredentials: true,
@@ -29,7 +28,7 @@ const api = axios.create({
     },
 });
 
-// Interceptor untuk menambahkan token autentikasi pada setiap request
+// Interceptor Request (Pasang Token)
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("authToken");
@@ -43,7 +42,7 @@ api.interceptors.request.use(
     }
 );
 
-// Interceptor untuk menangani response error & Token Expired
+// Interceptor Response (Handle Error & 401)
 api.interceptors.response.use(
     (response) => {
         return response;
@@ -51,11 +50,11 @@ api.interceptors.response.use(
     (error) => {
         const status = error.response?.status;
 
-        // Jika status response adalah 401, maka hapus token autentikasi dari localStorage
+        // Jika 401 (Unauthorized), hapus token dan redirect login
         if (status === 401) {
             console.error("🔐 Token expired atau invalid");
             localStorage.removeItem("authToken");
-            // Opsional: Redirect hanya jika bukan di halaman login agar tidak loop
+
             if (!window.location.pathname.includes("/login")) {
                 window.location.href = "/login";
             }
