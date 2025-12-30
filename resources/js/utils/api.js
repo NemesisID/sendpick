@@ -2,66 +2,70 @@
 
 import axios from 'axios';
 
-// 1. Dapatkan hostname saat ini dari browser
-const hostname = window.location.hostname;
+// Untuk development, pakai base URL local:
+const localBaseUrl = 'http://127.0.0.1:8000/api';
 
-// 2. Cek apakah sedang berjalan di Localhost / 127.0.0.1
-const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+// Untuk production, pakai base URL production:
+const productionBaseUrl = 'https://sendpick.isslab.web.id/api';
 
-// 3. Tentukan Base URL
-// Jika Local -> Pakai port 8000
-// Jika Production (apapun domainnya) -> Pakai https://sendpick.isslab.web.id/api
-const baseURL = isLocal 
-    ? 'http://127.0.0.1:8000/api' 
-    : 'https://sendpick.isslab.web.id/api';
-
-console.log(`🌍 Hostname detected: ${hostname}`);
-console.log(`🔗 API Base URL set to: ${baseURL}`);
-
-// Buat instance axios
+// Buat instance axios dengan base URL yang sesuai
 const api = axios.create({
-    baseURL: baseURL,
+    baseURL: import.meta.env?.VITE_API_BASE_URL ?? localBaseUrl,
     withCredentials: true,
     headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
     },
 });
 
-// Interceptor Request (Pasang Token)
+// Interceptor untuk menambahkan token autentikasi pada setiap request
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem("authToken");
+        const token = localStorage.getItem('authToken');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('✅ Token berhasil ditambahkan ke header:', token.substring(0, 20) + '...')
         }
         return config;
     },
     (error) => {
-        return Promise.reject(error);
+        console.error('❌ Request Error:', error);
+        return Promise.reject(error)
     }
 );
 
-// Interceptor Response (Handle Error & 401)
+// Interceptor untuk menangani response error & Token Expired
 api.interceptors.response.use(
     (response) => {
+        console.log('✅ Response Success:', response.status);
         return response;
     },
     (error) => {
         const status = error.response?.status;
+        const message = error.response?.data?.message;
 
-        // Jika 401 (Unauthorized), hapus token dan redirect login
+        console.error('❌ Response Error:', { status, message });
+
+        // Jika status response adalah 401, maka hapus token autentikasi dari localStorage, karena tokennya expired.
         if (status === 401) {
-            console.error("🔐 Token expired atau invalid");
-            localStorage.removeItem("authToken");
+            console.error('🔐 Token expired atau invalid');
+            localStorage.removeItem('authToken');
+            window.location.href = '/login'; // Redirect to login page
+        }
 
-            if (!window.location.pathname.includes("/login")) {
-                window.location.href = "/login";
-            }
+        // Handle 403 Forbidden
+        if (status === 403) {
+            console.error('🚫 Forbidden - Anda tidak memiliki akses');
+        }
+
+        // Handle 422 Validation Error
+        if (status === 422) {
+            console.error('⚠️ Validation Error:', error.response?.data?.errors);
         }
 
         return Promise.reject(error);
     }
 );
 
+// Export instance axios buat dipake di file" yg ada di folder services
 export default api;
