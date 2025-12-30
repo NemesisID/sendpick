@@ -153,6 +153,26 @@ function StatusBadge({ status }) {
 }
 
 function ActiveVehicleRow({ item }) {
+    // Helper format berat
+    const formatWeight = (kg) => {
+        if (!kg) return '-';
+        if (kg < 1000) return `${Math.round(kg)} Kg`;
+        return `${(kg / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} Ton`;
+    };
+
+    // Helper hitung persentase
+    const calculatePercentage = (current, max) => {
+        if (!current || !max) return 0;
+        return Math.min(100, Math.round((current / max) * 100));
+    };
+
+    const percentage = calculatePercentage(item.weight_kg, item.max_capacity_kg);
+
+    // Warna progress bar
+    let progressColor = 'bg-indigo-500';
+    if (percentage > 90) progressColor = 'bg-rose-500'; // Hampir Overload
+    else if (percentage > 70) progressColor = 'bg-emerald-500'; // Optimal
+
     return (
         <tr className='transition-colors hover:bg-slate-50'>
             <td className='px-6 py-4'>
@@ -162,12 +182,43 @@ function ActiveVehicleRow({ item }) {
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{item.route}</td>
-            <td className='px-6 py-4 text-sm font-semibold text-slate-800'>{item.eta}</td>
-            <td className='px-6 py-4 text-sm text-slate-600'>{item.load}</td>
+            <td className='px-6 py-4'>
+                {item.weight_kg ? (
+                    <div className="w-32">
+                        <div className="flex justify-between items-end mb-1">
+                            <span className="text-sm font-semibold text-slate-800">
+                                {formatWeight(item.weight_kg)}
+                            </span>
+                            <span className="text-xs text-slate-400">
+                                {percentage}%
+                            </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                                className={`h-full rounded-full ${progressColor} transition-all duration-500`}
+                                style={{ width: `${percentage}%` }}
+                            />
+                        </div>
+                        {item.max_capacity_kg > 0 && (
+                            <p className="text-[10px] text-slate-400 mt-1">
+                                Kapasitas: {formatWeight(item.max_capacity_kg)}
+                            </p>
+                        )}
+                    </div>
+                ) : (
+                    <span className='text-sm text-slate-400'>-</span>
+                )}
+            </td>
+            <td className='px-6 py-4'>
+                {item.manifest ? (
+                    <span className='text-sm font-medium text-indigo-600'>{item.manifest}</span>
+                ) : (
+                    <span className='text-sm text-slate-400'>-</span>
+                )}
+            </td>
             <td className='px-6 py-4'>
                 <StatusBadge status={item.status} />
             </td>
-            <td className='px-6 py-4 text-xs text-slate-400'>{item.lastUpdate}</td>
         </tr>
     );
 }
@@ -191,16 +242,15 @@ function ActiveVehicleTable({
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
                             <th className='px-6 py-3'>Kendaraan</th>
                             <th className='px-6 py-3'>Rute</th>
-                            <th className='px-6 py-3'>ETA</th>
-                            <th className='px-6 py-3'>Load</th>
+                            <th className='px-6 py-3'>Muatan</th>
+                            <th className='px-6 py-3'>Manifest</th>
                             <th className='px-6 py-3'>Status</th>
-                            <th className='px-6 py-3'>Update Terakhir</th>
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {loading ? (
                             <tr>
-                                <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={5} className='px-6 py-12 text-center text-sm text-slate-400'>
                                     Memuat data kendaraan...
                                 </td>
                             </tr>
@@ -208,7 +258,7 @@ function ActiveVehicleTable({
                             items.map((item) => <ActiveVehicleRow key={item.id} item={item} />)
                         ) : (
                             <tr>
-                                <td colSpan={6} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={5} className='px-6 py-12 text-center text-sm text-slate-400'>
                                     Tidak ada kendaraan dengan filter yang dipilih.
                                 </td>
                             </tr>

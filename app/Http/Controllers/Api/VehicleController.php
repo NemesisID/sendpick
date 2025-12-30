@@ -443,29 +443,44 @@ public function getActiveVehicles(Request $request): JsonResponse
         // Define active statuses that should show data
         $activeStatuses = ['Assigned', 'Pickup', 'On Delivery'];
 
-        // Calculate total weight from active manifest job orders
-        $totalLoadKg = 0;
-        foreach ($vehicle->manifests as $manifest) {
-            foreach ($manifest->jobOrders as $jo) {
-                $totalLoadKg += $jo->goods_weight ?? 0;
+        // Calculate active details
+        $manifestNumber = '-';
+        $totalWeightVal = 0;
+
+        // Find active manifest (In Transit / On Delivery)
+        $activeManifest = $vehicle->manifests->first(function($m) {
+             return in_array($m->status, ['In Transit', 'On Delivery', 'Assigned']);
+        });
+
+        if ($activeManifest) {
+            $manifestNumber = $activeManifest->manifest_id;
+            // Calculate weight from manifest's job orders
+            foreach ($activeManifest->jobOrders as $jo) {
+                $totalWeightVal += $jo->goods_weight ?? 0;
             }
+        } elseif ($jobOrder) {
+            // Fallback to single Job Order weight if no manifest assignment found but has job order
+             $totalWeightVal = $jobOrder->goods_weight ?? 0;
         }
 
-        // Only populate route/load data if we have a Job Order in an active state
+        // Convert to Ton just for display data standardization (if needed by frontend directly)
+        // But let's send raw weight/manifest for flexibility
+        
+        // Update display logic
         if ($jobOrder && in_array($jobOrder->status, $activeStatuses)) {
             $displayRoute = "{$jobOrder->pickup_city} - {$jobOrder->delivery_city}";
             
             // Calculate load percentage: (Total_JO_Weight / Max_Capacity) * 100%
             if ($maxCapacityKg > 0) {
-                // Use totalLoadKg from manifest if available, fallback to single job order weight
-                $loadWeight = $totalLoadKg > 0 ? $totalLoadKg : ($jobOrder->goods_weight ?? 0);
+                // Use totalWeightVal
+                $loadWeight = $totalWeightVal > 0 ? $totalWeightVal : ($jobOrder->goods_weight ?? 0);
                 $loadPercentage = min(100, round(($loadWeight / $maxCapacityKg) * 100));
                 $displayLoad = $loadPercentage . '%';
             } else {
                 $displayLoad = '-';
             }
             
-            // Map Status
+            // Map Status logic (existing)
             if ($jobOrder->status === 'On Delivery') {
                 $status = 'onRoute';
                 $statusLabel = 'On Route';
@@ -473,12 +488,10 @@ public function getActiveVehicles(Request $request): JsonResponse
                 $status = 'loading';
                 $statusLabel = 'Loading';
             } else {
-                // Assigned
                 $status = 'assigned';
                 $statusLabel = 'Assigned';
             }
         } else {
-             // Fallback to vehicle status if no active job order or job order is not active
              if ($vehicle->status === 'Maintenance') {
                  $status = 'maintenance';
                  $statusLabel = 'Maintenance';
@@ -490,12 +503,15 @@ public function getActiveVehicles(Request $request): JsonResponse
             'vehicle' => $vehicle->plate_no,
             'driver' => $displayDriver,
             'route' => $displayRoute,
+            'manifest' => $manifestNumber !== '-' ? $manifestNumber : null,
+            'weight_kg' => $totalWeightVal, // Kirim raw KG agar frontend bisa format dinamis
+            'max_capacity_kg' => $maxCapacityKg, // Kirim kapasitas max
             'eta' => $displayEta,
             'load' => $displayLoad,
             'status' => $status,
             'status_label' => $statusLabel,
             'lastUpdate' => $lastGps ? $lastGps->created_at->diffForHumans() : '-',
-            'region' => 'jabodetabek', // Default
+            'region' => 'jabodetabek',
         ];
     });
 

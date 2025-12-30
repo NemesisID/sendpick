@@ -17,6 +17,7 @@ import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
 import Pagination from '../../../components/common/Pagination';
 import { useAdmins } from '../hooks/useAdmins';
 import { useAdminsCrud } from '../hooks/useAdminsCrud';
+import { useUser } from '../../../context/UserContext';
 
 // Jumlah data per halaman
 const ITEMS_PER_PAGE = 6;
@@ -126,7 +127,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function AdminRow({ admin, onEdit, onDelete }) {
+function AdminRow({ admin, onEdit, onDelete, isSuperAdmin }) {
     const initial = admin.name.charAt(0).toUpperCase();
 
     return (
@@ -169,32 +170,34 @@ function AdminRow({ admin, onEdit, onDelete }) {
                     minute: '2-digit'
                 }) : '-'}
             </td>
-            <td className='px-6 py-4'>
-                <div className='flex items-center gap-2'>
-                    <button
-                        type='button'
-                        onClick={(e) => {
-                            e.preventDefault();
-                            onEdit(admin);
-                        }}
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
-                        aria-label={`Edit ${admin.name}`}
-                    >
-                        <Pencil className='h-4 w-4' />
-                    </button>
-                    <button
-                        type='button'
-                        onClick={(e) => {
-                            e.preventDefault();
-                            onDelete(admin);
-                        }}
-                        className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
-                        aria-label={`Hapus ${admin.name}`}
-                    >
-                        <Trash2 className='h-4 w-4' />
-                    </button>
-                </div>
-            </td>
+            {isSuperAdmin && (
+                <td className='px-6 py-4'>
+                    <div className='flex items-center gap-2'>
+                        <button
+                            type='button'
+                            onClick={(e) => {
+                                e.preventDefault();
+                                onEdit(admin);
+                            }}
+                            className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-indigo-200 hover:text-indigo-600'
+                            aria-label={`Edit ${admin.name}`}
+                        >
+                            <Pencil className='h-4 w-4' />
+                        </button>
+                        <button
+                            type='button'
+                            onClick={(e) => {
+                                e.preventDefault();
+                                onDelete(admin);
+                            }}
+                            className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:text-rose-600'
+                            aria-label={`Hapus ${admin.name}`}
+                        >
+                            <Trash2 className='h-4 w-4' />
+                        </button>
+                    </div>
+                </td>
+            )}
         </tr>
     );
 }
@@ -263,6 +266,7 @@ function AdminTable({
     startIndex,
     endIndex,
     onPageChange,
+    isSuperAdmin,
 }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
@@ -290,14 +294,16 @@ function AdminTable({
                         options={roleFilterOptions}
                         widthClass='w-full sm:w-48'
                     />
-                    <button
-                        type='button'
-                        onClick={onAdd}
-                        className='inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:w-auto'
-                    >
-                        <Plus className='h-4 w-4' />
-                        Tambah Admin
-                    </button>
+                    {isSuperAdmin && (
+                        <button
+                            type='button'
+                            onClick={onAdd}
+                            className='inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:w-auto'
+                        >
+                            <Plus className='h-4 w-4' />
+                            Tambah Admin
+                        </button>
+                    )}
                 </div>
             </div>
             <div className='mt-6 overflow-x-auto'>
@@ -309,7 +315,7 @@ function AdminTable({
                             <th className='px-6 py-3'>Kontak</th>
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Last Login</th>
-                            <th className='px-6 py-3'>Aksi</th>
+                            {isSuperAdmin && <th className='px-6 py-3'>Aksi</th>}
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
@@ -322,6 +328,7 @@ function AdminTable({
                                     admin={admin}
                                     onEdit={onEdit}
                                     onDelete={onDelete}
+                                    isSuperAdmin={isSuperAdmin}
                                 />
                             ))
                         ) : (
@@ -409,6 +416,9 @@ function RolePermissionsSection({ admins = [] }) {
 }
 
 export default function AdminContent() {
+    const { user } = useUser();
+    const isSuperAdmin = user?.role === 'Super Admin';
+
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     const [adminList, setAdminList] = useState([]);
@@ -724,6 +734,7 @@ export default function AdminContent() {
                 startIndex={startIndex}
                 endIndex={endIndex}
                 onPageChange={handlePageChange}
+                isSuperAdmin={isSuperAdmin}
             />
             <RolePermissionsSection admins={adminList} />
 

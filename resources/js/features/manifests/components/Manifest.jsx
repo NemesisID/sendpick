@@ -1245,6 +1245,18 @@ export default function ManifestContent() {
                 ? 'Untuk FTL, kendaraan terisi otomatis dan terkunci.'
                 : 'Pilih kendaraan untuk pengiriman LTL.'
         },
+        // ✅ NEW: Catatan Tambahan untuk Assignment (LTL only)
+        {
+            name: 'assignmentNote',
+            label: 'Catatan Assignment',
+            type: 'textarea',
+            required: false,
+            placeholder: 'Catatan tambahan untuk penugasan driver (opsional)...',
+            rows: 3,
+            // Only show for LTL mode (not FTL)
+            hidden: (formData) => isFTLSelected(formData) || !isLTLSelected(formData),
+            description: 'Catatan ini akan tercatat di histori assignment Job Order.'
+        },
     ];
 
     // Fungsi untuk menghitung data gabungan dari Job Orders yang dipilih
@@ -1470,6 +1482,8 @@ export default function ManifestContent() {
                 job_order_ids: formData.jobOrders || [],
                 driver_id: driverId,
                 vehicle_id: vehicleId,
+                // ✅ NEW: Catatan tambahan untuk assignment (LTL scenario)
+                assignment_note: formData.assignmentNote || null,
             };
 
             if (!editModal.manifest) {
