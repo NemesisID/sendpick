@@ -4,7 +4,8 @@ if (!window.axios) {
     window.axios = axios;
 }
 
-const baseURL = import.meta.env?.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const baseURL =
+    import.meta.env?.VITE_API_BASE_URL ?? "https://sendpick.isslab.web.id/api";
 
 window.axios.defaults.baseURL = baseURL;
 window.axios.defaults.withCredentials = true;
