@@ -266,13 +266,12 @@ class DriverAppController extends Controller
             });
 
         // Get pending orders (available for this driver to accept)
-        // These are orders without assignment or rejected by other drivers
+        // Modified: Only show orders assigned to this driver (if any are in Pending state)
         $pendingOrders = JobOrder::where('status', 'Pending')
-            ->whereDoesntHave('assignments', function($q) {
-                $q->where('status', 'Active');
+            ->whereHas('assignments', function($q) use ($driver) {
+                $q->where('driver_id', $driver->driver_id);
             })
             ->with('customer')
-            ->limit(5)
             ->get()
             ->map(function($order) {
                 return [
