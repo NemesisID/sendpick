@@ -4,9 +4,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PdfController;
 use App\Http\Controllers\Api\ReportController;
 
-Route::get('/', function () {
+Route::get('/login', function () {
     return view('welcome');
-});
+})->name('login');
 
 Route::get('/dashboard', function () {
     return view('dashboard.index');

@@ -16,7 +16,7 @@
         const token = localStorage.getItem('auth_token');
         if (!token) {
             // Redirect to login if no token found
-            window.location.href = '/';
+            window.location.href = '/login';
         }
     </script>
 </body>

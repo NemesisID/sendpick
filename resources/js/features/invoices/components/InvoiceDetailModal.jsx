@@ -348,7 +348,10 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                 <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-6 mt-6">
                     <button
                         type="button"
-                        onClick={() => window.open(`http://127.0.0.1:8000/api/invoices/${invoice.invoice_id}/pdf`, '_blank')}
+                        onClick={() => {
+                            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+                            window.open(`${baseUrl}/invoices/${invoice.invoice_id}/pdf`, '_blank');
+                        }}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
                     >
                         <HiOutlinePrinter className="h-4 w-4" />
@@ -356,7 +359,10 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                     </button>
                     <button
                         type="button"
-                        onClick={() => window.open(`http://127.0.0.1:8000/api/invoices/${invoice.invoice_id}/pdf`, '_blank')}
+                        onClick={() => {
+                            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+                            window.open(`${baseUrl}/invoices/${invoice.invoice_id}/pdf`, '_blank');
+                        }}
                         className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 hover:shadow-indigo-300"
                     >
                         <HiOutlineDownload className="h-4 w-4" />
