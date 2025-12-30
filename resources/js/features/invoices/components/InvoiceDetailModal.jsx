@@ -349,7 +349,7 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                     <button
                         type="button"
                         onClick={() => {
-                            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+                            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://sendpick.isslab.web.id/api';
                             window.open(`${baseUrl}/invoices/${invoice.invoice_id}/pdf`, '_blank');
                         }}
                         className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
@@ -360,7 +360,7 @@ export default function InvoiceDetailModal({ isOpen, onClose, invoice }) {
                     <button
                         type="button"
                         onClick={() => {
-                            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+                            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://sendpick.isslab.web.id/api';
                             window.open(`${baseUrl}/invoices/${invoice.invoice_id}/pdf`, '_blank');
                         }}
                         className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 hover:shadow-indigo-300"
