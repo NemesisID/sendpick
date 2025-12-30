@@ -1202,13 +1202,13 @@ const UserDropdown = ({ user, onNavigateProfile }) => {
             // Clear user data dari localStorage
             localStorage.removeItem('sendpick_user');
             // Redirect ke halaman login
-            window.location.href = '/login';
+            window.location.href = '/';
         } catch (error) {
             console.error('Logout error:', error);
             // Tetap redirect meskipun API gagal
             localStorage.removeItem('sendpick_user');
             localStorage.removeItem('authToken');
-            window.location.href = '/login';
+            window.location.href = '/';
         } finally {
             setIsLoggingOut(false);
         }

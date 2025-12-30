@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
-import { Truck, Check, Settings, AlertTriangle, Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Truck, Check, Package, AlertTriangle, Search, Plus, Pencil, Trash2 } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
 import EditModal from '../../../components/common/EditModal';
 import DeleteConfirmModal from '../../../components/common/DeleteConfirmModal';
@@ -18,17 +18,17 @@ const generateSummaryCards = (vehicles = []) => {
 
     // Count by status
     const operatingVehicles = vehicles.filter(v => v.status === 'Aktif' || v.status === 'Sedang Kirim').length;
-    const maintenanceVehicles = vehicles.filter(v => v.status === 'Maintenance').length;
+    // const maintenanceVehicles = vehicles.filter(v => v.status === 'Maintenance').length; // Removed
     const inactiveVehicles = vehicles.filter(v => v.status === 'Tidak Aktif').length;
 
-    // Count vehicles with upcoming maintenance this week
-    const today = new Date();
-    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const maintenanceThisWeek = vehicles.filter(v => {
-        if (!v.next_maintenance_date) return false;
-        const maintenanceDate = new Date(v.next_maintenance_date);
-        return maintenanceDate >= today && maintenanceDate <= nextWeek;
-    }).length;
+    // Calculate total available capacity (Sum of max_weight for 'Aktif' vehicles)
+    // max_weight is in kg, convert to Tons
+    const availableCapacity = vehicles
+        .filter(v => v.status === 'Aktif')
+        .reduce((sum, v) => sum + (parseFloat(v.max_weight) || 0), 0);
+
+    // Format to Tons with 1 decimal place if needed
+    const availableCapacityTons = (availableCapacity / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 });
 
     return [
         {
@@ -48,12 +48,12 @@ const generateSummaryCards = (vehicles = []) => {
             icon: <Check className='h-5 w-5' />,
         },
         {
-            title: 'Maintenance',
-            value: maintenanceThisWeek.toString(),
-            description: 'Jadwal perawatan minggu ini',
-            iconBg: 'bg-amber-100',
-            iconColor: 'text-amber-500',
-            icon: <Settings className='h-5 w-5' />,
+            title: 'Kapasitas Tersedia',
+            value: `${availableCapacityTons} Ton`,
+            description: 'Total kapasitas armada yang siap jalan',
+            iconBg: 'bg-indigo-100',
+            iconColor: 'text-indigo-600',
+            icon: <Package className='h-5 w-5' />,
         },
         {
             title: 'Tidak Aktif',
@@ -196,13 +196,6 @@ function VehicleRow({ vehicle, onEdit, onDelete }) {
                     {conditionStyle.label}
                 </Tag>
             </td>
-
-            <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='space-y-1'>
-                    <p>Last: {vehicle.last_maintenance_date ? new Date(vehicle.last_maintenance_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Belum ada'}</p>
-                    <p>Next: {vehicle.next_maintenance_date ? new Date(vehicle.next_maintenance_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Belum dijadwalkan'}</p>
-                </div>
-            </td>
             <td className='px-6 py-4'>
                 <div className='flex items-center gap-1'>
                     <button
@@ -267,15 +260,13 @@ function VehicleTable({
                             <th className='px-6 py-3'>Lokasi</th>
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Kondisi</th>
-
-                            <th className='px-6 py-3'>Maintenance</th>
                             <th className='px-6 py-3'>Aksi</th>
                         </tr>
                     </thead>
                     <tbody className='divide-y divide-slate-100'>
                         {loading ? (
                             <tr>
-                                <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={7} className='px-6 py-12 text-center text-sm text-slate-400'>
                                     Memuat data kendaraan...
                                 </td>
                             </tr>
@@ -290,7 +281,7 @@ function VehicleTable({
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={8} className='px-6 py-12 text-center text-sm text-slate-400'>
+                                <td colSpan={7} className='px-6 py-12 text-center text-sm text-slate-400'>
                                     Tidak ada kendaraan pada filter saat ini.
                                 </td>
                             </tr>
@@ -465,13 +456,6 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             step: '0.01'
         },
         {
-            name: 'odometer_km',
-            label: 'Kilometer Saat Ini',
-            type: 'number',
-            required: true,
-            placeholder: 'Contoh: 50000'
-        },
-        {
             name: 'driver_id',
             label: 'Driver',
             type: 'select',
@@ -498,20 +482,6 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
                 { value: 'Aktif', label: 'Aktif' },
                 { value: 'Tidak Aktif', label: 'Tidak Aktif' }
             ]
-        },
-        {
-            name: 'last_maintenance_date',
-            label: 'Tanggal Service Terakhir',
-            type: 'date',
-            required: false,
-            placeholder: 'Pilih tanggal service terakhir'
-        },
-        {
-            name: 'next_maintenance_date',
-            label: 'Jadwal Service Berikutnya',
-            type: 'date',
-            required: false,
-            placeholder: 'Pilih jadwal service berikutnya'
         },
         {
             name: 'condition_label',

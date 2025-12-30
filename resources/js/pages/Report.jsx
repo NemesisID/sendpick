@@ -359,9 +359,9 @@ function ExportReportsPanel({ dateRange, dataCount = 0, isLoadingData = false })
     };
 
     return (
-        <section className='relative flex flex-col bg-white shadow-sm rounded-3xl border border-slate-200 overflow-hidden'>
+        <section className='relative flex flex-col bg-white shadow-sm rounded-3xl border border-slate-200'>
             {/* Header with gradient */}
-            <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 px-6 py-5">
+            <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 px-6 py-5 rounded-t-3xl">
                 <h3 className='text-base font-semibold text-white flex items-center gap-2'>
                     <Download className="w-5 h-5" />
                     Export Reports
@@ -454,7 +454,7 @@ function ExportReportsPanel({ dateRange, dataCount = 0, isLoadingData = false })
 
                     {/* Dropdown Menu */}
                     {isDropdownOpen && hasData && (
-                        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-20 animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in slide-in-from-top-2 duration-200">
                             {/* PDF Option */}
                             <button
                                 type="button"

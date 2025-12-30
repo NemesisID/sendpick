@@ -130,7 +130,7 @@ function HomeStatCard({ card }) {
     );
 }
 
-function MonthlyTrendCard() {
+const MonthlyTrendCard = React.memo(function MonthlyTrendCard() {
     const monthlyData = [
         { month: 'Jan', orders: 120 },
         { month: 'Feb', orders: 135 },
@@ -172,15 +172,17 @@ function MonthlyTrendCard() {
                             fillOpacity={1}
                             fill='url(#colorOrders)'
                             activeDot={{ r: 8, strokeWidth: 0 }}
+                            animationDuration={2000}
+                            animationEasing="ease-in-out"
                         />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
         </section>
     );
-}
+});
 
-function ShipmentStatusCard() {
+const ShipmentStatusCard = React.memo(function ShipmentStatusCard() {
     const shipmentData = [
         { name: 'Delivered', value: 83, color: '#10b981', labelClass: 'text-emerald-500' },
         { name: 'In Transit', value: 11, color: '#3b82f6', labelClass: 'text-blue-500' },
@@ -206,6 +208,8 @@ function ShipmentStatusCard() {
                                 label={false}
                                 stroke='#fff'
                                 strokeWidth={3}
+                                animationDuration={1500}
+                                animationEasing="ease-out"
                             >
                                 {shipmentData.map((entry, idx) => (
                                     <Cell key={`cell-${idx}`} fill={entry.color} />
@@ -227,7 +231,7 @@ function ShipmentStatusCard() {
             </div>
         </section>
     );
-}
+});
 
 function TransactionsCard({ activities = [], loading = false, itemsPerPage = 5 }) {
     const [currentPage, setCurrentPage] = useState(1);

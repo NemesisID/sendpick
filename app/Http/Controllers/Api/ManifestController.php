@@ -160,6 +160,8 @@ class ManifestController extends Controller
             'job_order_ids.*' => 'exists:job_orders,job_order_id',
             'driver_id' => 'nullable|exists:drivers,driver_id',
             'vehicle_id' => 'nullable|exists:vehicles,vehicle_id',
+            // ✅ NEW: Catatan tambahan untuk assignment (LTL scenario)
+            'assignment_note' => 'nullable|string|max:500',
         ]);
 
         // Generate unique manifest_id
@@ -213,7 +215,7 @@ class ManifestController extends Controller
 
         // ✅ Create Status History if driver/vehicle assigned
         if ($request->driver_id || $request->vehicle_id) {
-            $this->createDriverAssignmentHistory($manifest, $jobOrderIds, $request->driver_id, $request->vehicle_id);
+            $this->createDriverAssignmentHistory($manifest, $jobOrderIds, $request->driver_id, $request->vehicle_id, $request->assignment_note);
             
             // 🔔 Send Push Notification to Driver
             if ($request->driver_id) {
@@ -302,6 +304,8 @@ class ManifestController extends Controller
             'job_order_ids.*' => 'exists:job_orders,job_order_id',
             'driver_id' => 'nullable|exists:drivers,driver_id',
             'vehicle_id' => 'nullable|exists:vehicles,vehicle_id',
+            // ✅ NEW: Catatan tambahan untuk assignment (LTL scenario)
+            'assignment_note' => 'nullable|string|max:500',
         ]);
 
         $manifest->update($request->only([
@@ -361,7 +365,7 @@ class ManifestController extends Controller
         $vehicleChanged = $request->vehicle_id && $request->vehicle_id !== $oldVehicleId;
         
         if (($driverChanged || $vehicleChanged) && !empty($allJobOrderIds)) {
-            $this->createDriverAssignmentHistory($manifest, $allJobOrderIds, $request->driver_id, $request->vehicle_id);
+            $this->createDriverAssignmentHistory($manifest, $allJobOrderIds, $request->driver_id, $request->vehicle_id, $request->assignment_note);
         }
 
         // 🔔 Send Push Notification if Driver Changed or Assigned
@@ -1024,9 +1028,10 @@ class ManifestController extends Controller
      * @param array $jobOrderIds
      * @param string|null $driverId
      * @param string|null $vehicleId
+     * @param string|null $assignmentNote - ✅ NEW: Catatan tambahan dari form (LTL scenario)
      * @return void
      */
-    private function createDriverAssignmentHistory(Manifests $manifest, array $jobOrderIds, ?string $driverId, ?string $vehicleId): void
+    private function createDriverAssignmentHistory(Manifests $manifest, array $jobOrderIds, ?string $driverId, ?string $vehicleId, ?string $assignmentNote = null): void
     {
         if (empty($jobOrderIds)) {
             return;
@@ -1054,6 +1059,11 @@ class ManifestController extends Controller
         if ($vehicleId) {
             $notes .= " - Kendaraan: {$vehiclePlate}";
         }
+        
+        // ✅ NEW: Append custom assignment note if provided (LTL scenario)
+        if ($assignmentNote && trim($assignmentNote) !== '') {
+            $notes .= " | Catatan: " . trim($assignmentNote);
+        }
 
         // Create status history for each Job Order in the manifest
         // ✅ SKIP FTL Job Orders - FTL already has its own driver assignment via Job Order page
@@ -1074,6 +1084,6 @@ class ManifestController extends Controller
             );
         }
 
-        \Log::info("Created driver assignment history for LTL job orders in Manifest {$manifest->manifest_id} (FTL orders skipped)");
+        \Log::info("Created driver assignment history for LTL job orders in Manifest {$manifest->manifest_id} (FTL orders skipped)" . ($assignmentNote ? " - Custom Note: {$assignmentNote}" : ""));
     }
 }
