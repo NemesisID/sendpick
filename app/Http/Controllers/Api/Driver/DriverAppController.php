@@ -193,6 +193,136 @@ class DriverAppController extends Controller
     }
 
     /**
+     * Select vehicle - Driver memilih kendaraan setelah login
+     * UI: Halaman pemilihan kendaraan setelah login di mobile app
+     * 
+     * Logika:
+     * - 1 driver hanya bisa memilih 1 kendaraan pada satu waktu
+     * - Kendaraan yang dipilih akan ter-link ke driver (driver_id di vehicles)
+     * - Status kendaraan akan berubah menjadi 'In Use'
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function selectVehicle(Request $request): JsonResponse
+    {
+        $request->validate([
+            'vehicle_id' => 'required|exists:vehicles,vehicle_id'
+        ]);
+
+        $driver = $request->user();
+        $vehicleId = $request->vehicle_id;
+
+        // Check if vehicle is already in use by another driver
+        $vehicle = Vehicles::find($vehicleId);
+        
+        if (!$vehicle) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kendaraan tidak ditemukan'
+            ], 404);
+        }
+
+        // Check if vehicle is already assigned to another driver
+        if ($vehicle->driver_id && $vehicle->driver_id !== $driver->driver_id) {
+            $currentDriver = Drivers::find($vehicle->driver_id);
+            return response()->json([
+                'success' => false,
+                'message' => 'Kendaraan ini sedang digunakan oleh driver lain: ' . ($currentDriver->driver_name ?? 'Unknown')
+            ], 422);
+        }
+
+        // Check if vehicle is available (not Maintenance or Tidak Aktif)
+        if (in_array($vehicle->status, ['Maintenance', 'Tidak Aktif'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kendaraan tidak tersedia. Status: ' . $vehicle->status
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Release previous vehicle if driver had one
+            Vehicles::where('driver_id', $driver->driver_id)
+                ->where('vehicle_id', '!=', $vehicleId)
+                ->update([
+                    'driver_id' => null,
+                    'status' => 'Available'
+                ]);
+
+            // Assign new vehicle to driver
+            $vehicle->update([
+                'driver_id' => $driver->driver_id,
+                'status' => 'In Use'
+            ]);
+
+            DB::commit();
+
+            // Reload vehicle with type info
+            $vehicle->load('vehicleType');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kendaraan berhasil dipilih',
+                'data' => [
+                    'vehicle_id' => $vehicle->vehicle_id,
+                    'plate_no' => $vehicle->plate_no,
+                    'brand' => $vehicle->brand,
+                    'model' => $vehicle->model,
+                    'vehicle_type' => $vehicle->vehicleType->name ?? null,
+                    'status' => $vehicle->status
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('[SELECT VEHICLE] Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memilih kendaraan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get available vehicles - Daftar kendaraan yang bisa dipilih driver
+     * UI: Dropdown/list pemilihan kendaraan di mobile app
+     * 
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getAvailableVehicles(Request $request): JsonResponse
+    {
+        $driver = $request->user();
+
+        // Get vehicles that are Available OR already assigned to this driver
+        $vehicles = Vehicles::with('vehicleType')
+            ->where(function($query) use ($driver) {
+                $query->where('status', 'Available')
+                    ->orWhere('driver_id', $driver->driver_id);
+            })
+            ->whereNotIn('status', ['Maintenance', 'Tidak Aktif'])
+            ->get()
+            ->map(function($vehicle) use ($driver) {
+                return [
+                    'vehicle_id' => $vehicle->vehicle_id,
+                    'plate_no' => $vehicle->plate_no,
+                    'brand' => $vehicle->brand,
+                    'model' => $vehicle->model,
+                    'vehicle_type' => $vehicle->vehicleType->name ?? null,
+                    'capacity' => $vehicle->capacity_label,
+                    'status' => $vehicle->status,
+                    'is_selected' => $vehicle->driver_id === $driver->driver_id
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $vehicles
+        ], 200);
+    }
+
+    /**
      * ============================================
      * FCM TOKEN MANAGEMENT
      * ============================================
@@ -338,14 +468,22 @@ class DriverAppController extends Controller
                     'job_order_id' => $jobOrder->job_order_id,
                     'customer_name' => $jobOrder->customer->customer_name ?? 'N/A',
                     'customer_phone' => $jobOrder->customer->contact_person ?? 'N/A',
-                    'pickup_address' => $jobOrder->pickup_address,
+                    // Delivery information only (no pickup - delivery from warehouse model)
                     'delivery_address' => $jobOrder->delivery_address,
-                    'pickup_contact' => $jobOrder->pickup_contact,
+                    'delivery_city' => $jobOrder->delivery_city,
+                    'delivery_lat' => $jobOrder->delivery_lat,
+                    'delivery_lng' => $jobOrder->delivery_lng,
+                    'recipient_name' => $jobOrder->recipient_name,
+                    'recipient_phone' => $jobOrder->recipient_phone,
+                    // Goods information
                     'goods_desc' => $jobOrder->goods_desc,
+                    'goods_qty' => $jobOrder->goods_qty,
                     'goods_weight' => $jobOrder->goods_weight,
                     'goods_volume' => $jobOrder->goods_volume,
+                    // Schedule
                     'ship_date' => $jobOrder->ship_date,
                     'delivery_date' => $jobOrder->delivery_date,
+                    // Status & type
                     'status' => $jobOrder->status,
                     'order_type' => $jobOrder->order_type,
                     'special_instruction' => $jobOrder->special_instruction
@@ -358,7 +496,6 @@ class DriverAppController extends Controller
                 'delivery_order' => $deliveryOrder ? [
                     'do_id' => $deliveryOrder->do_id,
                     'status' => $deliveryOrder->status,
-                    'pickup_location' => $deliveryOrder->pickup_location,
                     'delivery_location' => $deliveryOrder->delivery_location,
                     'goods_summary' => $deliveryOrder->goods_summary
                 ] : null,

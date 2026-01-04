@@ -192,11 +192,11 @@ const fallbackOrderRecords = [
 ];
 
 const fallbackCustomers = [
-    { id: '1', nama: 'PT Maju Jaya', kode: 'PMJ' },
-    { id: '2', nama: 'CV Sukses Mandiri', kode: 'CSM' },
-    { id: '3', nama: 'UD Berkah', kode: 'UDB' },
-    { id: '4', nama: 'PT Global Logistik', kode: 'PGL' },
-    { id: '5', nama: 'CV Sentosa Transport', kode: 'CST' },
+    { id: '1', nama: 'PT Maju Jaya', kode: 'PMJ', contact_name: 'Budi Santoso', phone: '081234567890' },
+    { id: '2', nama: 'CV Sukses Mandiri', kode: 'CSM', contact_name: 'Andi Wijaya', phone: '082345678901' },
+    { id: '3', nama: 'UD Berkah', kode: 'UDB', contact_name: 'Siti Rahayu', phone: '083456789012' },
+    { id: '4', nama: 'PT Global Logistik', kode: 'PGL', contact_name: 'Dian Pratama', phone: '084567890123' },
+    { id: '5', nama: 'CV Sentosa Transport', kode: 'CST', contact_name: 'Rudi Hartono', phone: '085678901234' },
 ];
 
 const INDONESIA_CITIES = [
@@ -492,7 +492,27 @@ export default function JobOrderContent() {
     const [formJobOrderType, setFormJobOrderType] = useState('LTL');
 
     const handleFieldChange = (name, value, setFormData) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const newData = { ...prev, [name]: value };
+
+            // Auto-fill Nama Penerima dan No. Telp Penerima ketika customer dipilih
+            if (name === 'customer_id' && value) {
+                const selectedCustomer = customers.find(c => c.id === value);
+                if (selectedCustomer) {
+                    // Hanya auto-fill jika field masih kosong
+                    if (!prev.recipient_name) {
+                        newData.recipient_name = selectedCustomer.contact_name || '';
+                    }
+                    if (!prev.recipient_phone) {
+                        newData.recipient_phone = selectedCustomer.phone || '';
+                    }
+                    console.log('📋 Auto-fill recipient data from customer:', selectedCustomer);
+                }
+            }
+
+            return newData;
+        });
+
         if (name === 'jobOrderType') {
             setFormJobOrderType(value);
         }
@@ -614,6 +634,9 @@ export default function JobOrderContent() {
                         id: customer.customer_id ?? customer.id ?? '',
                         nama: customer.customer_name ?? customer.nama ?? customer.name ?? '-',
                         kode: customer.customer_code ?? customer.kode ?? customer.code ?? '-',
+                        // Tambahkan contact_name dan phone untuk auto-fill penerima
+                        contact_name: customer.contact_name ?? '',
+                        phone: customer.phone ?? '',
                     }));
 
                     setCustomers(normalizedCustomers);
@@ -845,62 +868,7 @@ export default function JobOrderContent() {
                 { value: 'FTL', label: 'FTL (Full Truckload)' }
             ]
         },
-        // =====================================================
-        // PICKUP LOCATION SECTION
-        // =====================================================
-        {
-            name: 'pickup_address',
-            label: 'Alamat Lengkap Pickup',
-            type: 'textarea',
-            required: true,
-            placeholder: 'Alamat lengkap pickup',
-            rows: 2
-        },
-        {
-            name: 'pickup_city',
-            label: 'Kota Pickup',
-            type: 'select',
-            required: true,
-            options: INDONESIA_CITIES,
-            placeholder: 'Pilih Kota Pickup'
-        },
-        {
-            name: 'pickup_coordinates',
-            label: 'Koordinat Lokasi Pickup',
-            type: 'location-picker',
-            locationType: 'pickup',
-            latField: 'pickup_lat',
-            lngField: 'pickup_lng',
-            addressField: 'pickup_address',
-            cityField: 'pickup_city', // ✅ NEW: Auto-fill kota dari reverse geocoding
-            mapTitle: 'Pilih Lokasi Penjemputan',
-            description: 'Koordinat akan otomatis diisi berdasarkan alamat di atas, atau klik di peta untuk auto-fill alamat & kota'
-        },
-        {
-            name: 'pickup_contact',
-            label: 'Nama Kontak Pickup',
-            type: 'text',
-            required: false,
-            placeholder: 'Nama orang yang dihubungi di lokasi pickup',
-            description: 'PIC yang akan menyerahkan barang'
-        },
-        {
-            name: 'pickup_phone',
-            label: 'No. Telepon Kontak Pickup',
-            type: 'text',
-            required: false,
-            placeholder: 'Contoh: 08123456789',
-            description: 'Nomor telepon untuk koordinasi pickup'
-        },
-        // Hidden fields for pickup coordinates
-        {
-            name: 'pickup_lat',
-            type: 'hidden'
-        },
-        {
-            name: 'pickup_lng',
-            type: 'hidden'
-        },
+
         // =====================================================
         // DELIVERY LOCATION SECTION
         // =====================================================
@@ -938,7 +906,7 @@ export default function JobOrderContent() {
             type: 'text',
             required: false,
             placeholder: 'Nama orang yang akan menerima barang',
-            description: 'PIC penerima di lokasi tujuan'
+            description: 'PIC penerima di lokasi tujuan. Otomatis terisi dari data kontak pelanggan.'
         },
         {
             name: 'recipient_phone',
@@ -946,7 +914,7 @@ export default function JobOrderContent() {
             type: 'text',
             required: false,
             placeholder: 'Contoh: 08123456789',
-            description: 'Nomor telepon untuk koordinasi pengiriman'
+            description: 'Nomor telepon untuk koordinasi pengiriman. Otomatis terisi dari data pelanggan.'
         },
         // Hidden fields for delivery coordinates
         {

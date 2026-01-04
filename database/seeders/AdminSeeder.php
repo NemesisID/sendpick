@@ -36,9 +36,9 @@ class AdminSeeder extends Seeder
             ]
         );
 
-        // Attach Super Admin role
-        if (!$admin->roles->contains($superAdminRole->role_id)) {
-            $admin->roles()->attach($superAdminRole->role_id);
+        // Attach Super Admin role (menggunakan 'id' karena itu primary key di tabel roles)
+        if (!$admin->roles->contains('id', $superAdminRole->id)) {
+            $admin->roles()->attach($superAdminRole->id);
         }
 
         $this->command->info('✅ Super Admin created successfully!');

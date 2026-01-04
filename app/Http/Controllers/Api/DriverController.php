@@ -129,7 +129,7 @@ class DriverController extends Controller
             'phone' => 'required|string|max:20|unique:drivers,phone',
             'email' => 'nullable|email|max:255|unique:drivers,email',
             'password' => 'required|string|min:8',
-            'status' => 'in:Aktif,Tidak Aktif',
+            'status' => 'in:Available,On Duty,Off Duty,Tidak Aktif',
             'shift' => 'nullable|string|max:50',
             'last_lat' => 'nullable|numeric|between:-90,90',
             'last_lng' => 'nullable|numeric|between:-180,180'
@@ -147,7 +147,7 @@ class DriverController extends Controller
             'phone' => $request->phone,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'status' => $request->status ?? 'Aktif',
+            'status' => $request->status ?? 'Available',
             'shift' => $request->shift,
             'last_lat' => $request->last_lat,
             'last_lng' => $request->last_lng
@@ -217,7 +217,7 @@ class DriverController extends Controller
                 'max:255',
                 Rule::unique('drivers', 'email')->ignore($driver->driver_id, 'driver_id')
             ],
-            'status' => 'in:Aktif,Tidak Aktif',
+            'status' => 'in:Available,On Duty,Off Duty,Tidak Aktif',
             'shift' => 'nullable|string|max:50',
             'last_lat' => 'nullable|numeric|between:-90,90',
             'last_lng' => 'nullable|numeric|between:-180,180'
@@ -258,7 +258,7 @@ class DriverController extends Controller
         }
 
         // Check jika driver memiliki assignment aktif
-        $hasActiveAssignments = $driver->assignments()->where('status', 'Aktif')->exists();
+        $hasActiveAssignments = $driver->assignments()->where('status', 'Active')->exists();
 
         if ($hasActiveAssignments) {
             return response()->json([
@@ -289,12 +289,12 @@ class DriverController extends Controller
             'search' => 'nullable|string|max:100'
         ]);
 
-        // Mendapatkan daftar driver yang statusnya 'Aktif' dan tidak memiliki assignment aktif.
+        // Mendapatkan daftar driver yang statusnya 'Available' atau 'On Duty' dan tidak memiliki assignment aktif.
         // Logic: 
         // 1. Tidak assigned di Job Order aktif (via assignments table)
         // 2. Tidak assigned di Manifest aktif (via manifests table)
         
-        $drivers = Drivers::where('status', 'Aktif')
+        $drivers = Drivers::whereIn('status', ['Available', 'On Duty'])
             ->whereDoesntHave('assignments', function($query) {
                 // Cek assignment aktif yang job ordernya belum selesai
                 $query->where('status', 'Active')

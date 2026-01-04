@@ -298,6 +298,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/history', [DriverAppController::class, 'getJobHistory'])->name('history');
         Route::get('/history/stats', [DriverAppController::class, 'getHistoryStats'])->name('history.stats');
         
+        // Vehicle Selection (Driver pilih kendaraan setelah login)
+        Route::get('/vehicles/available', [DriverAppController::class, 'getAvailableVehicles'])->name('vehicles.available');
+        Route::post('/vehicles/select', [DriverAppController::class, 'selectVehicle'])->name('vehicles.select');
+        
         // Vehicle Availability Check
         Route::get('/vehicles/{vehicleId}/check', [DriverAppController::class, 'checkVehicleAvailability'])->name('vehicles.check');
     });

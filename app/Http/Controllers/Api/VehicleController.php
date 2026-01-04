@@ -124,7 +124,7 @@ class VehicleController extends Controller
             'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
             'capacity_label' => 'nullable|string|max:100',
             'odometer_km' => 'nullable|integer|min:0',
-            'status' => 'nullable|in:Aktif,Tidak Aktif',
+            'status' => 'nullable|in:Available,In Use,Maintenance,Tidak Aktif',
             'condition_label' => 'nullable|in:Baru,Sangat Baik,Baik,Perlu Perbaikan',
             'driver_id' => 'nullable|exists:drivers,driver_id',
             'fuel_level_pct' => 'nullable|integer|min:0|max:100',
@@ -147,7 +147,7 @@ class VehicleController extends Controller
             'year' => $request->year,
             'capacity_label' => $request->capacity_label,
             'odometer_km' => $request->odometer_km ?? 0,
-            'status' => $request->status ?? 'Aktif',
+            'status' => $request->status ?? 'Available',
             'condition_label' => $request->condition_label ?? 'Baik',
             'driver_id' => $request->driver_id ?: null,
             'fuel_level_pct' => $request->fuel_level_pct ?? 0,
@@ -218,7 +218,7 @@ class VehicleController extends Controller
             'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
             'capacity_label' => 'nullable|string|max:100',
             'odometer_km' => 'nullable|integer|min:0',
-            'status' => 'nullable|in:Aktif,Tidak Aktif',
+            'status' => 'nullable|in:Available,In Use,Maintenance,Tidak Aktif',
             'condition_label' => 'nullable|in:Baru,Sangat Baik,Baik,Perlu Perbaikan',
             'driver_id' => 'nullable|exists:drivers,driver_id',
             'fuel_level_pct' => 'nullable|integer|min:0|max:100',
@@ -305,9 +305,9 @@ class VehicleController extends Controller
             'min_capacity' => 'nullable|numeric|min:0'
         ]);
 
-        // Filter kendaraan yang statusnya 'Aktif', kondisi bukan 'Rusak', dan tidak memiliki assignment aktif 
+        // Filter kendaraan yang statusnya 'Available', kondisi bukan 'Rusak', dan tidak memiliki assignment aktif 
         $query = Vehicles::with('vehicleType')
-            ->where('status', 'Aktif')
+            ->where('status', 'Available')
             ->where('condition_label', '!=', 'Rusak')
             ->whereDoesntHave('assignments', function($q) {
                 // Active assignment for active JobOrders
@@ -552,7 +552,7 @@ public function getActiveVehicles(Request $request): JsonResponse
         $completedDeliveries = $deliveredQuery->count();
 
         // 2. Utilisasi Armada (Active vehicles in Manifests / Total Vehicles)
-        $totalVehicles = Vehicles::where('status', 'Aktif')->count();
+        $totalVehicles = Vehicles::whereNotIn('status', ['Tidak Aktif'])->count();
         $activeManifestVehicles = Manifests::whereNotIn('status', ['Completed', 'Cancelled', 'Delivered'])
             ->whereNotNull('vehicle_id')
             ->distinct('vehicle_id')

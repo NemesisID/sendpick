@@ -205,33 +205,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                             <p className="text-xs text-slate-500 mt-1">{jobOrder.destinationAddress}</p>
                                         </div>
 
-                                        {/* Pickup Contact Info */}
-                                        <div className="sm:col-span-2 border-t border-slate-200 pt-4 mt-2">
-                                            <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-                                                <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-emerald-100 text-emerald-600">
-                                                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                    </svg>
-                                                </span>
-                                                Kontak Pickup
-                                            </p>
-                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pl-8">
-                                                <div>
-                                                    <p className="text-sm text-slate-500">Nama Kontak</p>
-                                                    <p className="font-medium text-slate-900">{jobOrder.pickupContact}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-slate-500">No. Telepon</p>
-                                                    <p className="font-medium text-slate-900">
-                                                        {jobOrder.pickupPhone !== '-' ? (
-                                                            <a href={`tel:${jobOrder.pickupPhone}`} className="text-indigo-600 hover:underline">
-                                                                {jobOrder.pickupPhone}
-                                                            </a>
-                                                        ) : '-'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
+
 
                                         {/* Recipient/Delivery Contact Info */}
                                         <div className="sm:col-span-2 border-t border-slate-200 pt-4 mt-2">
@@ -241,7 +215,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                                     </svg>
                                                 </span>
-                                                Kontak Penerima
+                                                Kontak Penerima (Customer)
                                             </p>
                                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 pl-8">
                                                 <div>
@@ -292,7 +266,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
                                         {jobOrder.notes && (
                                             <div>
-                                                <p className="text-sm text-slate-500">Notes</p>
+                                                <p className="text-sm text-slate-500">Notes Item</p>
                                                 <p className="font-medium text-slate-900">{jobOrder.notes}</p>
                                             </div>
                                         )}

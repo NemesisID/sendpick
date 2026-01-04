@@ -118,6 +118,12 @@ const customerTypeOptions = [
     { value: 'individual', label: 'Individual' },
 ];
 
+const customerStatusOptions = [
+    { value: 'all', label: 'Semua Status' },
+    { value: 'active', label: 'Aktif' },
+    { value: 'inactive', label: 'Tidak Aktif' },
+];
+
 const API_CUSTOMER_TYPE_MAP = {
     corporate: 'Corporate',
     sme: 'SME',
@@ -308,6 +314,8 @@ function CustomerTable({
     onSearchChange,
     typeFilter,
     onTypeChange,
+    statusFilter,
+    onStatusChange,
     onEdit,
     onDelete,
     onAdd,
@@ -358,6 +366,12 @@ function CustomerTable({
                         value={typeFilter}
                         onChange={onTypeChange}
                         options={customerTypeOptions}
+                        widthClass='w-full sm:w-48'
+                    />
+                    <FilterDropdown
+                        value={statusFilter}
+                        onChange={onStatusChange}
+                        options={customerStatusOptions}
                         widthClass='w-full sm:w-48'
                     />
                 </div>
@@ -417,6 +431,7 @@ function CustomerTable({
 export default function CustomerContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [editModal, setEditModal] = useState({ isOpen: false, customer: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, customer: null });
     const [currentPage, setCurrentPage] = useState(1);
@@ -502,10 +517,11 @@ export default function CustomerContent() {
                 : true;
 
             const matchesType = typeFilter === 'all' || customer.type === typeFilter;
+            const matchesStatus = statusFilter === 'all' || customer.status === statusFilter;
 
-            return matchesSearch && matchesType;
+            return matchesSearch && matchesType && matchesStatus;
         });
-    }, [formattedCustomers, searchTerm, typeFilter]);
+    }, [formattedCustomers, searchTerm, typeFilter, statusFilter]);
 
     // Pagination calculations
     const totalItems = filteredCustomers.length;
@@ -517,7 +533,7 @@ export default function CustomerContent() {
     // Reset ke halaman 1 saat filter/search berubah
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, typeFilter]);
+    }, [searchTerm, typeFilter, statusFilter]);
 
     const handlePageChange = (page) => {
         setCurrentPage(page);
@@ -660,6 +676,8 @@ export default function CustomerContent() {
                 onSearchChange={setSearchTerm}
                 typeFilter={typeFilter}
                 onTypeChange={setTypeFilter}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
                 onEdit={handleEditCustomer}
                 onDelete={handleDeleteCustomer}
                 onAdd={handleAddCustomer}

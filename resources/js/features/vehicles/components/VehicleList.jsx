@@ -454,20 +454,6 @@ export default function VehicleListContent({ showPopup = false, setShowPopup = (
             placeholder: 'Contoh: 1000',
             min: 0,
             step: '0.01'
-        },
-        {
-            name: 'driver_id',
-            label: 'Driver',
-            type: 'select',
-            required: false,
-            placeholder: 'Pilih driver (opsional)',
-            options: [
-                { value: '', label: 'Tidak ada driver' },
-                ...availableDrivers.map(driver => ({
-                    value: driver.driver_id,
-                    label: driver.driver_name
-                }))
-            ]
         }
     ];
 
