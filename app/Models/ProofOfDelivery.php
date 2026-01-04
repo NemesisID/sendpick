@@ -12,13 +12,17 @@ class ProofOfDelivery extends Model
     
     protected $fillable = [
         'job_order_id',
+        'recipient_name',
+        'notes',
         'photo_url',
         'signature_url',
+        'delivered_at',
         'uploaded_at'
     ];
 
     protected $casts = [
-        'uploaded_at' => 'datetime'
+        'uploaded_at' => 'datetime',
+        'delivered_at' => 'datetime'
     ];
 
     /**

@@ -4,6 +4,7 @@
     <meta charset='utf-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <title>SendPick OMS - Dashboard</title>
+    <link rel="icon" href="{{ asset('assets/logo_sendpick.aea87447-400x150.png') }}" type="image/png">
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>

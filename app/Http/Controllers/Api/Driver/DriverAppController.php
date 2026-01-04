@@ -805,13 +805,17 @@ class DriverAppController extends Controller
             ], 403);
         }
 
+        // Get job order
+        $jobOrder = JobOrder::where('job_order_id', $jobOrderId)->first();
+
         DB::beginTransaction();
         try {
             $podData = [
                 'job_order_id' => $jobOrderId,
                 'recipient_name' => $request->recipient_name,
                 'notes' => $request->notes,
-                'delivered_at' => now()
+                'delivered_at' => now(),
+                'uploaded_at' => now()
             ];
 
             // Upload photo
