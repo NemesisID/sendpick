@@ -673,14 +673,6 @@ function ManifestTable({
                             <PlusIcon className='h-4 w-4' />
                             Tambah Manifest
                         </button>
-                        <button
-                            type='button'
-                            onClick={onPrint}
-                            className='inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white px-4 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 sm:w-auto'
-                        >
-                            <PrinterIcon className='h-4 w-4' />
-                            Cetak Manifest
-                        </button>
                     </div>
                 </div>
             </div>
@@ -1231,19 +1223,7 @@ export default function ManifestContent() {
             disabled: (formData) => isFTLSelected(formData),
             description: (formData) => isFTLSelected(formData)
                 ? 'Untuk FTL, driver terisi otomatis dan terkunci.'
-                : 'Pilih driver untuk pengiriman LTL.'
-        },
-        {
-            name: 'vehicle',
-            label: 'Vehicle',
-            type: 'select',
-            required: false,
-            options: availableVehicles,
-            // Disable if FTL (Auto-filled & Locked)
-            disabled: (formData) => isFTLSelected(formData),
-            description: (formData) => isFTLSelected(formData)
-                ? 'Untuk FTL, kendaraan terisi otomatis dan terkunci.'
-                : 'Pilih kendaraan untuk pengiriman LTL.'
+                : 'Pilih driver untuk pengiriman. Kendaraan akan dipilih driver melalui mobile app.'
         },
         // ✅ NEW: Catatan Tambahan untuk Assignment (LTL only)
         {

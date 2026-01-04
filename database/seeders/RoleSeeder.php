@@ -15,13 +15,23 @@ class RoleSeeder extends Seeder
             return;
         }
 
-        // $roles = [
-        //     ['id' => 1, 'name' => 'Super Admin', 'description' => 'Full system access', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
-        //     ['id' => 2, 'name' => 'Admin', 'description' => 'Limited admin access', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
-        // ];
+        $roles = [
+            [
+                'name' => 'Super Admin',
+                'description' => 'Full system access - dapat melakukan CRUD pada semua data',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'name' => 'Admin',
+                'description' => 'Akses terbatas - hanya dapat melihat data tanpa akses CRUD',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+        ];
 
-        // DB::table('roles')->insert($roles);
+        DB::table('roles')->insert($roles);
 
-        // $this->command->info('✅ Roles seeded successfully: ' . count($roles) . ' records added.');
+        $this->command->info('✅ Roles seeded successfully: ' . count($roles) . ' records added.');
     }
 }

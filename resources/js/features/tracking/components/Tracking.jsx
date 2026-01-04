@@ -123,13 +123,13 @@ const SearchIcon = ({ className = 'h-5 w-5' }) => (
 
 function KPI({ card }) {
     return (
-        <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+        <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm'>
             <div>
-                <p className='text-sm text-slate-400'>{card.title}</p>
-                <p className='mt-2 text-2xl font-semibold text-slate-900'>{card.value}</p>
+                <p className='text-sm font-medium text-slate-400'>{card.title}</p>
+                <p className='mt-3 text-3xl font-semibold text-slate-900'>{card.value}</p>
             </div>
-            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor}`}>
-                {card.icon}
+            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor}`}>
+                {React.cloneElement(card.icon, { className: 'h-6 w-6' })}
             </div>
         </article>
     );

@@ -324,6 +324,25 @@ class DeliveryOrderSeeder extends Seeder
                 'updated_at' => now()->subDays(4),
             ],
 
+            // ✅ Delivery Order dengan status "In Transit"
+            [
+                'do_id' => 'DO-20251110-014',
+                'source_type' => 'JO',
+                'source_id' => !empty($jobOrders) && isset($jobOrders[0]) ? $jobOrders[0] : 'JO-20251109-001',
+                'customer_id' => $customers[1] ?? 'CUST002',
+                'status' => 'In Transit',
+                'do_date' => Carbon::now()->subHours(6)->format('Y-m-d'),
+                'departure_date' => Carbon::now()->subHours(4), // ✅ Sudah berangkat 4 jam lalu
+                'eta' => Carbon::now()->addHours(3), // ✅ Estimasi tiba 3 jam lagi
+                'delivered_date' => null,
+                'goods_summary' => 'Elektronik - Server Equipment & Network Devices',
+                'priority' => 'High',
+                'temperature' => 'Ambient',
+                'created_by' => 'ADM001',
+                'created_at' => now()->subHours(8),
+                'updated_at' => now()->subHours(4),
+            ],
+
         ];
 
         DB::table('delivery_orders')->insert($deliveryOrders);

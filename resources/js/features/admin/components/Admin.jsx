@@ -104,6 +104,12 @@ const roleFilterOptions = [
     { value: 'warehouse', label: 'Warehouse Lead' },
 ];
 
+const statusFilterOptions = [
+    { value: 'all', label: 'Semua Status' },
+    { value: 'active', label: 'Aktif' },
+    { value: 'inactive', label: 'Tidak Aktif' },
+];
+
 const adminRecords = [
     {
         name: 'Super Admin',
@@ -284,7 +290,7 @@ function AdminRow({ admin, onEdit, onDelete }) {
     );
 }
 
-function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChange, onEdit, onDelete }) {
+function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChange, statusFilter, onStatusChange, onEdit, onDelete }) {
     return (
         <section className='rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
             <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between'>
@@ -309,6 +315,12 @@ function AdminTable({ admins, searchTerm, onSearchChange, roleFilter, onRoleChan
                         value={roleFilter}
                         onChange={onRoleChange}
                         options={roleFilterOptions}
+                        widthClass='w-full sm:w-48'
+                    />
+                    <FilterDropdown
+                        value={statusFilter}
+                        onChange={onStatusChange}
+                        options={statusFilterOptions}
                         widthClass='w-full sm:w-48'
                     />
                 </div>
@@ -389,6 +401,7 @@ function RolePermissionsSection() {
 export default function AdminContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
 
     // Modal states
     const [editModal, setEditModal] = useState({ isOpen: false, admin: null });
@@ -511,9 +524,10 @@ export default function AdminContent() {
                 roleStyles[admin.role]?.label.toLowerCase().includes(term) ||
                 admin.department.toLowerCase().includes(term);
             const matchesRole = roleFilter === 'all' || admin.role === roleFilter;
-            return matchesSearch && matchesRole;
+            const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
+            return matchesSearch && matchesRole && matchesStatus;
         });
-    }, [searchTerm, roleFilter]);
+    }, [searchTerm, roleFilter, statusFilter]);
 
     return (
         <>
@@ -528,6 +542,8 @@ export default function AdminContent() {
                 onSearchChange={setSearchTerm}
                 roleFilter={roleFilter}
                 onRoleChange={setRoleFilter}
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
             />
