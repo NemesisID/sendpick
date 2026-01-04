@@ -44,53 +44,85 @@ class GpsController extends Controller
      */
     public function getCurrentLocations(Request $request): JsonResponse
     {
-        // Get latest GPS data for each active driver
-        $currentLocations = Gps::select('gps_tracking_logs.*')
-            ->with(['driver', 'vehicle'])
-            ->whereIn('id', function($query) {
-                $query->select(DB::raw('MAX(id)'))
-                    ->from('gps_tracking_logs')
-                    ->where('sent_at', '>=', now()->subHours(2)) // Only recent data
-                    ->groupBy('driver_id', 'vehicle_id');
-            })
-            ->whereHas('driver', function($q) {
-                $q->whereIn('status', ['Available', 'On Duty']);
-            })
-            ->orderBy('sent_at', 'desc')
-            ->get();
+        try {
+            // Check if table has any data first
+            $hasData = Gps::where('sent_at', '>=', now()->subHours(2))->exists();
+            
+            if (!$hasData) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'metadata' => [
+                        'total_drivers' => 0,
+                        'online_drivers' => 0,
+                        'last_updated' => now()->toIso8601String()
+                    ]
+                ], 200);
+            }
 
-        // Add additional data
-        $currentLocations->transform(function ($gps) {
-            $gps->time_ago = Carbon::parse($gps->sent_at)->diffForHumans();
-            $gps->is_online = Carbon::parse($gps->sent_at)->greaterThan(now()->subMinutes(15));
-            
-            // Get active delivery via job_order_assignments
-            // Driver bisa punya banyak assignments, ambil yang Active/On Duty
-            $activeAssignment = DB::table('job_order_assignments')
-                ->join('job_orders', 'job_order_assignments.job_order_id', '=', 'job_orders.job_order_id')
-                ->where('job_order_assignments.driver_id', $gps->driver_id)
-                ->where('job_order_assignments.status', 'Active')
-                ->whereIn('job_orders.status', ['Processing', 'In Transit'])
-                ->select('job_orders.job_order_id', 'job_orders.status')
-                ->first();
-            
-            $gps->active_delivery = $activeAssignment ? [
-                'job_order_id' => $activeAssignment->job_order_id,
-                'status' => $activeAssignment->status
-            ] : null;
-            
-            return $gps;
-        });
+            // Get latest GPS data for each active driver
+            $currentLocations = Gps::select('gps_tracking_logs.*')
+                ->with(['driver', 'vehicle'])
+                ->whereIn('id', function($query) {
+                    $query->select(DB::raw('MAX(id)'))
+                        ->from('gps_tracking_logs')
+                        ->where('sent_at', '>=', now()->subHours(2)) // Only recent data
+                        ->whereNotNull('driver_id')
+                        ->groupBy('driver_id');
+                })
+                ->whereHas('driver', function($q) {
+                    $q->whereIn('status', ['Available', 'On Duty']);
+                })
+                ->orderBy('sent_at', 'desc')
+                ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $currentLocations,
-            'metadata' => [
-                'total_drivers' => $currentLocations->count(),
-                'online_drivers' => $currentLocations->where('is_online', true)->count(),
-                'last_updated' => now()->toIso8601String()
-            ]
-        ], 200);
+            // Add additional data
+            $currentLocations->transform(function ($gps) {
+                $gps->time_ago = Carbon::parse($gps->sent_at)->diffForHumans();
+                $gps->is_online = Carbon::parse($gps->sent_at)->greaterThan(now()->subMinutes(15));
+                
+                // Get active delivery via job_order_assignments
+                // Driver bisa punya banyak assignments, ambil yang Active/On Duty
+                $activeAssignment = DB::table('job_order_assignments')
+                    ->join('job_orders', 'job_order_assignments.job_order_id', '=', 'job_orders.job_order_id')
+                    ->where('job_order_assignments.driver_id', $gps->driver_id)
+                    ->where('job_order_assignments.status', 'Active')
+                    ->whereIn('job_orders.status', ['Processing', 'In Transit'])
+                    ->select('job_orders.job_order_id', 'job_orders.status')
+                    ->first();
+                
+                $gps->active_delivery = $activeAssignment ? [
+                    'job_order_id' => $activeAssignment->job_order_id,
+                    'status' => $activeAssignment->status
+                ] : null;
+                
+                return $gps;
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $currentLocations,
+                'metadata' => [
+                    'total_drivers' => $currentLocations->count(),
+                    'online_drivers' => $currentLocations->where('is_online', true)->count(),
+                    'last_updated' => now()->toIso8601String()
+                ]
+            ], 200);
+            
+        } catch (\Exception $e) {
+            \Log::error('GPS getCurrentLocations error: ' . $e->getMessage());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data lokasi: ' . $e->getMessage(),
+                'data' => [],
+                'metadata' => [
+                    'total_drivers' => 0,
+                    'online_drivers' => 0,
+                    'last_updated' => now()->toIso8601String()
+                ]
+            ], 200); // Return 200 with empty data instead of 500
+        }
     }
 
     /**
