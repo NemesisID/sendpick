@@ -49,7 +49,7 @@ class AuthController extends Controller
 
         // Login sebagai Admin (Web)
         if ($request->type === 'admin') {
-            $user = Admin::where('email', $request->email)->first();
+            $user = Admin::with('roles')->where('email', $request->email)->first();
             $tokenName = 'web-admin-token';
             $expiresAt = now()->addDays(7); // Token admin 7 hari
 
@@ -66,7 +66,8 @@ class AuthController extends Controller
                             'user_id' => $user->user_id,
                             'name' => $user->name,
                             'email' => $user->email,
-                            'roles' => $user->roles->pluck('name'),
+                            'phone' => $user->phone,
+                            'roles' => $user->roles->pluck('name')->values()->toArray(),
                         ],
                         'token' => $token,
                         'token_type' => 'Bearer',
@@ -148,14 +149,15 @@ class AuthController extends Controller
 
         // ← TAMBAHKAN: Format response berdasarkan tipe
         if ($userType === 'admin') {
-            $userData['user'] = [
-                'user_id' => $user->user_id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'roles' => $user->roles->pluck('name'),
-                'created_at' => $user->created_at,
-                'updated_at' => $user->updated_at,
-            ];
+        $userData['user'] = [
+            'user_id' => $user->user_id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'roles' => $user->roles->pluck('name')->values()->toArray(),
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ];
         } else {
             $userData['user'] = [
                 'driver_id' => $user->driver_id,

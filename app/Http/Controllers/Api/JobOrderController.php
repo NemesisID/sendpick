@@ -654,13 +654,43 @@ class JobOrderController extends Controller
             // ============================================================
             // 4. DEACTIVATE ASSIGNMENTS (Optional cleanup)
             // ============================================================
+            // Get affected drivers before cancelling assignments
+            $affectedDriverIds = Assignment::where('job_order_id', $jobOrderId)
+                ->where('status', 'Active')
+                ->pluck('driver_id')
+                ->unique()
+                ->filter();
+
             Assignment::where('job_order_id', $jobOrderId)
                 ->where('status', 'Active')
                 ->update(['status' => 'Cancelled']);
 
+            // ============================================================
+            // 5. RESET DRIVER STATUS TO AVAILABLE
+            // ============================================================
+            // Kembalikan status driver ke 'Available' jika tidak punya assignment aktif lain
+            $releasedDrivers = [];
+            foreach ($affectedDriverIds as $driverId) {
+                $hasOtherActiveAssignments = Assignment::where('driver_id', $driverId)
+                    ->where('status', 'Active')
+                    ->exists();
+
+                $hasActiveManifest = \App\Models\Manifests::where('driver_id', $driverId)
+                    ->whereNotIn('status', ['Completed', 'Cancelled', 'Delivered'])
+                    ->exists();
+
+                if (!$hasOtherActiveAssignments && !$hasActiveManifest) {
+                    \App\Models\Drivers::where('driver_id', $driverId)
+                        ->update(['status' => 'Available']);
+                    $releasedDrivers[] = $driverId;
+                    \Log::info("[CANCEL JO] Driver {$driverId} status reset to Available");
+                }
+            }
+
             \Log::info("[CANCEL JO] Job Order {$jobOrderId} dibatalkan", [
                 'cancelled_dos' => $cancelledDOs,
                 'updated_manifests' => $updatedManifests,
+                'released_drivers' => $releasedDrivers,
                 'reason' => $cancellationReason
             ]);
 

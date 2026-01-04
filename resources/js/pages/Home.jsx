@@ -117,14 +117,14 @@ function formatRelativeTime(timestamp) {
 
 function HomeStatCard({ card }) {
     return (
-        <article className='flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+        <article className='flex items-center gap-4 rounded-3xl border border-slate-200 bg-white px-6 py-7 shadow-sm'>
             <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor}`}>
                 {card.icon}
             </div>
             <div>
                 <p className='text-sm text-slate-400'>{card.title}</p>
-                <p className='mt-1 text-2xl font-semibold text-slate-900'>{card.value}</p>
-                <p className={`text-xs font-medium ${card.deltaColor}`}>{card.delta}</p>
+                <p className='mt-2 text-2xl font-semibold text-slate-900'>{card.value}</p>
+                <p className={`mt-1 text-xs font-medium ${card.deltaColor}`}>{card.delta}</p>
             </div>
         </article>
     );

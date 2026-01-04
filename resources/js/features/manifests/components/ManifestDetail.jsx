@@ -281,7 +281,7 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                                     <th className="pb-3 pr-4">Lokasi Tujuan</th>
                                                     <th className="pb-3 pr-4 text-right">Berat</th>
                                                     <th className="pb-3 pr-4 text-right">Koli</th>
-                                                    <th className="pb-3 text-center">Titik Lokasi</th>
+                                                    <th className="pb-3 text-center">Titik Lokasi Tujuan</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">

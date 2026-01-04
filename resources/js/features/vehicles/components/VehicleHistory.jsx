@@ -1,7 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { CheckCircle2, Activity, Package, Clock, Search, Loader2 } from 'lucide-react';
 import FilterDropdown from '../../../components/common/FilterDropdown';
+import Pagination from '../../../components/common/Pagination';
 import api from '../../../utils/api';
+
+// Jumlah data per halaman
+const ITEMS_PER_PAGE = 6;
 
 const timeFilterOptions = [
     { value: '30d', label: '30 Hari Terakhir' },
@@ -168,31 +172,16 @@ function HistoryTable({ records, searchTerm, onSearchChange, statusFilter, onSta
             </div>
 
             {/* Pagination */}
-            {pagination && pagination.last_page > 1 && (
-                <div className='mt-4 flex items-center justify-between border-t border-slate-100 pt-4'>
-                    <p className='text-sm text-slate-500'>
-                        Menampilkan {records.length} dari {pagination.total} data
-                    </p>
-                    <div className='flex gap-2'>
-                        <button
-                            onClick={() => onPageChange(pagination.current_page - 1)}
-                            disabled={pagination.current_page === 1}
-                            className='rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
-                        >
-                            Sebelumnya
-                        </button>
-                        <span className='flex items-center px-3 text-sm text-slate-600'>
-                            {pagination.current_page} / {pagination.last_page}
-                        </span>
-                        <button
-                            onClick={() => onPageChange(pagination.current_page + 1)}
-                            disabled={pagination.current_page === pagination.last_page}
-                            className='rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50'
-                        >
-                            Selanjutnya
-                        </button>
-                    </div>
-                </div>
+            {pagination && (
+                <Pagination
+                    currentPage={pagination.current_page || 1}
+                    totalPages={pagination.last_page || 1}
+                    totalItems={pagination.total || 0}
+                    itemsPerPage={ITEMS_PER_PAGE}
+                    startIndex={((pagination.current_page || 1) - 1) * ITEMS_PER_PAGE}
+                    endIndex={Math.min(((pagination.current_page || 1) * ITEMS_PER_PAGE), pagination.total || 0)}
+                    onPageChange={onPageChange}
+                />
             )}
         </section>
     );
@@ -234,7 +223,7 @@ export default function VehicleHistoryContent() {
                 status_filter: statusFilter,
                 search: debouncedSearch,
                 page: currentPage,
-                per_page: 10,
+                per_page: ITEMS_PER_PAGE,
             };
 
             const response = await api.get('/vehicles/delivery-history', { params });
