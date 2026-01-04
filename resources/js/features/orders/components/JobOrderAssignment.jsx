@@ -350,19 +350,10 @@ export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0
             label: 'Driver',
             type: 'select',
             required: true,
+            description: 'Pilih driver untuk ditugaskan. Kendaraan akan dipilih oleh driver melalui mobile app.',
             options: drivers.map(d => ({
                 value: d.driver_id,
-                label: d.driver_name
-            }))
-        },
-        {
-            name: 'vehicle_id',
-            label: 'Kendaraan',
-            type: 'select',
-            required: true,
-            options: vehicles.map(v => ({
-                value: v.vehicle_id,
-                label: `${v.license_plate} ${v.vehicle_type?.name ? `(${v.vehicle_type.name})` : ''}`
+                label: `${d.driver_name}${d.assigned_vehicle?.plate_no ? ` (Kendaraan: ${d.assigned_vehicle.plate_no})` : ''}`
             }))
         },
         {
@@ -373,38 +364,10 @@ export default function JobOrderAssignment({ jobOrderId, status, goodsWeight = 0
             placeholder: 'Catatan tambahan untuk assignment',
             rows: 3
         }
-    ], [drivers, vehicles]);
+    ], [drivers]);
 
     const handleFieldChange = (name, value, setFormData) => {
         setFormData(prev => ({ ...prev, [name]: value }));
-
-        // Logic: Auto-fill Vehicle when Driver is selected
-        if (name === 'driver_id') {
-            const selectedDriver = drivers.find(d => d.driver_id === value);
-            // assigned_vehicle is loaded from backend relation
-            const assignedVehicleId = selectedDriver?.assigned_vehicle?.vehicle_id;
-
-            if (assignedVehicleId) {
-                // Only auto-fill if the vehicle is in the available list
-                const isVehicleAvailable = vehicles.some(v => v.vehicle_id === assignedVehicleId);
-                if (isVehicleAvailable) {
-                    setFormData(prev => ({ ...prev, vehicle_id: assignedVehicleId }));
-                }
-            }
-        }
-
-        // Logic: Auto-fill Driver when Vehicle is selected
-        if (name === 'vehicle_id') {
-            const selectedVehicle = vehicles.find(v => v.vehicle_id === value);
-            const assignedDriverId = selectedVehicle?.driver_id;
-
-            if (assignedDriverId) {
-                const isDriverAvailable = drivers.some(d => d.driver_id === assignedDriverId);
-                if (isDriverAvailable) {
-                    setFormData(prev => ({ ...prev, driver_id: assignedDriverId }));
-                }
-            }
-        }
     };
 
     if (loading) {

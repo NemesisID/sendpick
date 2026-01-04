@@ -35,11 +35,6 @@ const roleStyles = {
         bg: 'bg-rose-100',
         text: 'text-rose-600',
     },
-    adminOperational: {
-        label: 'Admin Operasional',
-        bg: 'bg-sky-100',
-        text: 'text-sky-600',
-    },
     admin: {
         label: 'Admin',
         bg: 'bg-blue-100',
@@ -64,8 +59,8 @@ const statusStyles = {
 
 const roleFilterOptions = [
     { value: 'all', label: 'Semua Role' },
-    { value: 'superAdmin', label: 'Super Admin' },
-    { value: 'adminOperational', label: 'Admin Operasional' },
+    { value: 'Super Admin', label: 'Super Admin' },
+    { value: 'Admin', label: 'Admin' },
 ];
 
 // Role configuration untuk styling dan deskripsi
@@ -77,20 +72,19 @@ const roleConfig = {
         bg: 'bg-rose-50',
     },
     admin: {
-        role: 'Admin Operasional',
-        description: 'Kelola operasi harian, job order, manifest, delivery order, dan armada.',
+        role: 'Admin',
+        description: 'Akses terbatas - hanya dapat melihat data tanpa akses CRUD.',
         color: 'text-blue-600',
         bg: 'bg-blue-50',
     },
 };
 
 const getRoleKey = (roleName) => {
-    if (!roleName) return 'superAdmin';
+    if (!roleName) return 'admin';
     const normalized = roleName.toLowerCase();
     if (normalized.includes('super')) return 'superAdmin';
-    if (normalized.includes('operasional') || normalized.includes('operational') || normalized.includes('operation')) return 'adminOperational';
     if (normalized === 'admin') return 'admin';
-    return 'superAdmin';
+    return 'admin';
 };
 
 function SummaryCard({ card }) {
@@ -418,6 +412,11 @@ function RolePermissionsSection({ admins = [] }) {
 export default function AdminContent() {
     const { user } = useUser();
     const isSuperAdmin = user?.role === 'Super Admin';
+
+    // Debug: Log untuk troubleshooting RBAC
+    console.log('[Users] Current user:', user);
+    console.log('[Users] User role:', user?.role);
+    console.log('[Users] isSuperAdmin:', isSuperAdmin);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');

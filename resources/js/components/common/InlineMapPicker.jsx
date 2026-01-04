@@ -133,10 +133,25 @@ const InlineMapPicker = ({
     const geocodeTimeoutRef = useRef(null);
     const lastGeocodedAddressRef = useRef('');
 
+    // Keep track of internal position for comparison without adding to dependencies
+    const internalPositionRef = useRef(internalPosition);
+    useEffect(() => {
+        internalPositionRef.current = internalPosition;
+    }, [internalPosition]);
+
     // Update internal position when prop changes
     useEffect(() => {
         if (position?.lat && position?.lng) {
-            setInternalPosition(position);
+            // Check if position is effectively different from current internal position
+            // This prevents infinite loops and redundant updates that cause map "stuttering"
+            const currentInternal = internalPositionRef.current;
+            const hasChanged = !currentInternal ||
+                Math.abs(position.lat - currentInternal.lat) > 0.00001 ||
+                Math.abs(position.lng - currentInternal.lng) > 0.00001;
+
+            if (hasChanged) {
+                setInternalPosition(position);
+            }
         }
     }, [position]);
 

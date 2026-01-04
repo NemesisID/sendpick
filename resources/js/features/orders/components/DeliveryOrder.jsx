@@ -513,17 +513,6 @@ function DeliveryOrderTable({
 
                         {/* Action Buttons */}
                         <div className='flex flex-col sm:flex-row gap-2'>
-                            {/* Print Button */}
-                            <button
-                                type='button'
-                                onClick={onPrint}
-                                className='w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-emerald-500 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 whitespace-nowrap'
-                            >
-                                <PrinterIcon className='h-4 w-4 flex-shrink-0' />
-                                <span className='hidden sm:inline'>Cetak Delivery Order</span>
-                                <span className='sm:hidden'>Cetak DO</span>
-                            </button>
-
                             {/* Add Button */}
                             <button
                                 type='button'

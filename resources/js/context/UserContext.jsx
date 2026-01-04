@@ -24,6 +24,11 @@ export const UserProvider = ({ children }) => {
                 if (savedUser) {
                     const userData = JSON.parse(savedUser);
 
+                    // Debug: Log raw user data untuk troubleshooting
+                    console.log('[UserContext] Raw userData from localStorage:', userData);
+                    console.log('[UserContext] Roles data:', userData.roles);
+                    console.log('[UserContext] First role:', userData.roles?.[0]);
+
                     // Transform to match expected format
                     setUser({
                         fullName: userData.name || 'User',

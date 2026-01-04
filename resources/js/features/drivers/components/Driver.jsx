@@ -256,12 +256,24 @@ const generateDriverSummaryCards = (drivers = []) => {
 };
 
 const driverStatusStyles = {
-    // Format yang sesuai dengan backend
-    'Aktif': {
-        label: 'Aktif',
+    // Status baru sesuai dokumentasi API
+    'Available': {
+        label: 'Available',
         badgeBg: 'bg-green-50',
         text: 'text-green-600',
         dot: 'bg-green-500',
+    },
+    'On Duty': {
+        label: 'On Duty',
+        badgeBg: 'bg-blue-50',
+        text: 'text-blue-600',
+        dot: 'bg-blue-500',
+    },
+    'Off Duty': {
+        label: 'Off Duty',
+        badgeBg: 'bg-slate-50',
+        text: 'text-slate-600',
+        dot: 'bg-slate-500',
     },
     'Tidak Aktif': {
         label: 'Tidak Aktif',
@@ -269,7 +281,13 @@ const driverStatusStyles = {
         text: 'text-red-600',
         dot: 'bg-red-500',
     },
-    // Fallback untuk format lama (jika ada di database)
+    // Fallback untuk format lama (backward compatibility)
+    'Aktif': {
+        label: 'Aktif',
+        badgeBg: 'bg-green-50',
+        text: 'text-green-600',
+        dot: 'bg-green-500',
+    },
     'aktif': {
         label: 'Aktif',
         badgeBg: 'bg-green-50',
@@ -288,9 +306,8 @@ const driverStatusStyles = {
         text: 'text-red-600',
         dot: 'bg-red-500',
     },
-    // Fallback lainnya
     'active': {
-        label: 'Aktif',
+        label: 'Available',
         badgeBg: 'bg-green-50',
         text: 'text-green-600',
         dot: 'bg-green-500',
@@ -302,6 +319,14 @@ const driverShiftOptions = [
     { value: 'pagi', label: 'Pagi' },
     { value: 'siang', label: 'Siang' },
     { value: 'malam', label: 'Malam' },
+];
+
+const driverStatusOptions = [
+    { value: 'all', label: 'Semua Status' },
+    { value: 'available', label: 'Available' },
+    { value: 'on_duty', label: 'On Duty' },
+    { value: 'off_duty', label: 'Off Duty' },
+    { value: 'tidak_aktif', label: 'Tidak Aktif' },
 ];
 
 const driverRecords = [];
@@ -337,7 +362,7 @@ const driverLeaderboard = [
 const driversViewConfig = {
     title: 'Drivers Management',
     subtitle: 'Pantau performa driver, status kendaraan, dan aktivitas operasional',
-    actionButton: { label: 'Tambah Driver', icon: PlusIcon },
+    actionButton: null,
     getContent: () => <DriverManagementContent />,
 };
 
@@ -345,7 +370,7 @@ const viewConfigs = {
     home: {
         title: 'Dashboard',
         subtitle: 'Selamat datang di SendPick Order Management System',
-        actionButton: { label: 'Add Order', icon: PlusIcon },
+        actionButton: null,
         getContent: () => <HomeContent />,
     },
     notifications: {
@@ -357,7 +382,7 @@ const viewConfigs = {
     customers: {
         title: 'Manajemen Pelanggan',
         subtitle: 'Kelola data pelanggan, histori transaksi, dan status keaktifan',
-        actionButton: { label: 'Tambah Pelanggan', icon: PlusIcon },
+        actionButton: null,
         getContent: () => <CustomerContent />,
     },
     drivers: driversViewConfig,
@@ -366,7 +391,7 @@ const viewConfigs = {
     admins: {
         title: 'Tim Admin',
         subtitle: 'Pengaturan peran dan aktivitas administrator sistem',
-        actionButton: { label: 'Tambah Admin', icon: PlusIcon },
+        actionButton: null,
         getContent: () => {
             console.log('Getting AdminContent for admins view...');
             return <AdminContent />;
@@ -375,7 +400,7 @@ const viewConfigs = {
     jobOrder: {
         title: 'Job Order',
         subtitle: 'Daftar penugasan operasional dan status penyelesaian',
-        actionButton: { label: 'Buat Job Order', icon: PlusIcon },
+        actionButton: null,
         getContent: () => {
             console.log('jobOrder getContent() called, returning JobOrderContent');
             console.log('JobOrderContent component:', JobOrderContent);
@@ -402,13 +427,13 @@ const viewConfigs = {
     manifest: {
         title: 'Manifest & Packing List',
         subtitle: 'Dokumentasi muatan dan detail pengiriman terkini',
-        actionButton: { label: 'Cetak Manifest', icon: navigationIcons.document },
+        actionButton: null,
         getContent: () => <ManifestContent />,
     },
     deliveryOrder: {
         title: 'Delivery Order',
         subtitle: 'Monitoring proses pengiriman dan bukti serah terima',
-        actionButton: { label: 'Refresh Monitoring', icon: navigationIcons.truck },
+        actionButton: null,
         getContent: () => <DeliveryOrderContent />,
     },
     invoices: {
@@ -420,13 +445,13 @@ const viewConfigs = {
     vehicleList: {
         title: 'Daftar Kendaraan',
         subtitle: 'Inventori armada, status ketersediaan, dan jadwal perawatan',
-        actionButton: { label: 'Tambah Kendaraan', icon: navigationIcons.truck },
+        actionButton: null,
         getContent: () => <VehicleListContent />,
     },
     vehicleTypes: {
         title: 'Tipe Kendaraan',
         subtitle: 'Kelola kategori dan spesifikasi tipe kendaraan armada',
-        actionButton: { label: 'Tambah Tipe', icon: navigationIcons.layers },
+        actionButton: null,
         getContent: () => <VehicleTypesContent />,
     },
     vehicleHistory: {
@@ -650,6 +675,8 @@ function DriverTable({
     onSearchChange,
     shiftFilter,
     onShiftChange,
+    statusFilter,
+    onStatusChange,
     onAdd,
     onEdit,
     onDelete,
@@ -703,6 +730,12 @@ function DriverTable({
                         options={driverShiftOptions}
                         widthClass='w-full sm:w-48'
                         leadingIcon={<FilterIcon />}
+                    />
+                    <FilterDropdown
+                        value={statusFilter}
+                        onChange={onStatusChange}
+                        options={driverStatusOptions}
+                        widthClass='w-full sm:w-48'
                     />
                 </div>
             </div>
@@ -834,6 +867,7 @@ function DriverManagementContent() {
     const [navigationOpen, setNavigationOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [shiftFilter, setShiftFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [theme, setTheme] = useState('light');
     const [editModal, setEditModal] = useState({ isOpen: false, driver: null });
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, driver: null });
@@ -890,10 +924,11 @@ function DriverManagementContent() {
             refetch({
                 search: searchTerm || undefined,
                 shift: shiftFilter !== 'all' ? shiftFilter : undefined,
+                status: statusFilter !== 'all' ? statusFilter : undefined,
             });
         }, 300);
         return () => clearTimeout(handler);
-    }, [searchTerm, shiftFilter, refetch]);
+    }, [searchTerm, shiftFilter, statusFilter, refetch]);
 
     const handleAddDriver = () => {
         setEditModal({ isOpen: true, driver: null });
@@ -911,6 +946,16 @@ function DriverManagementContent() {
         const term = searchTerm.trim().toLowerCase();
         return driversList.filter((driver) => {
             const matchesShift = shiftFilter === 'all' || driver.shift === shiftFilter;
+
+            // Normalize status for comparison
+            const driverStatus = (driver.status || '').toLowerCase().replace(/\s+/g, '_');
+            const matchesStatus = statusFilter === 'all' ||
+                // Status baru
+                (statusFilter === 'available' && (driverStatus === 'available' || driverStatus === 'aktif' || driverStatus === 'active')) ||
+                (statusFilter === 'on_duty' && driverStatus === 'on_duty') ||
+                (statusFilter === 'off_duty' && driverStatus === 'off_duty') ||
+                (statusFilter === 'tidak_aktif' && (driverStatus === 'tidak_aktif' || driverStatus === 'inactive'));
+
             const driverName = driver.driver_name || driver.name || '';
             const matchesSearch =
                 term.length === 0 ||
@@ -921,9 +966,9 @@ function DriverManagementContent() {
                 (driver.vehicle && driver.vehicle.toLowerCase().includes(term)) ||
                 (driver.plate && driver.plate.toLowerCase().includes(term)) ||
                 (driver.lastLocation && driver.lastLocation.toLowerCase().includes(term));
-            return matchesShift && matchesSearch;
+            return matchesShift && matchesStatus && matchesSearch;
         });
-    }, [searchTerm, shiftFilter, driversList]);
+    }, [searchTerm, shiftFilter, statusFilter, driversList]);
 
     // Pagination calculations
     const totalItems = filteredDrivers.length;
@@ -935,7 +980,7 @@ function DriverManagementContent() {
     // Reset ke halaman 1 saat filter/search berubah
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, shiftFilter]);
+    }, [searchTerm, shiftFilter, statusFilter]);
 
     const handlePageChange = (page) => {
         setCurrentPage(page);
@@ -958,6 +1003,8 @@ function DriverManagementContent() {
                     onSearchChange={setSearchTerm}
                     shiftFilter={shiftFilter}
                     onShiftChange={setShiftFilter}
+                    statusFilter={statusFilter}
+                    onStatusChange={setStatusFilter}
                     onAdd={handleAddDriver}
                     onEdit={handleEditDriver}
                     onDelete={handleDeleteDriver}
@@ -1026,16 +1073,21 @@ function DriverManagementContent() {
                         ],
                     },
                     // Hanya tampilkan status jika dalam mode edit
+                    // Admin hanya bisa set: Off Duty atau Tidak Aktif
+                    // Available & On Duty dikontrol oleh driver/sistem
                     ...(editModal.driver ? [{
                         name: 'status',
                         label: 'Status',
                         type: 'select',
                         required: true,
+                        description: 'Available & On Duty dikontrol oleh driver melalui aplikasi mobile',
                         options: [
-                            { value: 'Aktif', label: 'Aktif' },
-                            { value: 'Tidak Aktif', label: 'Tidak Aktif' },
-                            { value: 'Siaga', label: 'Siaga' },
-                            { value: 'Off Duty', label: 'Off Duty' },
+                            // Status yang bisa dipilih admin
+                            { value: 'Off Duty', label: 'Off Duty (Offline)' },
+                            { value: 'Tidak Aktif', label: 'Tidak Aktif (Nonaktifkan Akun)' },
+                            // Status read-only (disabled) - hanya untuk display jika driver sudah dalam status ini
+                            { value: 'Available', label: 'Available (Dikontrol Driver)', disabled: true },
+                            { value: 'On Duty', label: 'On Duty (Dikontrol Sistem)', disabled: true },
                         ],
                     }] : []),
                 ]}

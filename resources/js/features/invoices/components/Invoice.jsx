@@ -157,10 +157,10 @@ function SummaryCard({ card }) {
     const valueFontSize = valueLength > 8 ? 'text-xl' : 'text-3xl';
 
     return (
-        <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-sm'>
+        <article className='flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-6 py-7 shadow-sm'>
             <div>
                 <p className='text-sm text-slate-400'>{card.title}</p>
-                <p className={`mt-2 ${valueFontSize} font-semibold text-slate-900`}>{card.value}</p>
+                <p className={`mt-3 ${valueFontSize} font-semibold text-slate-900`}>{card.value}</p>
                 <p className='mt-1 text-xs text-slate-400'>{card.description}</p>
             </div>
             <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${card.iconBg} ${card.iconColor}`}>
@@ -634,7 +634,7 @@ export default function InvoiceContent() {
                 </button>
             </div>
 
-            <section className='grid grid-cols-4 gap-4'>
+            <section className='grid grid-cols-4 gap-6'>
                 {summaryCards.map((card) => (
                     <SummaryCard key={card.title} card={card} />
                 ))}
