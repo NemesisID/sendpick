@@ -161,57 +161,64 @@ const getManifestRouteName = (jobOrders) => {
 };
 
 /**
- * Versi ringkas getManifestRouteName untuk tampilan tabel
- * Menggunakan format "Jakarta --> Surabaya" tanpa suffix
- * ✅ UPDATED: Prioritaskan field kota (pickup_city, delivery_city) sebelum alamat
+ * Versi ringkas untuk tampilan tabel - HANYA menampilkan KOTA TUJUAN dari Job Orders
+ * ✅ UPDATED: Tidak lagi menampilkan origin → destination
+ * - FTL (1 Job Order): Tampilkan 1 kota tujuan saja
+ * - LTL (Multi Job Order): Tampilkan tujuan JO1 → tujuan JO2 (berdasarkan urutan delivery)
  * 
  * @param {Array} jobOrders - Array Job Orders
- * @returns {String} - Route name untuk tabel
+ * @returns {Object} - { firstDestination, lastDestination, isMultiStop }
  */
 const getManifestRouteForTable = (jobOrders) => {
     if (!Array.isArray(jobOrders) || jobOrders.length === 0) {
-        return '-';
+        return { firstDestination: '-', lastDestination: null, isMultiStop: false };
     }
 
-    // Sort by pickup time (ascending)
-    const sortedByPickup = [...jobOrders].sort((a, b) => {
-        const dateA = new Date(a.pickup_datetime || a.pickup_date || 0);
-        const dateB = new Date(b.pickup_datetime || b.pickup_date || 0);
-        return dateA - dateB;
-    });
+    // FTL: Single destination only
+    if (jobOrders.length === 1) {
+        const jo = jobOrders[0];
+        const destination = extractCity(
+            jo.delivery_city ||
+            jo.destination_city ||
+            jo.destination ||
+            jo.delivery_address ||
+            '-'
+        );
+        return { firstDestination: destination, lastDestination: null, isMultiStop: false };
+    }
 
-    const firstJob = sortedByPickup[0];
-    // ✅ UPDATED: Prioritaskan pickup_city terlebih dahulu (field khusus kota)
-    const startNode = extractCity(
-        firstJob.pickup_city ||          // Field kota khusus (prioritas 1)
-        firstJob.origin_city ||          // Legacy field (prioritas 2)
-        firstJob.origin ||               // Fallback (prioritas 3)
-        firstJob.pickup_address ||       // Alamat lengkap (prioritas terakhir)
-        '-'
-    );
-
-    // Sort by delivery time (descending) untuk EndNode
+    // LTL: Multiple destinations - sort by delivery time
     const sortedByDelivery = [...jobOrders].sort((a, b) => {
         const dateA = new Date(a.delivery_datetime_estimation || a.delivery_date || a.estimated_delivery || 0);
         const dateB = new Date(b.delivery_datetime_estimation || b.delivery_date || b.estimated_delivery || 0);
-        return dateB - dateA;
+        return dateA - dateB; // Ascending: earliest to latest
     });
 
-    const lastDeliveryJob = sortedByDelivery[0];
-    // ✅ UPDATED: Prioritaskan delivery_city terlebih dahulu (field khusus kota)
-    const endNode = extractCity(
-        lastDeliveryJob.delivery_city ||    // Field kota khusus (prioritas 1)
-        lastDeliveryJob.destination_city || // Legacy field (prioritas 2)
-        lastDeliveryJob.destination ||      // Fallback (prioritas 3)
-        lastDeliveryJob.delivery_address || // Alamat lengkap (prioritas terakhir)
+    const firstJob = sortedByDelivery[0];
+    const lastJob = sortedByDelivery[sortedByDelivery.length - 1];
+
+    const firstDestination = extractCity(
+        firstJob.delivery_city ||
+        firstJob.destination_city ||
+        firstJob.destination ||
+        firstJob.delivery_address ||
         '-'
     );
 
-    if (startNode === endNode) {
-        return startNode;
+    const lastDestination = extractCity(
+        lastJob.delivery_city ||
+        lastJob.destination_city ||
+        lastJob.destination ||
+        lastJob.delivery_address ||
+        '-'
+    );
+
+    // If both destinations are the same, show just one
+    if (firstDestination === lastDestination) {
+        return { firstDestination, lastDestination: null, isMultiStop: true };
     }
 
-    return `${startNode} --> ${endNode}`;
+    return { firstDestination, lastDestination, isMultiStop: true };
 };
 
 const mapManifestFromApi = (manifest) => {
@@ -339,32 +346,21 @@ const mapManifestFromApi = (manifest) => {
         // Raw values from database for form editing
         origin: manifest.origin_city || '',
         destination: manifest.dest_city || '',
-        // ✅ UPDATED: Display values for table - prioritize Job Order city fields
-        // Use city from first job order's pickup_city, or extract from manifest.origin_city
-        originDisplay: jobOrders.length > 0
-            ? extractCity(
-                jobOrders[0].pickup_city ||
-                jobOrders[0].origin_city ||
-                jobOrders[0].origin ||
-                jobOrders[0].pickup_address ||
-                manifest.origin_city
-            )
-            : extractCity(manifest.origin_city),
-        // Use city from last job order's delivery_city, or extract from manifest.dest_city
-        destinationDisplay: jobOrders.length > 0
-            ? extractCity(
-                jobOrders[jobOrders.length - 1].delivery_city ||
-                jobOrders[jobOrders.length - 1].destination_city ||
-                jobOrders[jobOrders.length - 1].destination ||
-                jobOrders[jobOrders.length - 1].delivery_address ||
-                manifest.dest_city
-            )
-            : extractCity(manifest.dest_city),
-        // ✅ NEW: Dynamic route display for LTL multi-stop
-        // Uses getManifestRouteForTable to determine route based on Job Orders
-        routeDisplay: jobOrders.length > 0
-            ? getManifestRouteForTable(jobOrders)
-            : `${extractCity(manifest.origin_city)} --> ${extractCity(manifest.dest_city)}`,
+        // ✅ UPDATED: Display values for table - HANYA KOTA TUJUAN
+        // Menggunakan getManifestRouteForTable yang mengembalikan object { firstDestination, lastDestination, isMultiStop }
+        ...(() => {
+            const routeInfo = jobOrders.length > 0
+                ? getManifestRouteForTable(jobOrders)
+                : { firstDestination: extractCity(manifest.dest_city), lastDestination: null, isMultiStop: false };
+            return {
+                // Kota tujuan pertama (untuk LTL: tujuan JO pertama, untuk FTL: satu-satunya tujuan)
+                firstDestination: routeInfo.firstDestination,
+                // Kota tujuan terakhir (hanya untuk LTL dengan multiple destinations berbeda)
+                lastDestination: routeInfo.lastDestination,
+                // Flag untuk menampilkan badge Multi-stop
+                isMultiStopRoute: routeInfo.isMultiStop,
+            };
+        })(),
         // ✅ NEW: Route Preview for form Edit (full label with Multi-stop indicator)
         routePreview: routePreview,
         packages: totalPackages,
@@ -517,13 +513,17 @@ function ManifestRow({ manifest, onEdit, onDelete, onViewDetail, onPrint }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='flex flex-col gap-0.5'>
-                    {/* Vertical route display: Origin ↓ Destination */}
-                    <span className='font-semibold text-slate-800'>{manifest.originDisplay || '-'}</span>
-                    <span className='text-slate-400 text-xs'>↓</span>
-                    <span className='font-medium text-slate-700'>{manifest.destinationDisplay || '-'}</span>
-                    {/* Show Multi-stop indicator ONLY for LTL with more than 1 Job Order */}
-                    {/* FTL is single destination, so no Multi-stop badge */}
-                    {!manifest.isFTL && manifest.jobOrderCount > 1 && (
+                    {/* ✅ UPDATED: Tampilan KOTA TUJUAN saja (bukan origin → destination) */}
+                    {/* FTL: Satu kota tujuan | LTL: Tujuan1 ↓ Tujuan2 */}
+                    <span className='font-semibold text-slate-800'>{manifest.firstDestination || '-'}</span>
+                    {manifest.lastDestination && (
+                        <>
+                            <span className='text-slate-400 text-xs'>↓</span>
+                            <span className='font-medium text-slate-700'>{manifest.lastDestination}</span>
+                        </>
+                    )}
+                    {/* Show Multi-stop indicator ONLY for LTL with multiple destinations */}
+                    {manifest.isMultiStopRoute && (
                         <span className='inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-600 w-fit mt-1'>
                             Multi-stop
                         </span>
@@ -682,7 +682,7 @@ function ManifestTable({
                         <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
                             <th className='px-6 py-3'>Manifest</th>
                             <th className='px-6 py-3'>Customer</th>
-                            <th className='px-6 py-3'>Rute</th>
+                            <th className='px-6 py-3'>Kota Tujuan</th>
                             <th className='px-6 py-3'>Koli & Berat</th>
                             <th className='px-6 py-3'>Status</th>
                             <th className='px-6 py-3'>Tgl Kirim</th>

@@ -1074,7 +1074,7 @@ function DriverManagementContent() {
                     },
                     // Hanya tampilkan status jika dalam mode edit
                     // Admin hanya bisa set: Off Duty atau Tidak Aktif
-                    // Available & On Duty dikontrol oleh driver/sistem
+                    // Available & On Duty dikontrol oleh driver/sistem (tidak ditampilkan)
                     ...(editModal.driver ? [{
                         name: 'status',
                         label: 'Status',
@@ -1082,12 +1082,8 @@ function DriverManagementContent() {
                         required: true,
                         description: 'Available & On Duty dikontrol oleh driver melalui aplikasi mobile',
                         options: [
-                            // Status yang bisa dipilih admin
                             { value: 'Off Duty', label: 'Off Duty (Offline)' },
                             { value: 'Tidak Aktif', label: 'Tidak Aktif (Nonaktifkan Akun)' },
-                            // Status read-only (disabled) - hanya untuk display jika driver sudah dalam status ini
-                            { value: 'Available', label: 'Available (Dikontrol Driver)', disabled: true },
-                            { value: 'On Duty', label: 'On Duty (Dikontrol Sistem)', disabled: true },
                         ],
                     }] : []),
                 ]}

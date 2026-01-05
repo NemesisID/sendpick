@@ -119,7 +119,7 @@ class JobOrderController extends Controller
         $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
             'order_type' => 'required|in:LTL,FTL',
-            'pickup_address' => 'required|string',
+            'pickup_address' => 'nullable|string',
             'pickup_city' => 'nullable|string',
             'pickup_lat' => 'nullable|numeric|between:-90,90',
             'pickup_lng' => 'nullable|numeric|between:-180,180',

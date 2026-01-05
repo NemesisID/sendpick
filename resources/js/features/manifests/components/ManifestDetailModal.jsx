@@ -388,50 +388,16 @@ export default function ManifestDetailModal({ isOpen, onClose, manifestId }) {
                                 </div>
                             </div>
 
-                            {/* Rute & Jadwal Card */}
+                            {/* Jadwal Card */}
                             <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                                 <div className="bg-gradient-to-r from-emerald-50 to-slate-50 px-5 py-3 border-b border-slate-200">
-                                    <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Rute & Jadwal</p>
+                                    <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Jadwal Pengiriman</p>
                                 </div>
 
-                                <div className="p-5 space-y-4">
-                                    {/* Origin */}
-                                    <div className="flex items-start gap-3">
-                                        <div className="flex-shrink-0 mt-1">
-                                            <div className="h-3 w-3 rounded-full bg-emerald-500"></div>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-slate-500 font-medium">Asal</p>
-                                            <p className="font-semibold text-slate-900">{manifest?.origin_city || '-'}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Connector Line */}
-                                    <div className="flex items-center gap-3 pl-1">
-                                        <div className="w-0.5 h-6 bg-gradient-to-b from-emerald-300 to-sky-300 ml-1"></div>
-                                    </div>
-
-                                    {/* Destination */}
-                                    <div className="flex items-start gap-3">
-                                        <div className="flex-shrink-0 mt-1">
-                                            <div className="h-3 w-3 rounded-full bg-sky-500"></div>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-slate-500 font-medium">Tujuan</p>
-                                            <p className="font-semibold text-slate-900">{manifest?.dest_city || '-'}</p>
-                                        </div>
-                                    </div>
-
-                                    {/* Dates */}
-                                    <div className="pt-4 mt-4 border-t border-slate-100 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm text-slate-500">Tanggal Berangkat (ETD)</span>
-                                            <span className="font-semibold text-slate-900">{formatDate(manifest?.planned_departure)}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm text-slate-500">Estimasi Tiba (ETA)</span>
-                                            <span className="font-semibold text-slate-900">{formatDate(manifest?.eta) || '-'}</span>
-                                        </div>
+                                <div className="p-5 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-slate-500">Tanggal Berangkat (ETD)</span>
+                                        <span className="font-semibold text-slate-900">{formatDate(manifest?.planned_departure)}</span>
                                     </div>
                                 </div>
                             </div>

@@ -277,23 +277,9 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>{order.customer}</td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='flex flex-col gap-2'>
-                    {/* Pickup */}
-                    <div className='flex items-center gap-2'>
-                        <div className='h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-100' />
-                        <p className='font-semibold text-slate-800 text-sm'>{order.pickup_city || 'Kota Asal'}</p>
-                    </div>
-
-                    {/* Arrow */}
-                    <div className='flex items-center pl-1'>
-                        <ArrowDown className='h-4 w-4 text-slate-300' />
-                    </div>
-
-                    {/* Delivery */}
-                    <div className='flex items-center gap-2'>
-                        <div className='h-2.5 w-2.5 rounded-full bg-sky-500 ring-2 ring-sky-100' />
-                        <p className='font-semibold text-slate-800 text-sm'>{order.delivery_city || 'Kota Tujuan'}</p>
-                    </div>
+                <div className='flex items-center gap-2'>
+                    <div className='h-2.5 w-2.5 rounded-full bg-sky-500 ring-2 ring-sky-100' />
+                    <p className='font-semibold text-slate-800 text-sm'>{order.delivery_city || 'Kota Tujuan'}</p>
                 </div>
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
@@ -325,10 +311,7 @@ function OrderRow({ order, onViewDetail, onEdit, onCancel }) {
                 <StatusBadge status={order.status} />
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
-                <div className='space-y-1'>
-                    <p>{order.startDate ? new Date(order.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
-                    <p>{order.endDate ? new Date(order.endDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
-                </div>
+                <p>{order.startDate ? new Date(order.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</p>
             </td>
             <td className='px-6 py-4 text-sm font-semibold text-slate-700'>
                 Rp {formattedValue}
@@ -403,11 +386,11 @@ function OrdersTable({
                             <th className='px-6 py-3'>Order ID</th>
                             <th className='px-6 py-3'>Tipe</th>
                             <th className='px-6 py-3'>Customer</th>
-                            <th className='px-6 py-3'>Route</th>
+                            <th className='px-6 py-3'>Kota Tujuan</th>
                             <th className='px-6 py-3'>Barang</th>
                             <th className='px-6 py-3'>Driver/Kendaraan</th>
                             <th className='px-6 py-3'>Status</th>
-                            <th className='px-6 py-3'>Tanggal</th>
+                            <th className='px-6 py-3'>Tanggal Kirim</th>
                             <th className='px-6 py-3'>Nilai</th>
                             <th className='px-6 py-3'>Aksi</th>
                         </tr>
@@ -870,7 +853,7 @@ export default function JobOrderContent() {
         },
 
         // =====================================================
-        // DELIVERY LOCATION SECTION
+        // DELIVERY LOCATION SECTION (TUJUAN/DESTINATION)
         // =====================================================
         {
             name: 'delivery_address',

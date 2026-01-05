@@ -332,10 +332,8 @@ function DeliveryOrderRow({ delivery, onEdit, onViewDetail, onCancel, onPrint })
             </td>
             <td className='px-6 py-4 text-sm text-slate-600'>
                 <div className='flex flex-col gap-0.5'>
-                    {/* Vertical route display: Origin ↓ Destination */}
-                    <span className='font-semibold text-slate-800'>{delivery.origin || '-'}</span>
-                    <span className='text-slate-400 text-xs'>↓</span>
-                    <span className='font-medium text-slate-700'>{delivery.destination || '-'}</span>
+                    {/* ✅ UPDATED: Hanya tampilkan Kota Tujuan */}
+                    <span className='font-semibold text-slate-800'>{delivery.destination || '-'}</span>
                     <span className='text-xs text-slate-400'>Keberangkatan: {delivery.departure}</span>
                 </div>
             </td>
@@ -534,7 +532,7 @@ function DeliveryOrderTable({
                             <tr className='text-left text-[11px] font-semibold uppercase tracking-wide text-slate-400'>
                                 <th className='px-6 py-3'>Delivery Order</th>
                                 <th className='px-6 py-3'>Customer</th>
-                                <th className='px-6 py-3'>Rute</th>
+                                <th className='px-6 py-3'>Kota Tujuan</th>
                                 <th className='px-6 py-3'>Armada & Driver</th>
                                 <th className='px-6 py-3'>Status</th>
                                 <th className='px-6 py-3'>Koli & ETA</th>

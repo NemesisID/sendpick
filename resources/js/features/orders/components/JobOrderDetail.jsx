@@ -195,12 +195,7 @@ const JobOrderDetail = ({ jobOrderId, onBack }) => {
                                             <p className="font-medium text-slate-900">{jobOrder.customer}</p>
                                         </div>
                                         <div>
-                                            <p className="text-sm text-slate-500">Origin</p>
-                                            <p className="font-medium text-slate-900">{jobOrder.origin}</p>
-                                            <p className="text-xs text-slate-500 mt-1">{jobOrder.originAddress}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-sm text-slate-500">Destination</p>
+                                            <p className="text-sm text-slate-500">Kota Tujuan</p>
                                             <p className="font-medium text-slate-900">{jobOrder.destination}</p>
                                             <p className="text-xs text-slate-500 mt-1">{jobOrder.destinationAddress}</p>
                                         </div>

@@ -179,14 +179,7 @@ const DeliveryOrderDetail = ({ deliveryOrderId, onBack }) => {
                                         <p className="font-medium text-slate-900">{customerName}</p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-slate-500">Asal</p>
-                                        <p className="font-medium text-slate-900">{originCity}</p>
-                                        {originAddress && originAddress !== '-' && originAddress !== originCity && (
-                                            <p className="text-xs text-slate-500 mt-1">{originAddress}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-slate-500">Tujuan</p>
+                                        <p className="text-sm text-slate-500">Kota Tujuan</p>
                                         <p className="font-medium text-slate-900">{destCity}</p>
                                         {destAddress && destAddress !== '-' && destAddress !== destCity && (
                                             <p className="text-xs text-slate-500 mt-1">{destAddress}</p>

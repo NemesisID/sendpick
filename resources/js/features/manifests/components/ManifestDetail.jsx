@@ -175,7 +175,7 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">{manifestId}</h1>
-                        <p className="text-slate-600">{originCity} → {destCity}</p>
+                        <p className="text-slate-600">Tujuan: {destCity}</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${statusStyle.bg} ${statusStyle.text}`}>
@@ -206,20 +206,6 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                         <p className="font-medium text-slate-900">{customerDisplay}</p>
                                     </div>
                                     <div>
-                                        <p className="text-sm text-slate-500">Asal</p>
-                                        <p className="font-medium text-slate-900">{originCity}</p>
-                                        {originAddress && originAddress !== '-' && originAddress !== originCity && (
-                                            <p className="text-xs text-slate-500 mt-1">{originAddress}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-slate-500">Tujuan</p>
-                                        <p className="font-medium text-slate-900">{destCity}</p>
-                                        {destAddress && destAddress !== '-' && destAddress !== destCity && (
-                                            <p className="text-xs text-slate-500 mt-1">{destAddress}</p>
-                                        )}
-                                    </div>
-                                    <div>
                                         <p className="text-sm text-slate-500">Driver</p>
                                         <p className={`font-medium ${driverName === 'Belum ditugaskan' ? 'text-amber-600 italic' : 'text-slate-900'}`}>
                                             {driverName}
@@ -240,10 +226,6 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                     <div>
                                         <p className="text-sm text-slate-500">Tanggal Berangkat</p>
                                         <p className="font-medium text-slate-900">{formatDate(manifest?.planned_departure)}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-slate-500">Estimasi Tiba (ETA)</p>
-                                        <p className="font-medium text-slate-900">{manifest?.eta ? formatDate(manifest.eta) : '-'}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-slate-500">Dibuat</p>
@@ -277,7 +259,6 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                                     <th className="pb-3 pr-4">Penerima</th>
                                                     <th className="pb-3 pr-4">No. Telp</th>
                                                     <th className="pb-3 pr-4">Barang</th>
-                                                    <th className="pb-3 pr-4">Lokasi Pickup</th>
                                                     <th className="pb-3 pr-4">Lokasi Tujuan</th>
                                                     <th className="pb-3 pr-4 text-right">Berat</th>
                                                     <th className="pb-3 pr-4 text-right">Koli</th>
@@ -291,10 +272,6 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                                     const osmUrl = hasCoordinates
                                                         ? `https://www.openstreetmap.org/?mlat=${jo.delivery_lat}&mlon=${jo.delivery_lng}#map=17/${jo.delivery_lat}/${jo.delivery_lng}`
                                                         : null;
-
-                                                    // Extract pickup location
-                                                    const pickupCity = jo.pickup_city || extractCity(jo.pickup_address) || '-';
-                                                    const pickupAddress = jo.pickup_address || '';
 
                                                     // Extract delivery location
                                                     const deliveryCity = jo.delivery_city || extractCity(jo.delivery_address) || '-';
@@ -328,17 +305,6 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                                             </td>
                                                             <td className="py-3 pr-4 text-slate-600 truncate max-w-[120px]" title={jo.goods_desc}>
                                                                 {jo.goods_desc || '-'}
-                                                            </td>
-                                                            {/* Lokasi Pickup */}
-                                                            <td className="py-3 pr-4">
-                                                                <div>
-                                                                    <p className="font-medium text-slate-700">{pickupCity}</p>
-                                                                    {pickupAddress && pickupAddress !== pickupCity && (
-                                                                        <p className="text-xs text-slate-400 truncate max-w-[150px]" title={pickupAddress}>
-                                                                            {pickupAddress}
-                                                                        </p>
-                                                                    )}
-                                                                </div>
                                                             </td>
                                                             {/* Lokasi Tujuan */}
                                                             <td className="py-3 pr-4">
@@ -387,7 +353,7 @@ const ManifestDetail = ({ manifestId, onBack }) => {
                                             </tbody>
                                             <tfoot>
                                                 <tr className="border-t border-slate-300 font-semibold">
-                                                    <td colSpan="8" className="pt-3 text-slate-700">Total</td>
+                                                    <td colSpan="7" className="pt-3 text-slate-700">Total</td>
                                                     <td className="pt-3 text-right text-slate-900">{totalWeight.toLocaleString('id-ID')} kg</td>
                                                     <td className="pt-3 text-right text-slate-900">{totalKoli}</td>
                                                     <td></td>

@@ -316,17 +316,10 @@ const DeliveryOrderModal = ({
             newErrors.do_date = 'Tanggal DO harus diisi';
         }
 
-        // ✅ UPDATED: Require Driver & Vehicle for Job Order source
-        // Secara hukum dan operasional, Delivery Order (Surat Jalan) tidak bisa dianggap sah
-        // tanpa nama Supir dan Nomor Plat Kendaraan
-        if (formData.source_type === 'JO') {
-            if (!formData.driver_id) {
-                newErrors.driver_id = 'Driver harus dipilih untuk Delivery Order';
-            }
-            if (!formData.vehicle_id) {
-                newErrors.vehicle_id = 'Kendaraan harus dipilih untuk Delivery Order';
-            }
-        }
+        // ✅ REMOVED: Driver & Vehicle validation for Job Order source
+        // Karena field Driver dan Kendaraan sekarang read-only (otomatis dari Assignment/Manifest),
+        // validasi manual tidak diperlukan lagi. Jika sumber belum memiliki driver/vehicle,
+        // admin harus melakukan assignment terlebih dahulu di halaman Job Order atau Manifest.
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -602,58 +595,51 @@ const DeliveryOrderModal = ({
             }
         }
 
-        // Get description based on source type
-        const getDriverDescription = () => {
-            if (isManifestSource && hasDriverAssignment) {
-                return '🔒 Driver otomatis dari Manifest. Tidak dapat diubah.';
-            } else if (isManifestSource && !hasDriverAssignment) {
-                return '⚠️ Manifest belum memiliki driver. Silakan assign driver di Manifest terlebih dahulu.';
-            } else if (hasDriverAssignment) {
-                return '✅ Auto-fill dari Job Order. Anda bisa mengubah jika diperlukan.';
-            } else if (formData.source_type === 'JO') {
-                return '⚠️ Job Order belum memiliki driver. Silakan pilih driver secara manual.';
-            }
-            return 'Pilih driver untuk pengiriman ini';
-        };
-
-        const getVehicleDescription = () => {
-            if (isManifestSource && hasVehicleAssignment) {
-                return '🔒 Kendaraan otomatis dari Manifest. Tidak dapat diubah.';
-            } else if (isManifestSource && !hasVehicleAssignment) {
-                return '⚠️ Manifest belum memiliki kendaraan. Silakan assign kendaraan di Manifest terlebih dahulu.';
-            } else if (hasVehicleAssignment) {
-                return '✅ Auto-fill dari Job Order. Anda bisa mengubah jika diperlukan.';
-            } else if (formData.source_type === 'JO') {
-                return '⚠️ Job Order belum memiliki kendaraan. Silakan pilih kendaraan secara manual.';
-            }
-            return 'Pilih kendaraan untuk pengiriman ini';
-        };
-
         // Add Driver & Vehicle fields
-        // For Manifest: auto-filled AND disabled (locked)
-        // For Job Order: auto-filled but editable, and REQUIRED
-        // Secara hukum dan operasional, Delivery Order (Surat Jalan) tidak bisa dianggap sah
-        // tanpa nama Supir dan Nomor Plat Kendaraan
-        const isJobOrderSource = formData.source_type === 'JO';
+        // ✅ UPDATED: Both Job Order and Manifest - auto-filled AND disabled (read-only)
+        // Driver dan Kendaraan diambil otomatis dari Assignment (Job Order) atau dari Manifest
+        // Admin tidak perlu memilih manual, data mengikuti sumber yang dipilih
+        const hasSourceSelected = formData.source_type && formData.source_id;
+
+        // Get driver and vehicle display name for read-only display
+        const getDriverDisplayName = () => {
+            if (formData.driver_id) {
+                const driver = drivers.find(d => d.value === formData.driver_id);
+                return driver?.label || formData.driver_id;
+            }
+            return 'Belum ada driver';
+        };
+
+        const getVehicleDisplayName = () => {
+            if (formData.vehicle_id) {
+                const vehicle = vehicles.find(v => v.value === formData.vehicle_id);
+                return vehicle?.label || formData.vehicle_id;
+            }
+            return 'Belum ada kendaraan';
+        };
 
         fields.push({
             name: 'driver_id',
-            label: isManifestSource ? 'Driver (dari Manifest)' : 'Assign Driver',
+            label: isManifestSource ? 'Driver (dari Manifest)' : 'Driver (dari Job Order)',
             type: 'select',
-            required: isJobOrderSource, // ✅ Required for Job Order source
-            disabled: isManifestSource, // Lock for Manifest
-            options: [{ value: '', label: '-- Pilih Driver --' }, ...drivers],
-            description: getDriverDescription()
+            required: false, // Not required since it's auto-filled from source
+            disabled: hasSourceSelected, // ✅ Always disabled when source is selected
+            options: [{ value: '', label: '-- Pilih Assign Driver --' }, ...drivers],
+            description: hasSourceSelected
+                ? `🔒 ${getDriverDisplayName()} - Otomatis dari ${isManifestSource ? 'Manifest' : 'Assignment Job Order'}`
+                : 'Pilih sumber terlebih dahulu'
         });
 
         fields.push({
             name: 'vehicle_id',
-            label: isManifestSource ? 'Kendaraan (dari Manifest)' : 'Assign Kendaraan',
+            label: isManifestSource ? 'Kendaraan (dari Manifest)' : 'Kendaraan (dari Job Order)',
             type: 'select',
-            required: isJobOrderSource, // ✅ Required for Job Order source
-            disabled: isManifestSource, // Lock for Manifest
-            options: [{ value: '', label: '-- Pilih Kendaraan --' }, ...vehicles],
-            description: getVehicleDescription()
+            required: false, // Not required since it's auto-filled from source
+            disabled: hasSourceSelected, // ✅ Always disabled when source is selected
+            options: [{ value: '', label: '-- Pilih Assign Kendaraan --' }, ...vehicles],
+            description: hasSourceSelected
+                ? `🔒 ${getVehicleDisplayName()} - Otomatis dari ${isManifestSource ? 'Manifest' : 'Assignment Job Order'}`
+                : 'Pilih sumber terlebih dahulu'
         });
 
         // Add Notes field (Catatan Tambahan)
