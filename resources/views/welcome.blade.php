@@ -6,6 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Login - Sendpick</title>
     <meta name="description" content="Sendpick - Streamline your delivery operations with smart logistics management.">
+    <link rel="icon" href="{{ asset('assets/logo.png') }}" type="image/png">
     
     <!-- Preconnect to Google Fonts for faster loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
